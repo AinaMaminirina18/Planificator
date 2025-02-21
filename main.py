@@ -13,8 +13,9 @@ import asyncio
 import threading
 import aiomysql
 
+from email import is_valid_email
 from setting_bd import DatabaseManager
-from verif_password import get_valid_password
+import verif_password as vp
 
 Window.size = (1200, 680)
 Window.left = 40
@@ -60,8 +61,8 @@ class Screen(MDApp):
         self.menu = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -70,19 +71,24 @@ class Screen(MDApp):
         """Gestion de l'action de connexion."""
         username = self.root.get_screen('login').ids.login_username.text
         password = self.root.get_screen('login').ids.login_password.text
+        if not username or not password:
+            Clock.schedule_once(lambda s: self.show_dialog('Erreur', 'Veuillez completer tous les champs'))
+            return
+        else:
+            async def process_login():
+                try:
+                    result = await self.database.verify_user(username, password)
+                    if result and vp.reverse(password, result[0]):
+                        Clock.schedule_once(lambda dt: self.switch_to_main())
+                        Clock.schedule_once(lambda a: self.show_dialog("Success", "Login successful!"))
+                        Clock.schedule_once(lambda cl: self.clear_fields('login'))
 
-        async def process_login():
-            try:
-                result = await self.database.verify_user(username, password)
-                if result:
-                    Clock.schedule_once(lambda dt: self.switch_to_main())
-                    Clock.schedule_once(lambda a: self.show_dialog("Success", "Login successful!"))
-                else:
-                    Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Aucun compte trouvé dans la base de données"))
-            except:
-                self.show_dialog("Error", "Une erreur s'est produite")
+                    else:
+                        Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Aucun compte trouvé dans la base de données"))
+                except:
+                    self.show_dialog("Error", "Une erreur s'est produite")
 
-        asyncio.run_coroutine_threadsafe(process_login(), self.loop)
+            asyncio.run_coroutine_threadsafe(process_login(), self.loop)
 
 
     def sign_up(self):
@@ -95,20 +101,27 @@ class Screen(MDApp):
         password = self.root.get_screen('signup').ids.signup_password.text
         confirm_password = self.root.get_screen('signup').ids.confirm_password.text
 
-        if not nom or not prenom or not email or not password or not confirm_password:
-            Clock.schedule_once(lambda  dt: self.show_dialog("Error", "Veuillez completer tous les champs"))
+        valid_password = vp.get_valid_password(nom, prenom, password, confirm_password)
+
+        if not nom or not prenom or not email or not password or not username or not confirm_password:
+            Clock.schedule_once(lambda  dt: self.show_dialog("Erreur", "Veuillez completer tous les champs"))
             return
-        #elif get_valid_password( nom, prenom, password, type_compte):
+
+        elif not is_valid_email(email):
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Verifier votre adresse email'))
+
+        elif 'Le' in str(valid_password):
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password))
 
         else:
             async def add_user_task():
                 try:
-                    await self.database.add_user(nom, prenom, email, password, type_compte)
-                    Clock.schedule_once(lambda dt: self.show_dialog("Success", "Account created!"))
+                    await self.database.add_user(nom, prenom, email, username, valid_password, type_compte)
+                    Clock.schedule_once(lambda a: self.switch_to_main())
+                    Clock.schedule_once(lambda dt: self.show_dialog("Success", "Compte créé avec succès !"))
+                    Clock.schedule_once(lambda cl: self.clear_fields('signup'))
                 except aiomysql.IntegrityError:
-                    Clock.schedule_once(lambda dt: self.show_dialog("Error", "Username already exists."))
-                except Exception as e:
-                    Clock.schedule_once(lambda dt: self.show_dialog("Error", f"Database error: {e}"))
+                    Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Username already exists."))
 
             # Exécuter la tâche d'ajout d'utilisateur dans la boucle asyncio
             asyncio.run_coroutine_threadsafe(add_user_task(), self.loop)
@@ -145,6 +158,16 @@ class Screen(MDApp):
         else:
             self.root.get_screen('signup').ids['type'].text = text_item
         self.menu.dismiss()
+
+    def clear_fields(self, screen):
+        sign_up = ['nom','prenom','Email','type','signup_username','signup_password','confirm_password']
+        login = ['login_username', 'login_password']
+        if screen == 'signup':
+            for id in sign_up:
+                self.root.get_screen('signup').ids[id].text = ''
+        if screen == 'login':
+            for id in login:
+                self.root.get_screen('login').ids[id].text = ''
 
     def switch_to_contrat(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
