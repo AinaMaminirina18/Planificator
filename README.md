@@ -1,6 +1,6 @@
 # Description
 
-- Planificator : projet de gestionde contrat et de planning
+- **Planificator** : Projet de gestionde contrat et de planning
 - **Techno:** KivyMD
 - **Based Language:** Python
 - **Database**: MySQL
