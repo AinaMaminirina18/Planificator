@@ -17,13 +17,13 @@ class DatabaseManager:
             loop=self.loop
         )
 
-    async def add_user(self, username, prenom, email, password, type_compte):
+    async def add_user(self, nom, prenom, email, username,  password, type_compte):
         """Ajoute un utilisateur dans la base de données."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    "INSERT INTO Account (nom, prenom, email, password, type_compte)VALUES (%s, %s, %s, %s, %s)",
-                    (username, prenom, email, password, type_compte)
+                    "INSERT INTO Account (nom, prenom, email, username, password, type_compte) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (nom, prenom, email, username, password, type_compte)
                 )
                 await conn.commit()
 
@@ -32,9 +32,9 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
-                    "SELECT * FROM Account;"
+                    "SELECT password FROM Account WHERE username = (%s);", username
                 )
-                result = await cursor.fetcall()
+                result = await cursor.fetchone()
                 return result
 
     async def close(self):
