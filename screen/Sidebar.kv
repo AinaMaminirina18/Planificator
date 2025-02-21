@@ -1,0 +1,139 @@
+MDScreen:
+    name: "Sidebar"
+    orientation: 'vertical'
+
+    MDFloatLayout:
+        md_bg_color: '#56B5FB'
+        size_hint:.25, 1
+        orientation:'vertical'
+
+        Image:
+            source: app.CLM
+            pos_hint:{"center_x":.5, "center_y":.9}
+            size_hint: .5, .5
+
+        MDLabel:
+            text: 'PLANIFICATOR'
+            pos_hint:{"center_x":.75, "center_y":.8}
+            font_name: 'poppins-bold'
+            font_size: 20
+
+        MDTextButton:
+            id: home
+            pos_hint:{"center_x":.3,"center_y":.65}
+            text:'Acceuil'
+            theme_text_color:'Custom'
+            text_color: '#FFFFFF'
+            font_name:"poppins"
+            font_size: 18
+            on_release:
+                app.choose_screen(self)
+                app.switch_to_home()
+
+        MDTextButton:
+            id: contrat
+            pos_hint:{"center_x":.33,"center_y":.57}
+            text:'Contrats'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            on_release:
+                app.switch_to_contrat()
+                app.choose_screen(self)
+
+        MDTextButton:
+            id:planning
+            pos_hint:{"center_x":.325,"center_y":.49}
+            text:'Planning'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            on_release:
+                app.switch_to_planning()
+                app.choose_screen(self)
+
+        MDTextButton:
+            id: clients
+            pos_hint:{"center_x":.3,"center_y":.41}
+            text:'Clients'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            on_release:
+                app.switch_to_client()
+                app.choose_screen(self)
+
+        MDFillRoundFlatButton:
+            id: about
+            pos_hint:{"center_x":.335,"center_y":.16}
+            md_bg_color:'#56B5FB'
+            text:'A propos'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size:18
+            size_hint: .5,None
+            on_release:
+                app.choose_screen(self)
+                app.switch_to_about()
+
+        MDIconButton:
+            icon: 'Assets/message.png'
+            icon_size: '20sp'
+            icon_color: '#292D32'
+            pos_hint:{"center_x":.7,"center_y":.16}
+            on_release:
+                app.choose_screen(about)
+                app.switch_to_about()
+
+        MDFillRoundFlatButton:
+            id: account
+            pos_hint:{"center_x":.33,"center_y":.24}
+            md_bg_color:'#56B5FB'
+            text:'Comptes'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            size_hint: .5,None
+            on_release:
+                app.choose_screen(account)
+
+
+        MDIconButton:
+            icon: 'Assets/user-square.png'
+            icon_size: '20sp'
+            icon_color: '#292D32'
+            pos_hint:{"center_x":.7,"center_y":.24}
+            on_release:
+                app.choose_screen(account)
+
+
+
+        MDFillRoundFlatButton:
+            pos_hint:{"center_x":.38,"center_y":.08}
+            md_bg_color:'#56B5FB'
+            text:'Deconnecter'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            size_hint: .5,None
+            on_release:
+                root.manager.transition.direction = "right"
+                app.show_dialog('Déconnexion',"Tena hiala tokoa ve ianao? Otran'ireny afaka ireny :)")
+
+        MDIconButton:
+            icon: 'Assets/logout.png'
+            icon_size: '20sp'
+            icon_color: '#292D32'
+            pos_hint:{"center_x":.7,"center_y":.08}
+            on_release:
+                app.show_dialog('Déconnexion',"Tena hiala tokoa ve ianao? Otran'ireny afaka ireny :)")
+
+    MDFloatLayout:
+        ScreenManager:
+            id: gestion_ecran

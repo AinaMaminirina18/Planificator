@@ -1,0 +1,100 @@
+MDScreen:
+    name: 'contrat'
+    MDFloatLayout:
+        orientation:'vertical'
+        size_hint: 1,1
+        pos_hint:{"center_x":.77,"center_y":.5}
+
+        MDLabel:
+            text: 'Planificator - Contrats des clients'
+            font_size: 25
+            font_name: 'poppins-bold'
+            pos_hint:{'center_x':.5, 'center_y': .95}
+
+        MDLabel:
+            text: 'Gestion des contrats pour Cleanliness Madagascar'
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint:{'center_x':.5, 'center_y': .9}
+
+        MDLabel:
+            text: 'La liste des contrats'
+            font_size: 20
+            font_name: 'poppins-bold'
+            pos_hint:{'center_x':.5, 'center_y': .83}
+
+        MDBoxLayout:
+            id: actualiser
+            orientation: 'horizontal'
+            md_bg_color: '#B3F844'
+            size_hint: .22, .055
+            radius: [8]
+            padding: 8
+            pos_hint:{'center_x':.6, 'center_y': .91}
+
+            MDTextButton:
+                text : ' Actualiser'
+                padding: 0,0,155,0
+                font_size: 15
+                font_name: 'poppins'
+
+            MDIconButton:
+                icon: 'Assets/refresh.png'
+                icon_size:20
+                pos_hint:{'center_x':.9, 'center_y': .5}
+
+        MDBoxLayout:
+            id: nouveau_contrat
+            orientation: 'horizontal'
+            md_bg_color: '#B3F844'
+            size_hint: .22, .055
+            radius: [8]
+            padding: 8
+            pos_hint:{'center_x':.35, 'center_y': .83}
+
+            MDTextButton:
+                text : ' Ajouter un nouveau contrat'
+                font_size: 15
+                font_name: 'poppins'
+                padding:0,0,30,0
+
+            MDIconButton:
+                icon: 'Assets/add.png'
+                icon_size:20
+                pos_hint:{'center_x':.9, 'center_y': .5}
+
+        MDFloatLayout:
+            id: tri_container
+            orientation: 'horizontal'
+            md_bg_color: '#56B5FB'
+            size_hint: .22, .055
+            radius: [8]
+            padding: 8
+            pos_hint:{'center_x':.6, 'center_y': .83}
+
+            MDLabel:
+                text : 'Trier'
+                font_size: 15
+                font_name: 'poppins'
+                pos_hint:{'center_x':.55, 'center_y': .5}
+
+            MDTextField:
+                id : tri
+                mode : 'round'
+                fill_color_normal: '#56B5FB'
+                line_color_normal: '#56B5FB'
+                text: 'Récents'
+                size_hint: .6, None
+                font_size: 14
+                font_name: 'poppins'
+                disabled: True
+                pos_hint:{'center_x':.5, 'center_y': .5}
+
+            MDIconButton:
+                icon: 'chevron-down'
+                icon_size:20
+                pos_hint:{'center_x':.9, 'center_y': .5}
+                on_release:
+                    app.dropdown_contrat(self, 'home')
+
+

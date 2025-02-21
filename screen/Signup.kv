@@ -1,0 +1,200 @@
+MDScreen:
+    name: 'signup'
+
+    MDFloatLayout:
+        orientation:'vertical'
+        md_bg_color: '#56B5FB'
+        pos_hint:{"center_x": .5, "center_y":.5}
+        size_hint: .8,.8
+        radius:[20]
+
+        MDBoxLayout:
+            orientation: 'vertical'
+            pos_hint:{"center_x": .5, "center_y":.85}
+            size_hint: 1, .15
+
+            MDLabel:
+                text: 'CREATION DE VOTRE COMPTE'
+                halign: "center"
+                font_name: "poppins-bold"
+                font_size: 15
+
+            MDLabel:
+                text: 'Veuillez remplir le formulaire suivant pour la creation de votre compte'
+                halign: "center"
+                font_name: "poppins-bold"
+                font_size: 14
+
+        MDLabel:
+            text: 'Nom'
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.74}
+
+        MDTextField:
+            id: nom
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.66}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+
+        MDLabel:
+            text: 'Prénom'
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.57}
+
+        MDTextField:
+            id: prenom
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.48}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+
+        MDLabel:
+            text: 'Adresse mail'
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.38}
+
+        MDTextField:
+            id: Email
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.30}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            validator: 'email'
+            radius:[10]
+
+        MDLabel:
+            text: 'Type de compte'
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.205}
+
+        MDTextField:
+            id: type
+            mode: "fill"
+            size_hint: .4, None
+            text: 'Administrateur'
+            fill_color_normal: 'white'
+            text_color_normal: 'black'
+            pos_hint: {'center_x': .25, 'center_y': .125}
+            border_radius: 10
+            disabled: True
+            font_name: "poppins"
+            radius: [10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .42, "center_y":.125}
+            on_release:
+                app.dropdown_compte(self, 'signup')
+
+        MDLabel:
+            text: "Nom d'utilisateur"
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":1.05,"center_y":.74}
+
+        MDTextField:
+            id: signup_username
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.66}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+
+        MDLabel:
+            text: 'Entrez votre mot de passe'
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":1.05,"center_y":.57}
+
+        MDTextField:
+            id: signup_password
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.48}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+            password: True
+
+        MDIconButton:
+            icon: 'Assets/eye.png'
+            pos_hint:{"center_x": .925, "center_y":.48}
+            on_release:
+                self.icon = "Assets/eye.png" if self.icon == "eye-off" else "eye-off"
+                signup_password.password = False if signup_password.password is True else True
+
+        MDLabel:
+            text: 'Confirmez votre mot de passe'
+            font_name: 'poppins-bold'
+            font_size: 15
+            pos_hint:{"center_x":1.05,"center_y":.38}
+
+        MDTextField:
+            id: confirm_password
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.30}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+            password: True
+
+        MDIconButton:
+            icon: 'Assets/eye.png'
+            pos_hint:{"center_x": .925, "center_y":.3}
+            on_release:
+                self.icon = "Assets/eye.png" if self.icon == "eye-off" else "eye-off"
+                confirm_password.password = False if confirm_password.password is True else True
+
+        MDFillRoundFlatButton:
+            pos_hint:{"center_x":.65,"center_y":.13}
+            md_bg_color:'#FF3333'
+            text:'Annuler'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            size_hint: .15,.1
+            on_release:
+                root.manager.current = 'before login'
+                root.manager.transition.direction = "right"
+
+        MDFillRoundFlatButton:
+            pos_hint:{"center_x":.85,"center_y":.13}
+            md_bg_color:'white'
+            text:'Créer'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            size_hint: .15,.1
+            on_release: app.sign_up()

@@ -1,0 +1,56 @@
+MDScreen:
+    name: "about"
+
+    MDFloatLayout:
+        size_hint:1, 1
+        orientation:'vertical'
+        MDFloatLayout:
+            md_bg_color: '#56B5FB'
+            size_hint: .6, .7
+            pos_hint: {"center_x": .63, "center_y": .5}
+            radius: [10]
+
+            Image:
+                source: 'Assets/Logo_apex.png'
+                size_hint: .25, .25
+                pos_hint:{'center_x': .5, 'center_y': .85}
+
+            MDLabel:
+                text:'Planificator - Desktop Application'
+                font_name: 'poppins-bold'
+                pos_hint:{'center_x': .8, 'center_y': .67}
+                font_size: 18
+
+            MDLabel:
+                text:'Version 1.0.0'
+                font_name: 'poppins'
+                pos_hint:{'center_x': .93, 'center_y': .62}
+                font_size: 18
+
+            MDLabel:
+                text:'Developpés par: '
+                font_name: 'poppins-bold'
+                pos_hint:{'center_x': .75, 'center_y': .47}
+                font_size: 18
+
+            MDTextButton:
+                text:f'- Josoa VONJINIAINA '
+                font_name: 'poppins'
+                pos_hint:{'center_x': .468, 'center_y': .4}
+                font_size: 18
+                on_release:
+                    app.open_compte('Josoa')
+
+            MDTextButton:
+                text:'- Aina Maminirina ANDRIAMASINORO'
+                font_name: 'poppins'
+                pos_hint:{'center_x': .55, 'center_y': .35}
+                font_size: 18
+                on_release:
+                    app.open_compte('Mamy')
+
+            MDLabel:
+                text:'Tout droit réservés - 2025'
+                font_name: 'poppins-bold'
+                pos_hint:{'center_x': .85, 'center_y': .1}
+                font_size: 18
