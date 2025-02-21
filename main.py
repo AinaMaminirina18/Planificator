@@ -189,8 +189,12 @@ class Screen(MDApp):
 
     def on_stop(self):
         """Arrête proprement la boucle asyncio et le gestionnaire de base de données."""
-        asyncio.run_coroutine_threadsafe(self.database.close(), self.loop)
+        if not self.loop.is_closed():
+            future = asyncio.run_coroutine_threadsafe(self.database.close(), self.loop)
+            future.result()
+
         self.loop.call_soon_threadsafe(self.loop.stop)
+
 
     def dropdown_compte(self, button, name):
         type_compte = ['Administrateur', 'Simple compte']

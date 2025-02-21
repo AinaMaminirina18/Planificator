@@ -39,5 +39,5 @@ class DatabaseManager:
 
     async def close(self):
         """Ferme le pool de connexions."""
-        await self.pool.close()
+        self.pool.close()
         await self.pool.wait_closed()
