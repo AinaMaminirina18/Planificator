@@ -33,11 +33,11 @@ class Screen(MDApp):
     CL = 'Assets/CL.JPG'
 
     def on_start(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('ecran/Home.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('ecran/about.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('ecran/contrat.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('ecran/Client.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('ecran/planning.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/contrat.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Client.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning.kv'))
 
         self.root.get_screen('Sidebar').ids['gestion_ecran'].transition =  SlideTransition(direction='up')
 
@@ -60,10 +60,10 @@ class Screen(MDApp):
         self.menu = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('ecran/Sidebar.kv'))
-        screen.add_widget(Builder.load_file('ecran/main.kv'))
-        screen.add_widget(Builder.load_file('ecran/Signup.kv'))
-        screen.add_widget(Builder.load_file('ecran/Login.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Signup.kv'))
+        screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
 
     def login(self):
