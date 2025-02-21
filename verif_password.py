@@ -12,6 +12,10 @@ def hash_password(password):
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
     return hashed_password
 
+#inverser le hachage
+def reverse(password, password_bd):
+    bytes_pass = password_bd.encode('utf-8')
+    return bcrypt.checkpw(password.encode('utf-8'), bytes_pass)
 
 # Fonction pour demander un mot de passe valide (modifiée pour utiliser le hachage)
 def get_valid_password(nom, prenom, password,  confirm_password):
