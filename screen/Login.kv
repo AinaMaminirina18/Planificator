@@ -9,6 +9,7 @@ MDScreen:
             on_release:
                 root.manager.transition.direction = "right"
                 root.manager.current = "before login"
+                app.clear_fields('login')
         Image:
             source: 'Assets/user.jpg'
             pos_hint:{"center_x":.5, "center_y":.8}

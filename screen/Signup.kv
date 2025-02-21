@@ -187,6 +187,7 @@ MDScreen:
             on_release:
                 root.manager.current = 'before login'
                 root.manager.transition.direction = "right"
+                app.clear_fields('signup')
 
         MDFillRoundFlatButton:
             pos_hint:{"center_x":.85,"center_y":.13}
