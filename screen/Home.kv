@@ -48,14 +48,15 @@ MDScreen:
                     app.dropdown_homepage(self, 'home')
 
         ScrollView:
-            do_scroll_x: False
-            do_scroll_y: True
+            do_scroll_x: True
+            do_scroll_y: False
             pos_hint:{"center_x": .38, "center_y": .15}
             size_hint: .8, 1
 
             MDBoxLayout:
                 id: contrats
                 orientation: "horizontal"
-                size_hint: 1,1
+                size_hint_x: None
+                width: self.minimum_width
                 spacing: "25dp"
-                padding: '10dp'
+                padding: ('30dp', '5dp', '0dp', '0dp')
