@@ -1,0 +1,5 @@
+background bleu : #56B5FB
+rouge: #FF3333
+vert: #B3F844
+bleu drop: #A5D8FD
+couleur icone: #292D32
