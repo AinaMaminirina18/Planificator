@@ -43,5 +43,5 @@ class contrat(MDCard):
 
         #Ajouter les éléments à la carte
         conteneur_main.add_widget(info_conteneur)
-        conteneur_main.add_widget(conteneur_btn) 
+        conteneur_main.add_widget(conteneur_btn)
         self.add_widget(conteneur_main)
