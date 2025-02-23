@@ -1,12 +1,14 @@
 # Description
 
-- **Planificator** : Projet de gestionde contrat et de planning
+- **Planificator** : Projet de gestion de contrat et de planning
 - **Techno:** KivyMD
-- **Based Language:** Python
+- **Based Language:** Python (Version 3.12)
 - **Database**: MySQL
+- **Database Script:** [Planificator_database](https://github.com/josoavj/Planificator_Database)
 
 ## Contributors
 
-- [Maminirina](https://github.com/AinaMaminirina18)
-- [Josoa](https://github.com/josoavj)
+- Project from [APEXNovaLabs](https://github.com/APEXNovaLabs)
+- Front-end: [Maminirina](https://github.com/AinaMaminirina18)
+- Back-end: [Josoa](https://github.com/josoavj)
 
