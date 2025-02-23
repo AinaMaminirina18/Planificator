@@ -13,6 +13,7 @@ import asyncio
 import threading
 import aiomysql
 
+from card import contrat
 from email import is_valid_email
 from setting_bd import DatabaseManager
 import verif_password as vp
@@ -42,6 +43,8 @@ class Screen(MDApp):
 
         self.root.get_screen('Sidebar').ids['gestion_ecran'].transition =  SlideTransition(direction='up')
 
+        self.ajout_carte()
+
     def build(self):
         #Parametre de la base de données
         self.loop = asyncio.new_event_loop()
@@ -61,8 +64,8 @@ class Screen(MDApp):
         self.menu = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -195,7 +198,6 @@ class Screen(MDApp):
 
         self.loop.call_soon_threadsafe(self.loop.stop)
 
-
     def dropdown_compte(self, button, name):
         type_compte = ['Administrateur', 'Simple compte']
         compte = [
@@ -236,6 +238,25 @@ class Screen(MDApp):
             for ids, item in self.root.get_screen('Sidebar').ids.items():
                 if ids != current_id:
                     self.root.get_screen('Sidebar').ids[ids].text_color = 'black'
+
+    def ajout_carte(self):
+
+        clients = [
+            {"name": "Alice Dupont", "phone": "06 12 34 56 78", "email": "alice@mail.com", "address": "12 rue A",
+             "city": "Paris", "zip_code": "75001"},
+            {"name": "Marc Durand", "phone": "06 98 76 54 32", "email": "marc@mail.com", "address": "34 avenue B",
+             "city": "Lyon", "zip_code": "69002"},
+            {"name": "Sophie Martin", "phone": "07 56 43 21 09", "email": "sophie@mail.com",
+             "address": "56 boulevard C", "city": "Marseille", "zip_code": "13003"},
+            {"name": "Jean Morel", "phone": "06 45 67 89 01", "email": "jean@mail.com", "address": "78 allée D",
+             "city": "Toulouse", "zip_code": "31000"},
+        ]
+
+        client_box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.contrats
+        for client in clients:
+            card = contrat(client["name"], client["phone"], client["email"], client["address"], client["city"],
+                              client["zip_code"])
+            client_box.add_widget(card)
 
     def open_compte(self, dev):
         import webbrowser
