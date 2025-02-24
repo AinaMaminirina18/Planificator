@@ -1,4 +1,6 @@
+from kivy.metrics import dp
 from kivymd.app import MDApp
+from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.dialog import MDDialog
@@ -36,8 +38,8 @@ class Screen(MDApp):
 
     def on_start(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/contrat.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Client.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning.kv'))
 
@@ -92,7 +94,6 @@ class Screen(MDApp):
                     self.show_dialog("Error", "Une erreur s'est produite")
 
             asyncio.run_coroutine_threadsafe(process_login(), self.loop)
-
 
     def sign_up(self):
         """Gestion de l'action d'inscription."""
@@ -174,6 +175,9 @@ class Screen(MDApp):
 
     def switch_to_contrat(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+
+        self.ajout_tableau(place)
 
     def switch_to_home(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
@@ -258,6 +262,31 @@ class Screen(MDApp):
             card = contrat(client["name"], client["phone"], client["email"], client["address"], client["city"],
                               client["zip_code"])
             client_box.add_widget(card)
+
+    def ajout_tableau(self, place):
+        self.tableau = MDDataTable(
+            pos_hint={'center_x':.5, "center_y":.5},
+            size_hint=(1,1),
+            background_color_header = '#56B5FB',
+            background_color= '#56B5FB',
+            rows_num=10,
+            column_data=[
+                ("Date du contrat", dp(35)),
+                ("CLient concerné", dp(60)),
+                ("Type de traitement", dp(50)),
+                ("Durée", dp(30)),
+            ],
+            row_data=[
+                ("Alice", "25", "Ingénieur", "Paris"),
+                ("Bob", "30", "Médecin", "Lyon"),
+                ("Charlie", "28", "Designer", "Marseille"),
+                ("David", "35", "Architecte", "Nice"),
+                ("Emma", "22", "Étudiant", "Bordeaux"),
+                ("Fay", "40", "Chef cuisinier", "Toulouse"),
+            ],
+        )
+        place.add_widget(self.tableau)
+
 
     def open_compte(self, dev):
         import webbrowser
