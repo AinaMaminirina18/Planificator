@@ -270,6 +270,7 @@ class Screen(MDApp):
             background_color_header = '#56B5FB',
             background_color= '#56B5FB',
             rows_num=10,
+            elevation=0,
             column_data=[
                 ("Date du contrat", dp(35)),
                 ("CLient concerné", dp(60)),
