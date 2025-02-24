@@ -1,5 +1,5 @@
-background bleu : #56B5FB
-rouge: #FF3333
-vert: #B3F844
-bleu drop: #A5D8FD
-couleur icone: #292D32
+Background bleu : #56B5FB en RGBA (0.337, 0.710, 0.984, 1)
+Rouge: #FF3333
+Vert: #B3F844
+Bleu drop: #A5D8FD en RGBA (0.647, 0.847, 0.992, 1)
+Couleur icone: #292D32
