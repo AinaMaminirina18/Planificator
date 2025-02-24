@@ -147,10 +147,10 @@ class Screen(MDApp):
             self.dialog.text = text
         self.dialog.open()
 
-    def dropdown_menu(self, button, menu_items):
+    def dropdown_menu(self, button, menu_items, color):
         self.menu = MDDropdownMenu(
+            md_bg_color= color,
             items=menu_items,
-            width_mult=4,
         )
         self.menu.caller = button
         self.menu.open()
@@ -216,9 +216,10 @@ class Screen(MDApp):
                 "text": i,
                 "viewclass": "OneLineListItem",
                 "on_release": lambda x=f"{i}": self.menu_callback(x, name,'Home', 'type_contrat'),
+                "md_bg_color": (0.647, 0.847, 0.992, 1)
             } for i in type_tri
         ]
-        self.dropdown_menu(button, home)
+        self.dropdown_menu(button, home,  (0.647, 0.847, 0.992, 1))
 
     def dropdown_contrat(self, button, name):
         type_tri = ['Récents', 'Mois', 'Type de contrat']
@@ -229,7 +230,7 @@ class Screen(MDApp):
                 "on_release": lambda x=f"{i}": self.menu_callback(x, name,'contrat', 'tri'),
             } for i in type_tri
         ]
-        self.dropdown_menu(button, home)
+        self.dropdown_menu(button, home, (0.647, 0.847, 0.992, 1))
 
     def choose_screen(self, instance):
         if instance in self.root.get_screen('Sidebar').ids.values():
