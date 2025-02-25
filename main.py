@@ -37,8 +37,8 @@ class Screen(MDApp):
     CL = 'Assets/CL.JPG'
 
     def on_start(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/contrat.kv'))
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Client.kv'))
         self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning.kv'))
@@ -139,13 +139,27 @@ class Screen(MDApp):
                 buttons=[
                     MDFlatButton(
                         text="OK",
-                        on_release=lambda x: self.dialog.dismiss()
+                        on_release=lambda x: self.close_dialog()
                     )
                 ],
             )
         else:
             self.dialog.title = title
             self.dialog.text = text
+        self.dialog.open()
+
+    def close_dialog(self):
+            self.dialog.dismiss()
+    def fenetre(self):
+        contrat = MDDialog(
+            md_bg_color='#56B5FB',
+            title='Nouveau contrat',
+            type='custom',
+            size_hint= (.8, .65),
+            content_cls= Builder.load_file('screen/fenetre.kv')
+        )
+
+        self.dialog = contrat
         self.dialog.open()
 
     def dropdown_menu(self, button, menu_items, color):
@@ -193,14 +207,6 @@ class Screen(MDApp):
 
     def switch_to_main(self):
         self.root.current = 'Sidebar'
-
-    def on_stop(self):
-        """Arrête proprement la boucle asyncio et le gestionnaire de base de données."""
-        if not self.loop.is_closed():
-            future = asyncio.run_coroutine_threadsafe(self.database.close(), self.loop)
-            future.result()
-
-        self.loop.call_soon_threadsafe(self.loop.stop)
 
     def dropdown_compte(self, button, name):
         type_compte = ['Administrateur', 'Simple compte']
@@ -265,29 +271,38 @@ class Screen(MDApp):
 
     def ajout_tableau(self, place):
         self.tableau = MDDataTable(
-            pos_hint={'center_x':.5, "center_y":.5},
+            pos_hint={'center_x':.5, "center_y": .53},
             size_hint=(1,1),
             background_color_header = '#56B5FB',
             background_color= '#56B5FB',
-            rows_num=10,
+            rows_num=20,
             elevation=0,
             column_data=[
                 ("Date du contrat", dp(35)),
                 ("CLient concerné", dp(60)),
-                ("Type de traitement", dp(50)),
-                ("Durée", dp(30)),
+                ("Type de traitement", dp(40)),
+                ("Durée", dp(40)),
             ],
             row_data=[
-                ("Alice", "25", "Ingénieur", "Paris"),
-                ("Bob", "30", "Médecin", "Lyon"),
-                ("Charlie", "28", "Designer", "Marseille"),
-                ("David", "35", "Architecte", "Nice"),
-                ("Emma", "22", "Étudiant", "Bordeaux"),
-                ("Fay", "40", "Chef cuisinier", "Toulouse"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
             ],
         )
         place.add_widget(self.tableau)
-
 
     def open_compte(self, dev):
         import webbrowser
@@ -295,6 +310,15 @@ class Screen(MDApp):
             webbrowser.open('https://github.com/AinaMaminirina18')
         else:
             webbrowser.open('https://github.com/josoavj')
+
+
+    def on_stop(self):
+        """Arrête proprement la boucle asyncio et le gestionnaire de base de données."""
+        if not self.loop.is_closed():
+            future = asyncio.run_coroutine_threadsafe(self.database.close(), self.loop)
+            future.result()
+
+        self.loop.call_soon_threadsafe(self.loop.stop)
 
 
 if __name__ == "__main__":
