@@ -150,13 +150,16 @@ class Screen(MDApp):
 
     def close_dialog(self):
             self.dialog.dismiss()
-    def fenetre(self):
+    def fenetre(self, ecran):
+        manager = ScreenManager()
+        manager.add_widget(Builder.load_file(f'screen/new-contrat.kv'))
+
         contrat = MDDialog(
             md_bg_color='#56B5FB',
             title='Nouveau contrat',
             type='custom',
             size_hint= (.8, .65),
-            content_cls= Builder.load_file('screen/fenetre.kv')
+            content_cls= Builder.load_file(f'screen/{ecran}.kv')
         )
 
         self.dialog = contrat
@@ -170,7 +173,7 @@ class Screen(MDApp):
         self.menu.caller = button
         self.menu.open()
 
-    def menu_callback(self, text_item,name, screen, champ):
+    def menu_callback(self, text_item, name, screen, champ):
         if name == 'home':
             self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(screen).ids[champ].text = text_item
         else:
@@ -241,6 +244,24 @@ class Screen(MDApp):
             } for i in type_tri
         ]
         self.dropdown_menu(button, home, (0.647, 0.847, 0.992, 1))
+
+    def dropdown_new_contrat(self,button,  champ):
+        type = ['Dératisation', 'Désinsectisation']
+        durée = ['12 mois', '6 mois', '4 mois', '3 mois', '2 mois']
+        categorie = ['Nouveau contrat', 'Renouvellement contrat']
+
+        item_menu = type if champ == 'type_traitement' else durée if champ == 'duree_new_contrat' else categorie
+        menu = [
+            {
+                "text": i,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=f"{i}": self.retour_new(x, champ),
+            } for i in item_menu
+        ]
+        self.dropdown_menu(button, menu, 'white')
+
+    def retour_new(self,text,  champ):
+        self.manager.get_screen('new_contrat').ids[f'{champ}'].text = text
 
     def choose_screen(self, instance):
         if instance in self.root.get_screen('Sidebar').ids.values():
