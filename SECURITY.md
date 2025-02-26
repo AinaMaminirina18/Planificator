@@ -12,3 +12,4 @@ Supported version of the latest and future update.
 
 If you find a vulnerability on this program, please contact us:
  - **Mail:** josoavonjiniaina13@gmail.com
+ - [APEXNova Labs](https://github.com/APEXNovaLabs)
