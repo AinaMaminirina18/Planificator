@@ -1,0 +1,111 @@
+MDScreen:
+    name: 'option_contrat'
+    pos_hint: {'center_x':.5, 'center_y': .5}
+
+    MDFloatLayout:
+        pos_hint: {'center_x':.5, 'center_y': .5}
+        size_hint_x : 1
+
+        MDLabel:
+            id: titre
+            text:''
+            pos_hint: {'center_x':.8, 'center_y': .97}
+            font_size: 18
+            font_name: 'poppins'
+
+        MDLabel:
+            id: date_contrat
+            text: ''
+            pos_hint: {'center_x':.52, 'center_y': .85}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: debut_contrat
+            text: ''
+            pos_hint: {'center_x':.87, 'center_y': .85}
+            font_size: 16
+            font_name: 'poppins'
+
+
+        MDLabel:
+            id: fin_contrat
+            text: ''
+            pos_hint: {'center_x':1.25, 'center_y': .85}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: type_traitement
+            text: ''
+            pos_hint: {'center_x':.52, 'center_y': .72}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            text: 'Axe : {tsy deodorant}'
+            pos_hint: {'center_x':.87, 'center_y': .72}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            text: 'Durée du contrat : {12 mois}'
+            pos_hint: {'center_x':.52, 'center_y': .59}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDRectangleFlatButton:
+            text: 'Voir le planning des traitements'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: 'white'
+            line_color: 'white'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .43}
+
+        MDRectangleFlatButton:
+            text: 'Voir les informations sur le clients'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: 'white'
+            line_color: 'white'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .28}
+
+        MDRectangleFlatButton:
+            text: 'Modifier les informations du contrat'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .13}
+
+        MDRectangleFlatButton:
+            text: 'Voir les factures du client'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: 'white'
+            line_color: 'white'
+            text_color: 'black'
+            pos_hint: {'center_x':.75, 'center_y': .43}
+
+        MDRectangleFlatButton:
+            text: 'Modifier les informations du client'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            text_color: 'black'
+            pos_hint: {'center_x':.75, 'center_y': .28}
+
+        MDRectangleFlatButton:
+            text: 'Supprimer le contrat'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            pos_hint: {'center_x':.75, 'center_y': .13}
+            on_release:
+                app.suppression_contrat(titre.text,date_contrat.text,debut_contrat.text,fin_contrat.text )
