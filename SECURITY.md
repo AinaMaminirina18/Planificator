@@ -11,5 +11,5 @@ Supported version of the latest and future update.
 ## Reporting a Vulnerability
 
 If you find a vulnerability on this program, please contact us:
- - **Mail:** josoavonjiniaina13@gmail.com
+ - **Mail:** josoavonjiniaina13@gmail.com or maminirinaandria17@gmail.com
  - [APEXNova Labs](https://github.com/APEXNovaLabs)
