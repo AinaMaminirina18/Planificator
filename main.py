@@ -17,6 +17,8 @@ import aiomysql
 
 from card import contrat
 from email import is_valid_email
+from gestion_ecran_contrat import gestion_ecran_contrat
+from gestion_ecran import gestion_ecran
 from setting_bd import DatabaseManager
 import verif_password as vp
 
@@ -36,14 +38,9 @@ class Screen(MDApp):
     CLM = 'Assets/CLM.JPG'
     CL = 'Assets/CL.JPG'
 
-    def on_start(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/contrat.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Client.kv'))
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning.kv'))
 
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].transition =  SlideTransition(direction='up')
+    def on_start(self):
+        gestion_ecran(self.root)
 
         self.ajout_carte()
 
@@ -61,6 +58,11 @@ class Screen(MDApp):
         self.theme_cls.primary_palette = "BlueGray"
         self.icon = self.CLM
         self.title = 'Planificator'.upper()
+
+        self.manager = ScreenManager(size_hint=(None, None))
+
+        self.manager.transition.duration = 0.1
+        gestion_ecran_contrat(self.manager)
 
         #Pour les dropdown
         self.menu = None
@@ -149,21 +151,28 @@ class Screen(MDApp):
         self.dialog.open()
 
     def close_dialog(self):
-            self.dialog.dismiss()
-    def fenetre(self, ecran):
-        manager = ScreenManager()
-        manager.add_widget(Builder.load_file(f'screen/new-contrat.kv'))
+        self.dialog.dismiss()
 
+
+    def fenetre(self, titre, ecran):
+        self.manager.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
-            title='Nouveau contrat',
+            title=titre,
             type='custom',
             size_hint= (.8, .65),
-            content_cls= Builder.load_file(f'screen/{ecran}.kv')
+            content_cls= self.manager
         )
-
+        self.manager.height = '500dp' if ecran == 'option_contrat' else '390dp'
+        self.manager.width = '1000dp'
         self.dialog = contrat
+        self.dialog.bind(on_dismiss= self.dismiss)
+
         self.dialog.open()
+
+    def dismiss(self, *args):
+        if self.manager.parent:
+            self.manager.parent.remove_widget(self.manager)
 
     def dropdown_menu(self, button, menu_items, color):
         self.menu = MDDropdownMenu(
@@ -262,6 +271,7 @@ class Screen(MDApp):
 
     def retour_new(self,text,  champ):
         self.manager.get_screen('new_contrat').ids[f'{champ}'].text = text
+        self.menu.dismiss()
 
     def choose_screen(self, instance):
         if instance in self.root.get_screen('Sidebar').ids.values():
@@ -300,13 +310,13 @@ class Screen(MDApp):
             elevation=0,
             column_data=[
                 ("Date du contrat", dp(35)),
-                ("CLient concerné", dp(60)),
+                ("Client concerné", dp(60)),
                 ("Type de traitement", dp(40)),
                 ("Durée", dp(40)),
             ],
             row_data=[
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("26/11/2024", "Cleanliness Madagascar", "Désinsectisation", "01/07/23 au 02/07/24"),
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
@@ -323,7 +333,32 @@ class Screen(MDApp):
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
             ],
         )
+        self.tableau.bind(on_row_press=self.row_pressed)
         place.add_widget(self.tableau)
+
+    def row_pressed(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+
+        date = row_data[3].split(' ')
+        self.manager.get_screen('option_contrat').ids.titre.text = f'A propos du contrat de {row_data[1]}'
+        self.manager.get_screen('option_contrat').ids.date_contrat.text = f'Contrat du : {row_data[0]}'
+        self.manager.get_screen('option_contrat').ids.debut_contrat.text = f'Début du contrat : {date[0]}'
+        self.manager.get_screen('option_contrat').ids.fin_contrat.text = f'Fin du contrat : {date[2]}'
+        self.manager.get_screen('option_contrat').ids.type_traitement.text = f'Type de traitement : {row_data[2]}'
+        self.fenetre('', 'option_contrat')
+
+    def suppression_contrat(self, titre, contrat, debut, fin):
+        client = titre.split(' ')
+
+        self.manager.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {client[5] + client[6]}'
+        self.manager.get_screen('suppression_contrat').ids.date_contrat.text = contrat
+        self.manager.get_screen('suppression_contrat').ids.debut_contrat.text = debut
+        self.manager.get_screen('suppression_contrat').ids.fin_contrat.text = fin
+
+        self.dismiss()
+        self.close_dialog()
+        self.fenetre('','suppression_contrat')
 
     def open_compte(self, dev):
         import webbrowser
