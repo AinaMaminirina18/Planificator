@@ -68,8 +68,8 @@ class Screen(MDApp):
         self.menu = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -255,7 +255,7 @@ class Screen(MDApp):
         self.dropdown_menu(button, home, (0.647, 0.847, 0.992, 1))
 
     def dropdown_new_contrat(self,button,  champ):
-        type = ['Dératisation', 'Désinsectisation']
+        type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage']
         durée = ['12 mois', '6 mois', '4 mois', '3 mois', '2 mois']
         categorie = ['Nouveau contrat', 'Renouvellement contrat']
 
