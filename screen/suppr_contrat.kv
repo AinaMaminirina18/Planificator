@@ -1,0 +1,62 @@
+MDScreen:
+    name: 'suppression_contrat'
+    size_hint: None, None
+    height: '390dp'
+    width: '1000dp'
+    pos_hint: {'center_x':.5, 'center_y': .5}
+
+    MDFloatLayout:
+        pos_hint: {'center_x':.5, 'center_y': .5}
+        size_hint_x : 1
+
+        MDLabel:
+            id: titre
+            text:'Suppression du contrat de '
+            pos_hint: {'center_x':.76, 'center_y': .97}
+            font_size: 18
+            font_name: 'poppins'
+
+        MDLabel:
+            id: date_contrat
+            text: ''
+            pos_hint: {'center_x':.52, 'center_y': .75}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: debut_contrat
+            text: ''
+            pos_hint: {'center_x':.87, 'center_y': .75}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: fin_contrat
+            text: ''
+            pos_hint: {'center_x':1.25, 'center_y': .75}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            text: 'Voulez-vous vraiment supprimer le contrat de ce client?'
+            font_size: 15
+            font_name: 'poppins'
+            pos_hint: {'center_x':.78 ,'center_y': .55}
+
+        MDRectangleFlatButton:
+            text: 'Annuler la suppression'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .28}
+
+        MDRectangleFlatButton:
+            text: "Oui j'accepte"
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            pos_hint: {'center_x':.75, 'center_y': .28}
