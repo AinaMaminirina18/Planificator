@@ -15,7 +15,6 @@ MDScreen:
 
         MDTextField:
             id: date_new_contrat
-            text: '25-11-2024'
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -30,6 +29,8 @@ MDScreen:
         MDIconButton:
             icon: 'Assets/calendar.png'
             pos_hint:{"center_x": .27, "center_y":.8}
+            on_release:
+                app.calendrier('new_contrat', 'date_new_contrat')
 
         MDLabel:
             text: 'Début du contrat'
@@ -39,7 +40,6 @@ MDScreen:
 
         MDTextField:
             id: debut_new_contrat
-            text: '26-11-2024'
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -54,6 +54,8 @@ MDScreen:
         MDIconButton:
             icon: 'Assets/calendar.png'
             pos_hint:{"center_x": .6, "center_y":.8}
+            on_release:
+                app.calendrier('new_contrat', 'debut_new_contrat')
 
         MDLabel:
             text: 'Fin du contrat'
@@ -63,7 +65,6 @@ MDScreen:
 
         MDTextField:
             id: fin_new_contrat
-            text: '27-11-2025'
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -78,6 +79,8 @@ MDScreen:
         MDIconButton:
             icon: 'Assets/calendar.png'
             pos_hint:{"center_x": .93, "center_y":.8}
+            on_release:
+                app.calendrier('new_contrat', 'fin_new_contrat')
 
         MDLabel:
             text: 'Type de traitement'
@@ -140,9 +143,7 @@ MDScreen:
         MDTextField:
             id: cat_contrat
             text: 'Nouveau contrat'
-            text_color_normal: 'black'
             mode: 'fill'
-            text_color_focus: 'black'
             font_name:"poppins"
             pos_hint:{"center_x":.83,"center_y":.5}
             line_color_focus: '#56B5FB'
@@ -150,6 +151,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            disabled :True
 
         MDIconButton:
             icon: 'chevron-down'
@@ -166,7 +168,6 @@ MDScreen:
             pos_hint: {'center_x':.7, 'center_y': .2}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
-            on_release:
 
         MDRectangleFlatButton:
             text: 'Annuler'
@@ -178,4 +179,4 @@ MDScreen:
             md_bg_color: '#FF3333'
             line_color: '#FF3333'
             on_release:
-                app.close_dialog()
+                app.fermer_ecran()
