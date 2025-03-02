@@ -1,0 +1,197 @@
+MDScreen:
+    name: 'modif_client'
+    pos_hint: {'center_x': .5, 'center_y': .5}
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDLabel:
+            text: 'Date du contrat'
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .98}
+
+        MDTextField:
+            id: date_contrat_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.125,"center_y":.89}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'Assets/calendar.png'
+            pos_hint:{"center_x": .225, "center_y":.88}
+            on_release:
+                app.calendrier('modif_client', 'date_contrat_client')
+
+        MDLabel:
+            text: "Date d'ajout du client"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .875, 'center_y': .98}
+
+        MDTextField:
+            id: ajout_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.5,"center_y":.89}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'Assets/calendar.png'
+            pos_hint:{"center_x": .6, "center_y":.88}
+            on_release:
+                app.calendrier('modif_client', 'ajout_client')
+
+        MDLabel:
+            text: "Catégorie du client"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': 1.205, 'center_y': .98}
+
+        MDTextField:
+            id: cat_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.83,"center_y":.89}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .93, "center_y":.88}
+            on_release:
+
+        MDLabel:
+            text: "Nom de l'entreprise"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .8}
+
+        MDTextField:
+            id: nom_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.225,"center_y":.71}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDLabel:
+            text: "Adresse mail de l'entreprise"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': 1.005, 'center_y': .8}
+
+        MDTextField:
+            id: email_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.73,"center_y":.71}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDLabel:
+            text: "Adresse de l'entreprise"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .61}
+
+        MDTextField:
+            id: adresse_entreprise
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.225,"center_y":.52}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDLabel:
+            text: "Responsable"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': 1.005, 'center_y': .61}
+
+        MDTextField:
+            id: responsable_entreprise
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.73,"center_y":.52}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDLabel:
+            text: "Axe de l'entreprise"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .42}
+
+        MDTextField:
+            id: Axe_entreprise
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.225,"center_y":.33}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDRectangleFlatButton:
+            text: 'Continuer'
+            text_color: 'black'
+            font_name: 'poppins'
+            font_size: 15
+            size_hint: .3, None
+            pos_hint: {'center_x':.7, 'center_y': .1}
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+
+        MDRectangleFlatButton:
+            text: 'Annuler'
+            text_color: 'black'
+            font_name: 'poppins'
+            font_size: 15
+            size_hint: .3, None
+            pos_hint: {'center_x':.3, 'center_y': .1}
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            on_release:
+                app.fermer_ecran()
