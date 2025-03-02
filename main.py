@@ -1,3 +1,5 @@
+from functools import partial
+
 from kivy.metrics import dp
 from kivymd.app import MDApp
 from kivymd.uix.datatables import MDDataTable
@@ -14,6 +16,7 @@ from kivy.core.window import Window
 import asyncio
 import threading
 import aiomysql
+from kivymd.uix.pickers import MDDatePicker
 
 from card import contrat
 from email import is_valid_email
@@ -76,8 +79,8 @@ class Screen(MDApp):
         self.menu = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -140,12 +143,12 @@ class Screen(MDApp):
             # Exécuter la tâche d'ajout d'utilisateur dans la boucle asyncio
             asyncio.run_coroutine_threadsafe(add_user_task(), self.loop)
 
-    def show_dialog(self, title, text):
+    def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
         if not hasattr(self, 'dialog') or self.dialog is None:
-            self.dialog = MDDialog(
-                title=title,
-                text=text,
+            self.dialogue = MDDialog(
+                title=titre,
+                text=texte,
                 buttons=[
                     MDFlatButton(
                         text="OK",
@@ -153,14 +156,46 @@ class Screen(MDApp):
                     )
                 ],
             )
-        else:
-            self.dialog.title = title
-            self.dialog.text = text
-        self.dialog.open()
+        if titre == 'Déconnexion':
+            self.dialogue = MDDialog(
+                title= titre,
+                text= texte,
+                buttons=[
+                    MDFlatButton(
+                        text='OUI',
+                        on_release= lambda x: self.deconnexion()
+                    ),
+                    MDFlatButton(
+                        text= 'NON',
+                        on_release= lambda x: self.close_dialog()
+                    )
+                ]
+            )
+        self.dialogue.open()
+
+    def deconnexion(self):
+        self.close_dialog()
+        self.root.current = 'before login'
 
     def close_dialog(self):
-        self.dialog.dismiss()
+        self.dialogue.dismiss()
 
+    def reverse_date(self, ex_date):
+        y, m, d = str(ex_date).split('-')
+        date = f'{d}-{m}-{y}'
+        return date
+
+    def calendrier(self, ecran, champ):
+        calendrier = MDDatePicker(primary_color= '#A5D8FD')
+        calendrier.open()
+        calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
+
+    def choix_date(self,ecran, champ, instance, value, date_range):
+        manager = self.contrat_manager if 'contrat' in ecran else self.client_manager
+        manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
+
+    def fermer_ecran(self):
+        self.dialog.dismiss()
 
     def fenetre_contrat(self, titre, ecran):
         self.contrat_manager.current = ecran
@@ -187,7 +222,7 @@ class Screen(MDApp):
             size_hint= (.8, .65),
             content_cls= self.client_manager
         )
-        self.client_manager.height = '390dp'
+        self.client_manager.height = '390dp' if ecran == 'option_client' else '550dp'
         self.client_manager.width = '1000dp'
 
         self.dialog = client
@@ -216,7 +251,7 @@ class Screen(MDApp):
             self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(screen).ids[champ].text = text_item
         else:
             self.root.get_screen('signup').ids['type'].text = text_item
-        self.menu.dismiss_contrat()
+        self.menu.dismiss()
 
     def clear_fields(self, screen):
         sign_up = ['nom','prenom','Email','type','signup_username','signup_password','confirm_password']
@@ -262,7 +297,7 @@ class Screen(MDApp):
                 "on_release": lambda x=f"{i}": self.menu_callback(x, name,'signup', 'type'),
             } for i in type_compte
         ]
-        self.dropdown_menu(button, compte)
+        self.dropdown_menu(button, compte, 'white')
 
     def dropdown_homepage(self, button, name):
         type_tri = ['Contrats', 'Clients', 'Planning']
@@ -304,7 +339,7 @@ class Screen(MDApp):
 
     def retour_new(self,text,  champ):
         self.contrat_manager.get_screen('new_contrat').ids[f'{champ}'].text = text
-        self.menu.dismiss_contrat()
+        self.menu.dismiss()
 
     def choose_screen(self, instance):
         if instance in self.root.get_screen('Sidebar').ids.values():
@@ -414,6 +449,12 @@ class Screen(MDApp):
         self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {row_data[1]}'
         self.fenetre_client('', 'option_client')
 
+    def modification_client(self ,nom):
+        #self.client_manager.get_screen('modif_client').ids.titre.text = f'Modifications des informartion sur {nom}'
+        self.dismiss_client()
+        self.fermer_ecran()
+        self.fenetre_client(f'Modifications des informartion sur {nom}', 'modif_client')
+
     def suppression_contrat(self, titre, contrat, debut, fin):
         client = titre.split(' ')
 
@@ -423,7 +464,7 @@ class Screen(MDApp):
         self.contrat_manager.get_screen('suppression_contrat').ids.fin_contrat.text = fin
 
         self.dismiss_contrat()
-        self.close_dialog()
+        self.fermer_ecran()
         self.fenetre_contrat('', 'suppression_contrat')
 
     def open_compte(self, dev):
