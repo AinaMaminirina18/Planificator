@@ -8,5 +8,7 @@ def gestion_ecran(root):
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning.kv'))
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Client.kv'))
+    root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning.kv'))
+    root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/historique.kv'))
 
     root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='up')
