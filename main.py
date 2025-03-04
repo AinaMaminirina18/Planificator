@@ -23,6 +23,7 @@ from email import is_valid_email
 from gestion_ecran_client import gestion_ecran_client
 from gestion_ecran_contrat import gestion_ecran_contrat
 from gestion_ecran import gestion_ecran
+from gestion_ecran_planning import gestion_ecran_planning
 from setting_bd import DatabaseManager
 import verif_password as vp
 
@@ -74,6 +75,12 @@ class Screen(MDApp):
 
         self.client_manager.transition.duration = 0.1
         gestion_ecran_client(self.client_manager)
+
+        #Gestionde écrans dans planning
+        self.planning_manager = ScreenManager(size_hint=(None, None))
+
+        self.planning_manager.transition.duration = 0.1
+        gestion_ecran_planning(self.planning_manager)
 
         #Pour les dropdown
         self.menu = None
@@ -206,7 +213,8 @@ class Screen(MDApp):
             size_hint= (.8, .65),
             content_cls= self.contrat_manager
         )
-        self.contrat_manager.height = '500dp' if ecran == 'option_contrat' else '390dp'
+        hauteur = '500dp' if ecran == 'option_contrat' else '500dp' if ecran == 'ajout_info_client' else '390dp'
+        self.contrat_manager.height = hauteur
         self.contrat_manager.width = '1000dp'
         self.dialog = contrat
         self.dialog.bind(on_dismiss=self.dismiss_contrat)
@@ -230,6 +238,24 @@ class Screen(MDApp):
 
         self.dialog.open()
 
+    def fenetre_planning(self, titre, ecran):
+        self.planning_manager.current = ecran
+        planning = MDDialog(
+            md_bg_color='#56B5FB',
+            title=titre,
+            type='custom',
+            size_hint=(.8, .58),
+            content_cls=self.planning_manager
+        )
+        self.planning_manager.height = '350dp'
+        self.planning_manager.width = '1000dp'
+
+        self.dialog = planning
+        self.dialog.bind(on_dismiss=self.dismiss_planning)
+
+        self.dialog.open()
+
+
     def dismiss_contrat(self, *args):
         if self.contrat_manager.parent:
             self.contrat_manager.parent.remove_widget(self.contrat_manager)
@@ -237,6 +263,10 @@ class Screen(MDApp):
     def dismiss_client(self, *args):
         if self.client_manager.parent:
             self.client_manager.parent.remove_widget(self.client_manager)
+
+    def dismiss_planning(self, *args):
+        if self.planning_manager.parent:
+            self.planning_manager.parent.remove_widget(self.planning_manager)
 
     def dropdown_menu(self, button, menu_items, color):
         self.menu = MDDropdownMenu(
@@ -281,6 +311,10 @@ class Screen(MDApp):
 
     def switch_to_planning(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'planning'
+
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
+
+        self.tableau_planning(place)
 
     def switch_to_about(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'about'
@@ -337,8 +371,27 @@ class Screen(MDApp):
         ]
         self.dropdown_menu(button, menu, 'white')
 
+    def dropdown_rendu_excel(self,button,  champ):
+        type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage']
+        mois = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai']
+        client = ['DevCorps', 'ApexNovaLabs', 'Cleanliness Of Madagascar']
+
+        item_menu = type if champ == 'type_traitement_planning' else mois if champ == 'mois_planning' else client
+        menu = [
+            {
+                "text": i,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=f"{i}": self.retour_planning(x, champ),
+            } for i in item_menu
+        ]
+        self.dropdown_menu(button, menu, 'white')
+
     def retour_new(self,text,  champ):
         self.contrat_manager.get_screen('new_contrat').ids[f'{champ}'].text = text
+        self.menu.dismiss()
+
+    def retour_planning(self,text,  champ):
+        self.planning_manager.get_screen('rendu_planning').ids[f'{champ}'].text = text
         self.menu.dismiss()
 
     def choose_screen(self, instance):
@@ -448,6 +501,39 @@ class Screen(MDApp):
         self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : 29/11/25'
         self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {row_data[1]}'
         self.fenetre_client('', 'option_client')
+
+    def tableau_planning(self, place):
+        self.liste_planning = MDDataTable(
+            pos_hint={'center_x':.5, "center_y": .5},
+            size_hint=(1,1),
+            background_color_header = '#56B5FB',
+            background_color= '#56B5FB',
+            rows_num=20,
+            elevation=0,
+            column_data=[
+                ("Client", dp(55)),
+                ("Durée du contrat", dp(35)),
+                ("Type de traitement", dp(40)),
+                ("Option", dp(40)),
+            ],
+            row_data=[
+                ("DEV-CORPS MDG", "12 mois", "Dératisation", "Aucun decalage"),
+                ("Cleanliness Madagascar", "6mois", "Nettoyage", "Décalage"),
+            ],
+        )
+        self.liste_planning.bind(on_row_press=self.row_pressed_planning)
+        place.add_widget(self.liste_planning)
+
+    def row_pressed_planning(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+
+        #self.client_manager.get_screen('option_client').ids.titre.text = f'A propos de {row_data[0]}'
+        #self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {row_data[3]}'
+        #self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : 28/11/24'
+        #self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : 29/11/25'
+        #self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {row_data[1]}'
+        #self.fenetre_client('', 'option_client')
 
     def modification_client(self ,nom):
         #self.client_manager.get_screen('modif_client').ids.titre.text = f'Modifications des informartion sur {nom}'
