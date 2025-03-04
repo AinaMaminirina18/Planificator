@@ -1,3 +1,5 @@
+from functools import partial
+
 from kivy.metrics import dp
 from kivymd.app import MDApp
 from kivymd.uix.datatables import MDDataTable
@@ -14,9 +16,11 @@ from kivy.core.window import Window
 import asyncio
 import threading
 import aiomysql
+from kivymd.uix.pickers import MDDatePicker
 
 from card import contrat
 from email import is_valid_email
+from gestion_ecran_client import gestion_ecran_client
 from gestion_ecran_contrat import gestion_ecran_contrat
 from gestion_ecran import gestion_ecran
 from setting_bd import DatabaseManager
@@ -59,17 +63,24 @@ class Screen(MDApp):
         self.icon = self.CLM
         self.title = 'Planificator'.upper()
 
-        self.manager = ScreenManager(size_hint=(None, None))
+        #Gestion des écrans dans contrat
+        self.contrat_manager = ScreenManager(size_hint=(None, None))
 
-        self.manager.transition.duration = 0.1
-        gestion_ecran_contrat(self.manager)
+        self.contrat_manager.transition.duration = 0.1
+        gestion_ecran_contrat(self.contrat_manager)
+
+        #Gestion des écrans dans client
+        self.client_manager = ScreenManager(size_hint=(None, None))
+
+        self.client_manager.transition.duration = 0.1
+        gestion_ecran_client(self.client_manager)
 
         #Pour les dropdown
         self.menu = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -132,12 +143,12 @@ class Screen(MDApp):
             # Exécuter la tâche d'ajout d'utilisateur dans la boucle asyncio
             asyncio.run_coroutine_threadsafe(add_user_task(), self.loop)
 
-    def show_dialog(self, title, text):
+    def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
         if not hasattr(self, 'dialog') or self.dialog is None:
-            self.dialog = MDDialog(
-                title=title,
-                text=text,
+            self.dialogue = MDDialog(
+                title=titre,
+                text=texte,
                 buttons=[
                     MDFlatButton(
                         text="OK",
@@ -145,34 +156,87 @@ class Screen(MDApp):
                     )
                 ],
             )
-        else:
-            self.dialog.title = title
-            self.dialog.text = text
-        self.dialog.open()
+        if titre == 'Déconnexion':
+            self.dialogue = MDDialog(
+                title= titre,
+                text= texte,
+                buttons=[
+                    MDFlatButton(
+                        text='OUI',
+                        on_release= lambda x: self.deconnexion()
+                    ),
+                    MDFlatButton(
+                        text= 'NON',
+                        on_release= lambda x: self.close_dialog()
+                    )
+                ]
+            )
+        self.dialogue.open()
+
+    def deconnexion(self):
+        self.close_dialog()
+        self.root.current = 'before login'
 
     def close_dialog(self):
+        self.dialogue.dismiss()
+
+    def reverse_date(self, ex_date):
+        y, m, d = str(ex_date).split('-')
+        date = f'{d}-{m}-{y}'
+        return date
+
+    def calendrier(self, ecran, champ):
+        calendrier = MDDatePicker(primary_color= '#A5D8FD')
+        calendrier.open()
+        calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
+
+    def choix_date(self,ecran, champ, instance, value, date_range):
+        manager = self.contrat_manager if 'contrat' in ecran else self.client_manager
+        manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
+
+    def fermer_ecran(self):
         self.dialog.dismiss()
 
-
-    def fenetre(self, titre, ecran):
-        self.manager.current = ecran
+    def fenetre_contrat(self, titre, ecran):
+        self.contrat_manager.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
             size_hint= (.8, .65),
-            content_cls= self.manager
+            content_cls= self.contrat_manager
         )
-        self.manager.height = '500dp' if ecran == 'option_contrat' else '390dp'
-        self.manager.width = '1000dp'
+        self.contrat_manager.height = '500dp' if ecran == 'option_contrat' else '390dp'
+        self.contrat_manager.width = '1000dp'
         self.dialog = contrat
-        self.dialog.bind(on_dismiss= self.dismiss)
+        self.dialog.bind(on_dismiss=self.dismiss_contrat)
 
         self.dialog.open()
 
-    def dismiss(self, *args):
-        if self.manager.parent:
-            self.manager.parent.remove_widget(self.manager)
+    def fenetre_client(self, titre, ecran):
+        self.client_manager.current = ecran
+        client = MDDialog(
+            md_bg_color='#56B5FB',
+            title=titre,
+            type='custom',
+            size_hint= (.8, .65),
+            content_cls= self.client_manager
+        )
+        self.client_manager.height = '390dp' if ecran == 'option_client' else '550dp'
+        self.client_manager.width = '1000dp'
+
+        self.dialog = client
+        self.dialog.bind(on_dismiss=self.dismiss_client)
+
+        self.dialog.open()
+
+    def dismiss_contrat(self, *args):
+        if self.contrat_manager.parent:
+            self.contrat_manager.parent.remove_widget(self.contrat_manager)
+
+    def dismiss_client(self, *args):
+        if self.client_manager.parent:
+            self.client_manager.parent.remove_widget(self.client_manager)
 
     def dropdown_menu(self, button, menu_items, color):
         self.menu = MDDropdownMenu(
@@ -203,13 +267,17 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
 
-        self.ajout_tableau(place)
+        self.tableau_contrat(place)
 
     def switch_to_home(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
 
     def switch_to_client(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'client'
+
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
+
+        self.tableau_client(place)
 
     def switch_to_planning(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'planning'
@@ -229,7 +297,7 @@ class Screen(MDApp):
                 "on_release": lambda x=f"{i}": self.menu_callback(x, name,'signup', 'type'),
             } for i in type_compte
         ]
-        self.dropdown_menu(button, compte)
+        self.dropdown_menu(button, compte, 'white')
 
     def dropdown_homepage(self, button, name):
         type_tri = ['Contrats', 'Clients', 'Planning']
@@ -270,7 +338,7 @@ class Screen(MDApp):
         self.dropdown_menu(button, menu, 'white')
 
     def retour_new(self,text,  champ):
-        self.manager.get_screen('new_contrat').ids[f'{champ}'].text = text
+        self.contrat_manager.get_screen('new_contrat').ids[f'{champ}'].text = text
         self.menu.dismiss()
 
     def choose_screen(self, instance):
@@ -300,8 +368,8 @@ class Screen(MDApp):
                               client["zip_code"])
             client_box.add_widget(card)
 
-    def ajout_tableau(self, place):
-        self.tableau = MDDataTable(
+    def tableau_contrat(self, place):
+        self.liste_contrat = MDDataTable(
             pos_hint={'center_x':.5, "center_y": .53},
             size_hint=(1,1),
             background_color_header = '#56B5FB',
@@ -333,32 +401,71 @@ class Screen(MDApp):
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
             ],
         )
-        self.tableau.bind(on_row_press=self.row_pressed)
-        place.add_widget(self.tableau)
+        self.liste_contrat.bind(on_row_press=self.row_pressed_contrat)
+        place.add_widget(self.liste_contrat)
 
-    def row_pressed(self, table, row):
+    def row_pressed_contrat(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
         date = row_data[3].split(' ')
-        self.manager.get_screen('option_contrat').ids.titre.text = f'A propos du contrat de {row_data[1]}'
-        self.manager.get_screen('option_contrat').ids.date_contrat.text = f'Contrat du : {row_data[0]}'
-        self.manager.get_screen('option_contrat').ids.debut_contrat.text = f'Début du contrat : {date[0]}'
-        self.manager.get_screen('option_contrat').ids.fin_contrat.text = f'Fin du contrat : {date[2]}'
-        self.manager.get_screen('option_contrat').ids.type_traitement.text = f'Type de traitement : {row_data[2]}'
-        self.fenetre('', 'option_contrat')
+        self.contrat_manager.get_screen('option_contrat').ids.titre.text = f'A propos du contrat de {row_data[1]}'
+        self.contrat_manager.get_screen('option_contrat').ids.date_contrat.text = f'Contrat du : {row_data[0]}'
+        self.contrat_manager.get_screen('option_contrat').ids.debut_contrat.text = f'Début du contrat : {date[0]}'
+        self.contrat_manager.get_screen('option_contrat').ids.fin_contrat.text = f'Fin du contrat : {date[2]}'
+        self.contrat_manager.get_screen('option_contrat').ids.type_traitement.text = f'Type de traitement : {row_data[2]}'
+        self.fenetre_contrat('', 'option_contrat')
+
+    def tableau_client(self, place):
+        self.liste_client = MDDataTable(
+            pos_hint={'center_x':.5, "center_y": .53},
+            size_hint=(1,1),
+            background_color_header = '#56B5FB',
+            background_color= '#56B5FB',
+            rows_num=20,
+            elevation=0,
+            column_data=[
+                ("Client", dp(35)),
+                ("Email", dp(60)),
+                ("Adresse du client", dp(40)),
+                ("Date de contrat du client", dp(40)),
+            ],
+            row_data=[
+                ("DEV-CORPS MDG", "devcorps@dv.mg", "Ankadindramamy", "27/11/25"),
+                ("Cleanliness Madagascar", "CleanlinessOfMadagascar@gmail.com", "Anjanajary", " 02/07/24"),
+            ],
+        )
+        self.liste_client.bind(on_row_press=self.row_pressed_client)
+        place.add_widget(self.liste_client)
+
+    def row_pressed_client(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+
+        self.client_manager.get_screen('option_client').ids.titre.text = f'A propos de {row_data[0]}'
+        self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {row_data[3]}'
+        self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : 28/11/24'
+        self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : 29/11/25'
+        self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {row_data[1]}'
+        self.fenetre_client('', 'option_client')
+
+    def modification_client(self ,nom):
+        #self.client_manager.get_screen('modif_client').ids.titre.text = f'Modifications des informartion sur {nom}'
+        self.dismiss_client()
+        self.fermer_ecran()
+        self.fenetre_client(f'Modifications des informartion sur {nom}', 'modif_client')
 
     def suppression_contrat(self, titre, contrat, debut, fin):
         client = titre.split(' ')
 
-        self.manager.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {client[5] + client[6]}'
-        self.manager.get_screen('suppression_contrat').ids.date_contrat.text = contrat
-        self.manager.get_screen('suppression_contrat').ids.debut_contrat.text = debut
-        self.manager.get_screen('suppression_contrat').ids.fin_contrat.text = fin
+        self.contrat_manager.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {client[5] + client[6]}'
+        self.contrat_manager.get_screen('suppression_contrat').ids.date_contrat.text = contrat
+        self.contrat_manager.get_screen('suppression_contrat').ids.debut_contrat.text = debut
+        self.contrat_manager.get_screen('suppression_contrat').ids.fin_contrat.text = fin
 
-        self.dismiss()
-        self.close_dialog()
-        self.fenetre('','suppression_contrat')
+        self.dismiss_contrat()
+        self.fermer_ecran()
+        self.fenetre_contrat('', 'suppression_contrat')
 
     def open_compte(self, dev):
         import webbrowser
