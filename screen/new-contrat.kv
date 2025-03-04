@@ -168,6 +168,10 @@ MDScreen:
             pos_hint: {'center_x':.7, 'center_y': .2}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
+            on_release:
+                app.dismiss_contrat()
+                app.fermer_ecran()
+                app.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
 
         MDRectangleFlatButton:
             text: 'Annuler'
