@@ -31,11 +31,15 @@ MDScreen:
                 font_size: 15
                 padding:0,0,60,0
                 font_name: 'poppins'
+                on_release:
+                    app.fenetre_planning('', 'rendu_planning')
 
             MDIconButton:
                 icon: 'Assets/render.png'
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
+                on_release:
+                    app.fenetre_planning('', 'rendu_planning')
 
         MDBoxLayout:
             id: actualiser
@@ -109,3 +113,9 @@ MDScreen:
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
                 on_release:
+
+        MDFloatLayout:
+            id: tableau_planning
+            pos_hint:{'center_x': .355,'center_y': .4}
+            size_hint: .71,.75
+            radius: 8

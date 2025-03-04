@@ -1,0 +1,183 @@
+MDScreen:
+    name: 'ajout_planning'
+    size_hint: None, None
+    height: '370dp'
+    width: '1000dp'
+    pos_hint: {'center_x':.5, 'center_y': .5}
+    MDFloatLayout:
+        pos_hint: {'center_x':.5, 'center_y': .5}
+
+        MDLabel:
+            text: 'Mois de début du traitement'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .55,'center_y':.92}
+
+        MDTextField:
+            id: mois_date
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.17,"center_y":.8}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .27, "center_y":.8}
+            on_release:
+
+
+        MDLabel:
+            text: 'Mois de fin du traitement'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .88,'center_y':.92}
+
+        MDTextField:
+            id: mois_fin
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.5,"center_y":.8}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .6, "center_y":.8}
+            on_release:
+
+
+        MDLabel:
+            text: 'Axe concerné'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": 1.21,'center_y':.92}
+
+        MDTextField:
+            id: axe_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.83,"center_y":.8}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .93, "center_y":.8}
+            on_release:
+
+
+        MDLabel:
+            text: 'Type de traitement'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .55,'center_y':.62}
+
+        MDTextField:
+            id: type_traitement
+            text: 'Dératisation'
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.17,"center_y":.5}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .27, "center_y":.5}
+            on_release:
+                app.dropdown_new_contrat(self, 'type_traitement')
+
+        MDLabel:
+            text: 'Mois de pause (Prévu)'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .88,'center_y':.62}
+
+        MDTextField:
+            id: pause_prevu
+            text: '12 mois'
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.5,"center_y":.5}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .6, "center_y":.5}
+            on_release:
+                app.dropdown_new_contrat(self, 'duree_new_contrat')
+
+        MDLabel:
+            text: 'Redondance du traitement'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": 1.21,'center_y':.62}
+
+        MDTextField:
+            id: red_trait
+            text: 'Nouveau contrat'
+            mode: 'fill'
+            font_name:"poppins"
+            pos_hint:{"center_x":.83,"center_y":.5}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+            disabled :True
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .93, "center_y":.5}
+            on_release:
+                app.dropdown_new_contrat(self, 'cat_contrat')
+
+        MDRectangleFlatButton:
+            text: 'Passer à la facture'
+            text_color: 'black'
+            font_name: 'poppins'
+            font_size: 15
+            size_hint: .3, None
+            pos_hint: {'center_x':.7, 'center_y': .2}
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            on_release:
+
+        MDRectangleFlatButton:
+            text: 'Annuler'
+            text_color: 'black'
+            font_name: 'poppins'
+            font_size: 15
+            size_hint: .3, None
+            pos_hint: {'center_x':.3, 'center_y': .2}
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            on_release:
+                app.fermer_ecran()
