@@ -1,0 +1,69 @@
+MDScreen:
+    name: 'save_info_client'
+    pos_hint: {'center_x':.5, 'center_y': .5}
+
+    MDFloatLayout:
+        pos_hint: {'center_x':.5, 'center_y': .5}
+        size_hint_x : 1
+
+        MDLabel:
+            id: titre
+            text:'Enregistrement des informations sur {Clients} '
+            pos_hint: {'center_x':.76, 'center_y': .97}
+            font_size: 18
+            font_name: 'poppins'
+
+        MDLabel:
+            id: date_contrat
+            text: 'Date du contrat : {Date}'
+            pos_hint: {'center_x':.52, 'center_y': .75}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: debut_contrat
+            text: 'Début du contrat : {debut}'
+            pos_hint: {'center_x':.87, 'center_y': .75}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: fin_contrat
+            text: 'Fin du contrat : {Fin}'
+            pos_hint: {'center_x':1.25, 'center_y': .75}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            text: 'Voulez-vous enregistrer ce contrat?'
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x':.85 ,'center_y': .55}
+
+        MDRectangleFlatButton:
+            text: 'Revenir en arrière'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .28}
+            on_release:
+                app.dismiss_contrat()
+                app.fermer_ecran()
+                app.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
+
+        MDRectangleFlatButton:
+            text: "Oui, j'accepte"
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            pos_hint: {'center_x':.75, 'center_y': .28}
+            on_release:
+                app.dismiss_contrat()
+                app.fermer_ecran()
+                app.fenetre_contrat('Ajout du planning', 'ajout_planning')
