@@ -23,6 +23,7 @@ from email import is_valid_email
 from gestion_ecran_client import gestion_ecran_client
 from gestion_ecran_contrat import gestion_ecran_contrat
 from gestion_ecran import gestion_ecran
+from gestion_ecran_histo import gestion_ecran_histo
 from setting_bd import DatabaseManager
 import verif_password as vp
 
@@ -74,6 +75,12 @@ class Screen(MDApp):
 
         self.client_manager.transition.duration = 0.1
         gestion_ecran_client(self.client_manager)
+
+        #Gestion des écrans dans historique
+        self.historic_manager = ScreenManager(size_hint=(None, None))
+
+        self.historic_manager.transition.duration = 0.1
+        gestion_ecran_histo(self.historic_manager)
 
         #Pour les dropdown
         self.menu = None
@@ -230,6 +237,23 @@ class Screen(MDApp):
 
         self.dialog.open()
 
+    def fenetre_histo(self, titre, ecran):
+        self.historic_manager.current = ecran
+        histo = MDDialog(
+            md_bg_color='#56B5FB',
+            title=titre,
+            type='custom',
+            size_hint=(.8, .65),
+            content_cls=self.historic_manager
+        )
+        self.historic_manager.height = '390dp' if ecran == 'option_historique' else '550dp'
+        self.historic_manager.width = '1000dp'
+
+        self.dialog = histo
+        self.dialog.bind(on_dismiss=self.dismiss_histo)
+
+        self.dialog.open()
+
     def dismiss_contrat(self, *args):
         if self.contrat_manager.parent:
             self.contrat_manager.parent.remove_widget(self.contrat_manager)
@@ -237,6 +261,10 @@ class Screen(MDApp):
     def dismiss_client(self, *args):
         if self.client_manager.parent:
             self.client_manager.parent.remove_widget(self.client_manager)
+
+    def dismiss_histo(self, *args):
+        if self.historic_manager.parent:
+            self.historic_manager.parent.remove_widget(self.historic_manager)
 
     def dropdown_menu(self, button, menu_items, color):
         self.menu = MDDropdownMenu(
@@ -278,6 +306,13 @@ class Screen(MDApp):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
 
         self.tableau_client(place)
+
+    def switch_to_historique(self):
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'historique'
+
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids.tableau_historic
+
+        self.tableau_historic(place)
 
     def switch_to_planning(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'planning'
@@ -385,20 +420,8 @@ class Screen(MDApp):
             row_data=[
                 ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
                 ("26/11/2024", "Cleanliness Madagascar", "Désinsectisation", "01/07/23 au 02/07/24"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
-                ("25/11/2024", "DEV-CORPS MDG", "Dératisation", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Nettoyage", "26/11/24 au 27/11/25"),
+                ("25/11/2024", "DEV-CORPS MDG", "Désinfection", "26/11/24 au 27/11/25"),
             ],
         )
         self.liste_contrat.bind(on_row_press=self.row_pressed_contrat)
@@ -432,7 +455,7 @@ class Screen(MDApp):
             ],
             row_data=[
                 ("DEV-CORPS MDG", "devcorps@dv.mg", "Ankadindramamy", "27/11/25"),
-                ("Cleanliness Madagascar", "CleanlinessOfMadagascar@gmail.com", "Anjanajary", " 02/07/24"),
+                ("Cleanliness Madagascar", "CleanlinessOfMadagascar@gmail.com", "Anjanahary", " 02/07/24"),
             ],
         )
         self.liste_client.bind(on_row_press=self.row_pressed_client)
@@ -448,6 +471,34 @@ class Screen(MDApp):
         self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : 29/11/25'
         self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {row_data[1]}'
         self.fenetre_client('', 'option_client')
+
+    def tableau_historic(self, place):
+        self.historique = MDDataTable(
+            pos_hint={'center_x':.5, "center_y": .53},
+            size_hint=(1,1),
+            background_color_header = '#56B5FB',
+            background_color= '#56B5FB',
+            rows_num=20,
+            elevation=0,
+            column_data=[
+                ("Nom client", dp(60)),
+                ("Adresse du client", dp(60)),
+                ("Date du contrat", dp(40)),
+            ],
+            row_data=[
+                ("DEV-CORPS MDG", "Ankadindramamy", "27/11/25"),
+                ("Cleanliness Madagascar", "Anjanahary", " 02/07/24"),
+            ],
+        )
+        self.historique.bind(on_row_press=self.row_pressed_histo)
+        place.add_widget(self.historique)
+
+    def row_pressed_histo(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+
+        print(row_data)
+        self.fenetre_histo('', 'option_historique')
 
     def modification_client(self ,nom):
         #self.client_manager.get_screen('modif_client').ids.titre.text = f'Modifications des informartion sur {nom}'

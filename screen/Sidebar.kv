@@ -20,7 +20,7 @@ MDScreen:
 
         MDTextButton:
             id: home
-            pos_hint:{"center_x":.3,"center_y":.65}
+            pos_hint:{"center_x":.3,"center_y":.68}
             text:'Acceuil'
             theme_text_color:'Custom'
             text_color: '#FFFFFF'
@@ -32,7 +32,7 @@ MDScreen:
 
         MDTextButton:
             id: contrat
-            pos_hint:{"center_x":.33,"center_y":.57}
+            pos_hint:{"center_x":.33,"center_y":.6}
             text:'Contrats'
             theme_text_color:'Custom'
             text_color: 'black'
@@ -44,7 +44,7 @@ MDScreen:
 
         MDTextButton:
             id:planning
-            pos_hint:{"center_x":.325,"center_y":.49}
+            pos_hint:{"center_x":.325,"center_y":.52}
             text:'Planning'
             theme_text_color:'Custom'
             text_color: 'black'
@@ -56,7 +56,7 @@ MDScreen:
 
         MDTextButton:
             id: clients
-            pos_hint:{"center_x":.3,"center_y":.41}
+            pos_hint:{"center_x":.3,"center_y":.44}
             text:'Clients'
             theme_text_color:'Custom'
             text_color: 'black'
@@ -64,6 +64,18 @@ MDScreen:
             font_size: 18
             on_release:
                 app.switch_to_client()
+                app.choose_screen(self)
+
+        MDTextButton:
+            id: historique
+            pos_hint:{"center_x":.36,"center_y":.36}
+            text:'Historiques'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            on_release:
+                app.switch_to_historique()
                 app.choose_screen(self)
 
         MDFillRoundFlatButton:
