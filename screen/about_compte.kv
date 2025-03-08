@@ -1,0 +1,42 @@
+MDScreen:
+    name: 'compte_abt'
+
+    MDLabel:
+        id: titre
+        text:
+        font_size: 18
+        font_name: 'poppins-bold'
+        pos_hint: {'center_x': .81, 'center_y': .95}
+
+    MDLabel:
+        id: nom
+        text: 'Nom : {username}'
+        font_size: 17
+        font_name: 'poppins'
+        pos_hint: {'center_x': .5, 'center_y': .75}
+
+    MDLabel:
+        id: prenom
+        text: 'Prénom : {username}'
+        font_size: 17
+        font_name: 'poppins'
+        pos_hint: {'center_x': 1., 'center_y': .75}
+
+    MDLabel:
+        id: email
+        text: ''
+        font_size: 17
+        font_name: 'poppins'
+        pos_hint: {'center_x': .5, 'center_y': .53}
+
+    MDRectangleFlatButton:
+        text : 'Supprimer le compte'
+        font_name: 'poppins'
+        font_size: 16
+        md_bg_color: '#FF3333'
+        line_color: '#FF3333'
+        text_color: 'black'
+        size_hint: .5, None
+        pos_hint: {'center_x': .5, 'center_y': .2}
+        on_release:
+            app.suppression_compte(titre.text)

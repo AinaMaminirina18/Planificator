@@ -1,0 +1,47 @@
+MDScreen:
+    name: 'not_admin'
+
+    MDFloatLayout:
+        md_bg_color: '#56B5FB'
+        size_hint: .45, .4
+        radius: [10]
+        pos_hint: {'center_x': .63, 'center_y': .5}
+
+        MDLabel:
+            id: nom
+            text: 'Nom : {Name}'
+            font_name: 'poppins'
+            font_size: 17
+            pos_hint: {'center_x': .54, 'center_y': .85}
+
+        MDLabel:
+            id: prenom
+            text: 'Prénom : {First name}'
+            font_name: 'poppins'
+            font_size: 18
+            pos_hint: {'center_x': .54, 'center_y': .73}
+
+        MDLabel:
+            id: email
+            text: 'Email : {email account}'
+            font_name: 'poppins'
+            font_size: 18
+            pos_hint: {'center_x': .54, 'center_y': .61}
+
+        MDLabel:
+            id: username
+            text: "Nom d'utilisateur : {username}"
+            font_name: 'poppins'
+            font_size: 18
+            pos_hint: {'center_x': .54, 'center_y': .49}
+
+        MDRectangleFlatButton:
+            text: 'Modifier les informations du comptes'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .2}
+            text_color: 'black'
+            on_release:
+                app.modification_compte()
+

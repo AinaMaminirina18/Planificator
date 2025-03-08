@@ -1,0 +1,57 @@
+MDScreen:
+    name: 'suppression_compte'
+
+    MDLabel:
+        id: titre
+        text:''
+        font_size: 18
+        font_name: 'poppins-bold'
+        pos_hint: {'center_x': .68, 'center_y': .95}
+
+    MDLabel:
+        text: 'Veuillez entrer le mot de passe administrateur pour confirmer la suppression'
+        font_size: 12
+        font_name: 'poppins'
+        pos_hint: {'center_x': .6, 'center_y': .77}
+
+    MDTextField:
+        id: admin_password
+        mode: 'fill'
+        text_color_focus: 'black'
+        font_name:"poppins"
+        pos_hint:{"center_x":.45,"center_y":.5}
+        line_color_normal: 'white'
+        fill_color_normal: 'white'
+        line_color_focus: 'white'
+        size_hint: .6,None
+        password: True
+        radius:[10]
+
+    MDIconButton:
+        icon: './Assets/eye.png'
+        pos_hint:{"center_x": .7, "center_y":.5}
+        on_release:
+            self.icon = "./Assets/eye.png" if self.icon == "eye-off" else "eye-off"
+            admin_password.password = False if admin_password.password is True else True
+
+    MDRectangleFlatButton:
+        text : 'Annuler'
+        font_name: 'poppins'
+        md_bg_color: '#FF3333'
+        line_color: '#FF3333'
+        text_color: 'black'
+        size_hint: .4, None
+        pos_hint: {'center_x': .23, 'center_y': .2}
+        on_release:
+            app.fermer_ecran()
+
+    MDRectangleFlatButton:
+        text : 'Confirmer la suppression'
+        font_name: 'poppins'
+        md_bg_color: '#B3F844'
+        line_color: '#B3F844'
+        text_color: 'black'
+        size_hint: .4, None
+        pos_hint: {'center_x': .72, 'center_y': .2}
+        on_release:
+            app.delete_account(admin_password.text)

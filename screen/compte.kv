@@ -1,0 +1,52 @@
+MDScreen:
+    name: 'compte'
+
+    MDFloatLayout:
+        md_bg_color: '#56B5FB'
+        size_hint: .65, .9
+        radius: [10]
+        pos_hint: {'center_x': .63, 'center_y': .5}
+
+        MDLabel:
+            id: nom
+            text: 'N'
+            font_name: 'poppins'
+            font_size: 17
+            pos_hint: {'center_x': .54, 'center_y': .93}
+
+        MDLabel:
+            id: prenom
+            text: ''
+            font_name: 'poppins'
+            font_size: 18
+            pos_hint: {'center_x': .54, 'center_y': .87}
+
+        MDLabel:
+            id: email
+            text: ''
+            font_name: 'poppins'
+            font_size: 18
+            pos_hint: {'center_x': .54, 'center_y': .81}
+
+        MDLabel:
+            id: username
+            text: ""
+            font_name: 'poppins'
+            font_size: 18
+            pos_hint: {'center_x': .54, 'center_y': .75}
+
+        MDRectangleFlatButton:
+            text: 'Modifier les informations du comptes'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            font_name: 'poppins'
+            pos_hint: {'center_x': .8, 'center_y': .93}
+            text_color: 'black'
+            on_release:
+                app.modification_compte()
+
+        MDFloatLayout:
+            id: tableau_compte
+            pos_hint:{'center_x': .5,'center_y': .37}
+            size_hint: .9,.65
+            radius: 10
