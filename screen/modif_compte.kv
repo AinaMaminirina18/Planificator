@@ -1,0 +1,168 @@
+MDScreen:
+    name: 'modif_info_compte'
+    pos_hint:{"center_x": .5, "center_y":.5}
+
+    MDFloatLayout:
+        orientation:'vertical'
+        md_bg_color: '#56B5FB'
+        pos_hint:{"center_x": .5, "center_y":.5}
+        radius:[20]
+
+        MDLabel:
+            text: 'Modification des informations '
+            halign: "center"
+            font_name: "poppins"
+            pos_hint:{"center_x": .5, "center_y":.98}
+            font_size: 18
+
+        MDLabel:
+            text: 'Nom'
+            font_name: 'poppins'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.85}
+
+        MDTextField:
+            id: nom
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.75}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+
+        MDLabel:
+            text: 'Prénom'
+            font_name: 'poppins'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.63}
+
+        MDTextField:
+            id: prenom
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.53}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+
+        MDLabel:
+            text: 'Adresse mail'
+            font_name: 'poppins'
+            font_size: 15
+            pos_hint:{"center_x":.55,"center_y":.41}
+
+        MDTextField:
+            id: email
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.31}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            validator: 'email'
+            radius:[10]
+
+        MDLabel:
+            text: "Nom d'utilisateur"
+            font_name: 'poppins'
+            font_size: 15
+            pos_hint:{"center_x":1.05,"center_y":.85}
+
+        MDTextField:
+            id: username
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.75}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+
+        MDLabel:
+            text: 'Entrez votre mot de passe'
+            font_name: 'poppins'
+            font_size: 15
+            pos_hint:{"center_x":1.05,"center_y":.63}
+
+        MDTextField:
+            id: password
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.53}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+            password: True
+
+        MDIconButton:
+            icon: 'Assets/eye.png'
+            pos_hint:{"center_x": .925, "center_y":.53}
+            on_release:
+                self.icon = "Assets/eye.png" if self.icon == "eye-off" else "eye-off"
+                password.password = False if password.password is True else True
+
+        MDLabel:
+            text: 'Confirmez votre mot de passe'
+            font_name: 'poppins'
+            font_size: 15
+            pos_hint:{"center_x":1.05,"center_y":.41}
+
+        MDTextField:
+            id: confirm_password
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.31}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[10]
+            password: True
+
+        MDIconButton:
+            icon: 'Assets/eye.png'
+            pos_hint:{"center_x": .925, "center_y":.31}
+            on_release:
+                self.icon = "Assets/eye.png" if self.icon == "eye-off" else "eye-off"
+                confirm_password.password = False if confirm_password.password is True else True
+
+        MDRectangleFlatButton:
+            pos_hint:{"center_x":.4,"center_y":.13}
+            md_bg_color:'#FF3333'
+            line_color:'#FF3333'
+            text:'Annuler'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            size_hint: .15,.11
+            on_release:
+                app.fermer_ecran()
+                app.dismiss_compte()
+
+        MDRectangleFlatButton:
+            pos_hint:{"center_x":.6,"center_y":.13}
+            md_bg_color:'white'
+            line_color:'white'
+            text:'Enregistrer'
+            theme_text_color:'Custom'
+            text_color: 'black'
+            font_name:"poppins"
+            font_size: 18
+            size_hint: .15,.11
+            on_release:
+                app.update_account(nom.text, prenom.text, email.text, username.text, password.text, confirm_password.text)
