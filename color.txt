@@ -3,3 +3,4 @@ Rouge: #FF3333
 Vert: #B3F844
 Bleu drop: #A5D8FD en RGBA (0.647, 0.847, 0.992, 1)
 Couleur icone: #292D32
+Gris: #D9D9D9
