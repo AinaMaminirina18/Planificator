@@ -7,7 +7,7 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.dialog import MDDialog
 
-from kivy.uix.screenmanager import ScreenManager, SlideTransition
+from kivy.uix.screenmanager import ScreenManager
 from kivy.clock import Clock
 from kivy.core.text import LabelBase
 from kivy.lang import Builder
@@ -21,6 +21,7 @@ from kivymd.uix.pickers import MDDatePicker
 from card import contrat
 from email import is_valid_email
 from gestion_ecran_client import gestion_ecran_client
+from gestion_ecran_compte import gestion_ecran_compte
 from gestion_ecran_contrat import gestion_ecran_contrat
 from gestion_ecran import gestion_ecran
 from gestion_ecran_planning import gestion_ecran_planning
@@ -65,6 +66,9 @@ class Screen(MDApp):
         self.icon = self.CLM
         self.title = 'Planificator'.upper()
 
+        self.admin = False
+        self.compte = None
+        self.not_admin = None
         #Gestion des écrans dans contrat
         self.contrat_manager = ScreenManager(size_hint=(None, None))
 
@@ -89,12 +93,20 @@ class Screen(MDApp):
         self.historic_manager.transition.duration = 0.1
         gestion_ecran_histo(self.historic_manager)
 
+        #Gestion des écrans dans compte
+        self.account_manager = ScreenManager(size_hint=(None, None))
+
+        self.account_manager.transition.duration = 0.1
+        gestion_ecran_compte(self.account_manager)
+
         #Pour les dropdown
         self.menu = None
 
+        self.dialogue = None
+
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -109,12 +121,15 @@ class Screen(MDApp):
         else:
             async def process_login():
                 try:
-                    result = await self.database.verify_user(username, password)
-                    if result and vp.reverse(password, result[0]):
+                    result = await self.database.verify_user(username)
+                    if result and vp.reverse(password, result[5]):
                         Clock.schedule_once(lambda dt: self.switch_to_main())
-                        Clock.schedule_once(lambda a: self.show_dialog("Success", "Login successful!"))
+                        Clock.schedule_once(lambda a: self.show_dialog("Success", "Connexion réussie !"))
                         Clock.schedule_once(lambda cl: self.clear_fields('login'))
+                        self.compte = result
 
+                        if result[6] == 'Administrateur':
+                            self.admin = True
                     else:
                         Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Aucun compte trouvé dans la base de données"))
                 except:
@@ -148,18 +163,84 @@ class Screen(MDApp):
             async def add_user_task():
                 try:
                     await self.database.add_user(nom, prenom, email, username, valid_password, type_compte)
-                    Clock.schedule_once(lambda a: self.switch_to_main())
+                    Clock.schedule_once(lambda a: self.switch_to_login())
                     Clock.schedule_once(lambda dt: self.show_dialog("Success", "Compte créé avec succès !"))
                     Clock.schedule_once(lambda cl: self.clear_fields('signup'))
-                except aiomysql.IntegrityError:
-                    Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Username already exists."))
-
+                except Exception as error:
+                    erreur = error
+                    Clock.schedule_once(lambda dt : self.show_dialog('Erreur', f'{erreur}'))
+                    print(erreur)
             # Exécuter la tâche d'ajout d'utilisateur dans la boucle asyncio
             asyncio.run_coroutine_threadsafe(add_user_task(), self.loop)
 
+    def update_account(self, nom, prenom, email, username, password, confirm):
+        valid_password = vp.get_valid_password(nom, prenom, password, confirm)
+
+        if not nom or not prenom or not email or not password or not username or not confirm:
+            Clock.schedule_once(lambda  dt: self.show_dialog("Erreur", "Veuillez completer tous les champs"))
+            return
+
+        elif not is_valid_email(email):
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Verifier votre adresse email'))
+
+        elif 'Le' in str(valid_password):
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password))
+
+        else:
+            async def update_user_task():
+                try:
+                    await self.database.update_user(nom, prenom, email, username, valid_password, self.compte[0])
+                    Clock.schedule_once(lambda dt: self.show_dialog("Success", "Les modifications ont été enregistrées"))
+                    Clock.schedule_once(lambda cl: self.clear_fields('modif_info_compte'))
+                    Clock.schedule_once(lambda c: self.current_compte())
+                    Clock.schedule_once(lambda cl: self.dismiss_compte())
+                    Clock.schedule_once(lambda cl: self.fermer_ecran())
+                except Exception as error:
+                    erreur = error
+                    #Clock.schedule_once(lambda dt : self.show_dialog('Erreur', f'{error}'))
+                    print(erreur)
+
+            asyncio.run_coroutine_threadsafe(update_user_task(), self.loop)
+
+    def current_compte(self):
+        ecran = 'compte' if self.admin else 'not_admin'
+        async def current():
+            compte = await self.database.get_current_user(self.compte[0])
+            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
+                ecran).ids.nom.text = f'Nom : {compte[1]}'
+            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
+                ecran).ids.prenom.text = f'Prénom : {compte[2]}'
+            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
+                ecran).ids.email.text = f'Email : {compte[3]}'
+            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
+                ecran).ids.username.text = f"Nom d'utilisateur : {compte[4]}"
+
+            self.compte = compte
+
+        asyncio.run_coroutine_threadsafe(current(), self.loop)
+
+    def delete_account(self, admin_password):
+        if vp.reverse(admin_password,self.compte[5]):
+            async def suppression():
+                try:
+                    await self.database.delete_user(self.not_admin[3])
+                    Clock.schedule_once(lambda dt: self.dismiss_compte())
+                    Clock.schedule_once(lambda dt: self.fermer_ecran())
+                    Clock.schedule_once(lambda dt: self.show_dialog('', 'Suppression du compte réussie'))
+                    Clock.schedule_once(lambda dt: self.remove_tables())
+
+                except Exception as error:
+                    erreur = error
+                    Clock.schedule_once(lambda dt : self.show_dialog('Erreur', f'{erreur}'))
+
+            asyncio.run_coroutine_threadsafe(suppression(), self.loop)
+        else:
+            self.account_manager.get_screen('suppression_compte').ids.admin_password.helper_text = 'Verifier le mot de passe'
+            self.show_dialog('Erreur', f'eeeeee')
+
     def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
-        if not hasattr(self, 'dialog') or self.dialog is None:
+        if not hasattr(self, 'dialogue') or self.dialogue is None or titre != 'Déconnexion':
             self.dialogue = MDDialog(
                 title=titre,
                 text=texte,
@@ -190,6 +271,8 @@ class Screen(MDApp):
     def deconnexion(self):
         self.close_dialog()
         self.root.current = 'before login'
+        self.admin = False
+        self.compte = None
 
     def close_dialog(self):
         self.dialogue.dismiss()
@@ -262,7 +345,6 @@ class Screen(MDApp):
 
         self.dialog.open()
 
-
     def fenetre_histo(self, titre, ecran):
         self.historic_manager.current = ecran
         histo = MDDialog(
@@ -276,6 +358,25 @@ class Screen(MDApp):
         self.historic_manager.width = '1000dp'
 
         self.dialog = histo
+        self.dialog.bind(on_dismiss=self.dismiss_histo)
+
+        self.dialog.open()
+
+    def fenetre_account(self, titre, ecran):
+        self.account_manager.current = ecran
+        compte = MDDialog(
+            md_bg_color='#56B5FB',
+            title=titre,
+            type='custom',
+            size_hint=(.5, .35) if ecran != 'modif_info_compte' else (.8, .6),
+            content_cls=self.account_manager
+        )
+        height = '250dp' if ecran == 'suppression_compte' else '450dp' if ecran == 'modif_info_compte' else'200dp'
+        width = '630dp' if ecran == 'suppression_compte' else '1000dp' if ecran == 'modif_info_compte' else '600dp'
+        self.account_manager.height = height
+        self.account_manager.width = width
+
+        self.dialog = compte
         self.dialog.bind(on_dismiss=self.dismiss_histo)
 
         self.dialog.open()
@@ -296,6 +397,10 @@ class Screen(MDApp):
         if self.historic_manager.parent:
             self.historic_manager.parent.remove_widget(self.historic_manager)
 
+    def dismiss_compte(self, *args):
+        if self.account_manager.parent:
+            self.account_manager.parent.remove_widget(self.account_manager)
+
     def dropdown_menu(self, button, menu_items, color):
         self.menu = MDDropdownMenu(
             md_bg_color= color,
@@ -313,6 +418,7 @@ class Screen(MDApp):
 
     def clear_fields(self, screen):
         sign_up = ['nom','prenom','Email','type','signup_username','signup_password','confirm_password']
+        modif_compte = ['nom','prenom','email','username','password','confirm_password']
         login = ['login_username', 'login_password']
         if screen == 'signup':
             for id in sign_up:
@@ -320,6 +426,9 @@ class Screen(MDApp):
         if screen == 'login':
             for id in login:
                 self.root.get_screen('login').ids[id].text = ''
+        if screen == 'modif_info_compte':
+            for id in modif_compte:
+                self.account_manager.get_screen('modif_info_compte').ids[id].text = ''
 
     def switch_to_contrat(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
@@ -330,12 +439,27 @@ class Screen(MDApp):
     def switch_to_home(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
 
+    def switch_to_login(self):
+        self.root.current =  'login'
+
     def switch_to_client(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'client'
 
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
 
         self.tableau_client(place)
+
+    def switch_to_compte(self):
+        ecran = 'compte' if self.admin else 'not_admin'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  ecran
+        if self.admin:
+            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('compte').ids.tableau_compte
+            self.all_users(place)
+
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(ecran).ids.nom.text = f'Nom : {self.compte[1]}'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(ecran).ids.prenom.text = f'Prénom : {self.compte[2]}'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(ecran).ids.email.text = f'Email : {self.compte[3]}'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(ecran).ids.username.text = f"Nom d'utilisateur : {self.compte[4]}"
 
     def switch_to_historique(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'historique'
@@ -356,9 +480,11 @@ class Screen(MDApp):
 
     def switch_to_main(self):
         self.root.current = 'Sidebar'
+        self.reset()
+
 
     def dropdown_compte(self, button, name):
-        type_compte = ['Administrateur', 'Simple compte']
+        type_compte = ['Administrateur', 'Utilisateur']
         compte = [
             {
                 "text": i,
@@ -436,6 +562,19 @@ class Screen(MDApp):
             for ids, item in self.root.get_screen('Sidebar').ids.items():
                 if ids != current_id:
                     self.root.get_screen('Sidebar').ids[ids].text_color = 'black'
+
+    def reset(self):
+        for ids, item in self.root.get_screen('Sidebar').ids.items():
+            if ids == 'home':
+                self.root.get_screen('Sidebar').ids[ids].text_color = 'white'
+            else:
+                self.root.get_screen('Sidebar').ids[ids].text_color = 'black'
+
+    def remove_tables(self):
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('compte').ids.tableau_compte
+        place.remove_widget(self.account)
+
+        self.all_users(place)
 
     def ajout_carte(self):
 
@@ -557,7 +696,7 @@ class Screen(MDApp):
             size_hint=(1,1),
             background_color_header = '#56B5FB',
             background_color= '#56B5FB',
-            rows_num=20,
+            rows_num=1,
             elevation=0,
             column_data=[
                 ("Nom client", dp(60)),
@@ -578,6 +717,67 @@ class Screen(MDApp):
 
         print(row_data)
         self.fenetre_histo('', 'option_historique')
+
+    def all_users(self, place):
+        async def data_account():
+            try:
+                users = await self.database.get_all_user()
+                if users:
+                    Clock.schedule_once(lambda dt: self.tableau_compte(place, users))
+            except:
+                self.show_dialog('erreur', 'Merde !!!')
+
+        asyncio.run_coroutine_threadsafe(data_account(), self.loop)
+
+    def tableau_compte(self, place, data):
+        self.account = MDDataTable(
+            pos_hint={'center_x': .5, "center_y": .53},
+            size_hint=(1, 1),
+            background_color_header='#D9D9D9',
+            rows_num=len(data),
+            elevation=0,
+            column_data=[
+                ("Nom d'utilisateur", dp(62)),
+                ("Email", dp(80)),
+            ],
+            row_data=data
+        )
+        self.account.bind(on_row_press=self.row_pressed_compte)
+        place.add_widget(self.account)
+
+    def maj_compte(self, compte):
+        self.account_manager.get_screen('compte_abt').ids['titre'].text = f'A propos de {compte[4]}'
+        self.account_manager.get_screen('compte_abt').ids['nom'].text = f'Nom : {compte[1]}'
+        self.account_manager.get_screen('compte_abt').ids['prenom'].text = f'Prenom : {compte[2]}'
+        self.account_manager.get_screen('compte_abt').ids['email'].text = f'Email : {compte[3]}'
+
+    def row_pressed_compte(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+
+        async def about():
+            self.not_admin = await self.database.get_user(row_data[0])
+            Clock.schedule_once(lambda dt: self.dismiss_compte())
+            Clock.schedule_once(lambda dt: self.maj_compte(self.not_admin))
+            Clock.schedule_once(lambda dt: self.fenetre_account('', 'compte_abt'))
+
+        asyncio.run_coroutine_threadsafe(about(), self.loop)
+
+    def suppression_compte(self, username):
+        nom = username.split(' ')
+        self.account_manager.get_screen('suppression_compte').ids['titre'].text = f'Suppression du compte de {nom[3]}'
+        self.dismiss_compte()
+        self.fermer_ecran()
+        self.fenetre_account('', 'suppression_compte')
+
+    def modification_compte(self):
+        self.dismiss_compte()
+
+        self.account_manager.get_screen('modif_info_compte').ids.nom.text = self.compte[1]
+        self.account_manager.get_screen('modif_info_compte').ids.prenom.text = self.compte[2]
+        self.account_manager.get_screen('modif_info_compte').ids.email.text = self.compte[3]
+        self.account_manager.get_screen('modif_info_compte').ids.username.text = self.compte[4]
+        self.fenetre_account('', 'modif_info_compte')
 
     def modification_client(self ,nom):
         #self.client_manager.get_screen('modif_client').ids.titre.text = f'Modifications des informartion sur {nom}'
