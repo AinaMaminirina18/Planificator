@@ -113,7 +113,7 @@ MDScreen:
             size_hint: .5,None
             on_release:
                 app.choose_screen(account)
-
+                app.switch_to_compte()
 
         MDIconButton:
             icon: 'Assets/user-square.png'
@@ -121,9 +121,8 @@ MDScreen:
             icon_color: '#292D32'
             pos_hint:{"center_x":.7,"center_y":.24}
             on_release:
+                app.switch_to_compte()
                 app.choose_screen(account)
-
-
 
         MDFillRoundFlatButton:
             pos_hint:{"center_x":.38,"center_y":.08}
