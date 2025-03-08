@@ -480,6 +480,7 @@ class Screen(MDApp):
 
     def switch_to_main(self):
         self.root.current = 'Sidebar'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
         self.reset()
 
 
