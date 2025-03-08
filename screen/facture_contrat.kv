@@ -1,5 +1,5 @@
 MDScreen:
-    name: 'ajout_planning'
+    name: 'ajout_facture'
     size_hint: None, None
     height: '370dp'
     width: '1000dp'
@@ -9,7 +9,7 @@ MDScreen:
         pos_hint: {'center_x':.5, 'center_y': .5}
 
         MDLabel:
-            text: 'Mois de début du traitement'
+            text: 'Montant du service'
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": .55,'center_y':.92}
@@ -26,11 +26,6 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .27, "center_y":.8}
-            on_release:
 
         MDLabel:
             text: 'Mois de fin du traitement'
@@ -50,12 +45,6 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .6, "center_y":.8}
-            on_release:
-
 
         MDLabel:
             text: 'Axe concerné'
@@ -81,15 +70,14 @@ MDScreen:
             pos_hint:{"center_x": .93, "center_y":.8}
             on_release:
 
-
         MDLabel:
-            text: 'Type de traitement'
+            text: 'Traitement concerné'
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": .55,'center_y':.62}
 
         MDTextField:
-            id: type_traitement
+            id: traitement_c
             text: 'Dératisation'
             text_color_normal: 'black'
             mode: 'fill'
@@ -106,7 +94,6 @@ MDScreen:
             icon: 'chevron-down'
             pos_hint:{"center_x": .27, "center_y":.5}
             on_release:
-                app.dropdown_new_contrat(self, 'type_traitement')
 
         MDLabel:
             text: 'Mois de pause (Prévu)'
@@ -158,7 +145,7 @@ MDScreen:
             on_release:
 
         MDRectangleFlatButton:
-            text: 'Passer à la facture'
+            text: 'Suivant'
             text_color: 'black'
             font_name: 'poppins'
             font_size: 15
@@ -167,9 +154,6 @@ MDScreen:
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
-                app.dismiss_contrat()
-                app.fermer_ecran()
-                app.fenetre_contrat('Ajout de la facture', 'ajout_facture')
 
         MDRectangleFlatButton:
             text: 'Annuler'
