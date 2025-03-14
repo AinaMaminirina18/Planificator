@@ -4,9 +4,8 @@ from kivymd.uix.card import MDCard
 from kivymd.uix.gridlayout import MDGridLayout
 from kivymd.uix.label import MDLabel
 
-
 class contrat(MDCard):
-    def __init__(self, client, date_contrat, type_traitement, durée, debut_contrat, fin_prévu, **kwargs):
+    def __init__(self, client, date_contrat, type_traitement, durée, debut_contrat, fin_prévu,app_instance, **kwargs):
         super().__init__(**kwargs)
         self.size_hint = (None, None)
         self.size = ("300dp", "390dp")  # Taille ajustée
@@ -16,7 +15,7 @@ class contrat(MDCard):
         self.pos_hint= {"center_x": .5, "center_y": .7}
         self.md_bg_color= '#56B5FB'
         self.radius = 10
-
+        
         #informations
         info_conteneur = MDGridLayout(cols=1)
 
@@ -66,10 +65,12 @@ class contrat(MDCard):
             _default_text_color='black',
             _radius = 8,
             line_color= 'white',
-            font_name= 'poppins'
+            font_name= 'poppins',
+            on_release= lambda x: app_instance.fenetre_acceuil('', 'about_contrat',client, date_contrat )
         )
+        #more_info_btn.bind(on_release= ecran.fenetre_acceuil(ecran, '', 'about_contrat'))
         conteneur_btn.add_widget(more_info_btn)
-
+        
         #Ajouter les éléments à la carte
         conteneur_main.add_widget(info_conteneur)
         conteneur_main.add_widget(conteneur_btn)
