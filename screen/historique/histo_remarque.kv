@@ -1,0 +1,22 @@
+MDScreen:
+    name: 'histo_remarque'
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDIconButton:
+            icon: 'arrow-left'
+            pos_hint:{"center_x":.02, "center_y":.97}
+            on_release:
+
+        MDLabel:
+            text: 'Historique des remarques pour les traitements de Dératisation à DevCORPS'
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint:{"center_x":.6, "center_y":.97}
+
+        MDFloatLayout:
+            id: tableau_rem_histo
+            pos_hint:{'center_x': .5,'center_y': .45}
+            size_hint: 1,.85
+            radius: 8

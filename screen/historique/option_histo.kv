@@ -1,0 +1,85 @@
+MDScreen:
+    name: 'option_historique'
+
+    MDLabel:
+        id: titre
+        text:'Historiques des traitements à {Clients} '
+        pos_hint: {'center_x':.78, 'center_y': .97}
+        font_size: 18
+        font_name: 'poppins'
+
+    MDLabel:
+        id: date_contrat
+        text: 'Contrat du {Date}'
+        pos_hint: {'center_x':.52, 'center_y': .85}
+        font_size: 16
+        font_name: 'poppins'
+
+    MDLabel:
+        id: debut_contrat
+        text: 'Début du contrat : {debut}'
+        pos_hint: {'center_x':.87, 'center_y': .85}
+        font_size: 16
+        font_name: 'poppins'
+
+    MDLabel:
+        id: fin_contrat
+        text: 'Fin du contrat : {Fin}'
+        pos_hint: {'center_x':1.25, 'center_y': .85}
+        font_size: 16
+        font_name: 'poppins'
+
+    MDLabel:
+        id: trait
+        text: 'Traitement lié au contrat: 2 Traitements'
+        pos_hint: {'center_x':.52, 'center_y': .78}
+        font_size: 16
+        font_name: 'poppins'
+
+    ScrollView:
+        do_scroll_y: True
+        do_scroll_x: False
+        orientation: 'vertical'
+        padding: 10
+        pos_hint: {'center_x':.6, 'center_y': .2}
+
+        MDFloatLayout:
+            md_bg_color: '#A5D8FD'
+
+            MDFloatLayout:
+                md_bg_color: '#D9D9D9'
+                size_hint: .8, .28
+                radius: [10]
+
+                MDLabel:
+                    text: 'Traitement :'
+                    pos_hint: {'center_x':.53, 'center_y': .8}
+                    font_name: 'poppins'
+                    font_size: 16
+
+                MDLabel:
+                    text: 'Durée: 12 mois '
+                    pos_hint: {'center_x':.7, 'center_y': .8}
+                    font_name: 'poppins'
+                    font_size: 16
+
+                MDLabel:
+                    text: "Signalement d'avancement : 0 signalement"
+                    pos_hint: {'center_x':.53, 'center_y': .55}
+                    font_name: 'poppins'
+                    font_size: 16
+
+                MDLabel:
+                    text: "Signalement décalage : 0 signalement"
+                    pos_hint: {'center_x':.53, 'center_y': .3}
+                    font_name: 'poppins'
+                    font_size: 16
+
+                MDRectangleFlatButton:
+                    text: 'Voir les remarques'
+                    text_color: 'black'
+                    md_bg_color: "#FF3333"
+                    line_color: '#FF3333'
+                    font_name: 'poppins'
+                    size_hint: .3, None
+                    pos_hint: {'center_x':.8, 'center_y': .3}
