@@ -1,0 +1,89 @@
+MDScreen:
+    name: 'about_contrat'
+    pos_hint: {'center_x': .5, 'center_y': .5}
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDLabel:
+            text: 'A propos du contrat de DevCorps MDG'
+            font_size: 18
+            font_name: 'poppins'
+            halign: 'center'
+
+        MDLabel:
+            id: date_contrat
+            text: ''
+            pos_hint: {'center_x':.52, 'center_y': .85}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: debut_contrat
+            text: ''
+            pos_hint: {'center_x':.87, 'center_y': .85}
+            font_size: 16
+            font_name: 'poppins'
+
+
+        MDLabel:
+            id: fin_contrat
+            text: ''
+            pos_hint: {'center_x':1.25, 'center_y': .85}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            id: type_traitement
+            text: ''
+            pos_hint: {'center_x':.52, 'center_y': .72}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            text: 'Axe : {tsy deodorant}'
+            pos_hint: {'center_x':.87, 'center_y': .72}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDLabel:
+            text: 'Durée du contrat : {12 mois}'
+            pos_hint: {'center_x':.52, 'center_y': .59}
+            font_size: 16
+            font_name: 'poppins'
+
+        MDRectangleFlatButton:
+            text: 'Voir le planning des traitements'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: 'white'
+            line_color: 'white'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .43}
+
+        MDRectangleFlatButton:
+            text: 'Voir les informations sur le clients'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: 'white'
+            line_color: 'white'
+            text_color: 'black'
+            pos_hint: {'center_x':.27, 'center_y': .28}
+
+        MDRectangleFlatButton:
+            text: 'Voir les factures du client'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: 'white'
+            line_color: 'white'
+            text_color: 'black'
+            pos_hint: {'center_x':.75, 'center_y': .43}
+
+        MDRectangleFlatButton:
+            text: 'Modifier les informations du client'
+            size_hint: .3, None
+            font_name: 'poppins'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            text_color: 'black'
+            pos_hint: {'center_x':.75, 'center_y': .28}
