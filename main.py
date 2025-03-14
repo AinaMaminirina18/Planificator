@@ -20,6 +20,7 @@ from kivymd.uix.pickers import MDDatePicker
 
 from card import contrat
 from email import is_valid_email
+from gestion_ecran_acceuil import gestion_ecran_home
 from gestion_ecran_client import gestion_ecran_client
 from gestion_ecran_compte import gestion_ecran_compte
 from gestion_ecran_contrat import gestion_ecran_contrat
@@ -69,6 +70,8 @@ class Screen(MDApp):
         self.admin = False
         self.compte = None
         self.not_admin = None
+
+
         #Gestion des écrans dans contrat
         self.contrat_manager = ScreenManager(size_hint=(None, None))
 
@@ -99,14 +102,20 @@ class Screen(MDApp):
         self.account_manager.transition.duration = 0.1
         gestion_ecran_compte(self.account_manager)
 
+        #Gestion des écrans dans acceuil
+        self.home_manager = ScreenManager(size_hint=(None, None))
+
+        self.home_manager.transition.duration = 0.1
+        gestion_ecran_home(self.home_manager)
+
         #Pour les dropdown
         self.menu = None
 
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -236,7 +245,7 @@ class Screen(MDApp):
             asyncio.run_coroutine_threadsafe(suppression(), self.loop)
         else:
             self.account_manager.get_screen('suppression_compte').ids.admin_password.helper_text = 'Verifier le mot de passe'
-            self.show_dialog('Erreur', f'eeeeee')
+            self.show_dialog('Erreur', f"Le mot de passe n'est pas correct")
 
     def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
@@ -300,14 +309,31 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint= (.8, .65),
+            size_hint=(.8, .8) if ecran == 'ajout_info_client' else (.8, .65) ,
             content_cls= self.contrat_manager
         )
-        hauteur = '500dp' if ecran == 'option_contrat' else '500dp' if ecran == 'ajout_info_client' else '390dp'
+        hauteur = '500dp' if ecran == 'option_contrat' else '500dp' if ecran == 'ajout_info_client' else '400dp'
         self.contrat_manager.height = hauteur
         self.contrat_manager.width = '1000dp'
         self.dialog = contrat
         self.dialog.bind(on_dismiss=self.dismiss_contrat)
+
+        self.dialog.open()
+        
+    def fenetre_acceuil(self, titre, ecran, client, date):
+        self.home_manager.current = ecran
+        print(client, date)
+        acceuil = MDDialog(
+            md_bg_color='#56B5FB',
+            title=titre,
+            type='custom',
+            size_hint=(.7, .6),
+            content_cls= self.home_manager
+        )
+        self.home_manager.height = '400dp'
+        self.home_manager.width = '850dp'
+        self.dialog = acceuil
+        self.dialog.bind(on_dismiss=self.dismiss_home)
 
         self.dialog.open()
 
@@ -330,15 +356,36 @@ class Screen(MDApp):
         
     def fenetre_planning(self, titre, ecran):
         self.planning_manager.current = ecran
+        height = {"option_decalage": '200dp',
+                  "ecran_decalage": '360dp',
+                  "selection_planning": '550dp',
+                  "rendu_planning": '350dp',
+                  "selection_element_tableau": "300dp",
+                  "ajout_remarque": "350dp"}
+        
+        size_tableau = {"option_decalage": (.6, .3),
+                        "ecran_decalage": (.7, .6),
+                        "selection_planning": (.8, .58),
+                        "rendu_planning": (.8, .58),
+                        "selection_element_tableau": (.6, .4),
+                        "ajout_remarque": (.6, .55)}
+        
+        width = {"option_decalage": '700dp',
+                        "ecran_decalage": '1000dp',
+                        "selection_planning": '1000dp',
+                        "rendu_planning": '1000dp',
+                        "selection_element_tableau": '750dp',
+                        "ajout_remarque": '750dp'}
+        
         planning = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint=(.8, .58),
+            size_hint=size_tableau[ecran],
             content_cls=self.planning_manager
         )
-        self.planning_manager.height = '350dp'
-        self.planning_manager.width = '1000dp'
+        self.planning_manager.height = height[ecran]
+        self.planning_manager.width = width[ecran]
 
         self.dialog = planning
         self.dialog.bind(on_dismiss=self.dismiss_planning)
@@ -354,7 +401,7 @@ class Screen(MDApp):
             size_hint=(.8, .65),
             content_cls=self.historic_manager
         )
-        self.historic_manager.height = '390dp' if ecran == 'option_historique' else '550dp'
+        self.historic_manager.height ='500dp'
         self.historic_manager.width = '1000dp'
 
         self.dialog = histo
@@ -368,10 +415,10 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint=(.5, .35) if ecran != 'modif_info_compte' else (.8, .6),
+            size_hint=(.5, .35) if ecran != 'modif_info_compte' else (.8, .73),
             content_cls=self.account_manager
         )
-        height = '250dp' if ecran == 'suppression_compte' else '450dp' if ecran == 'modif_info_compte' else'200dp'
+        height = '300dp' if ecran == 'suppression_compte' else '450dp' if ecran == 'modif_info_compte' else'200dp'
         width = '630dp' if ecran == 'suppression_compte' else '1000dp' if ecran == 'modif_info_compte' else '600dp'
         self.account_manager.height = height
         self.account_manager.width = width
@@ -384,6 +431,10 @@ class Screen(MDApp):
     def dismiss_contrat(self, *args):
         if self.contrat_manager.parent:
             self.contrat_manager.parent.remove_widget(self.contrat_manager)
+            
+    def dismiss_home(self, *args):
+        if self.home_manager.parent:
+            self.home_manager.parent.remove_widget(self.home_manager)
 
     def dismiss_client(self, *args):
         if self.client_manager.parent:
@@ -405,12 +456,15 @@ class Screen(MDApp):
         self.menu = MDDropdownMenu(
             md_bg_color= color,
             items=menu_items,
+            max_height = dp(146)
         )
         self.menu.caller = button
         self.menu.open()
 
     def menu_callback(self, text_item, name, screen, champ):
-        if name == 'home':
+        if screen == 'contrat':
+            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(screen).ids[champ].text = text_item
+        elif screen == 'Home':
             self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(screen).ids[champ].text = text_item
         else:
             self.root.get_screen('signup').ids['type'].text = text_item
@@ -509,15 +563,35 @@ class Screen(MDApp):
 
     def dropdown_contrat(self, button, name):
         type_tri = ['Récents', 'Mois', 'Type de contrat']
+        type_trait = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage industriel',"Ramassages d'ordures", 'Fumigation']
+        menu = type_tri if name=='home' else type_trait
+        screen = 'tri' if name == 'home' else 'tri_trait'
         home = [
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x=f"{i}": self.menu_callback(x, name,'contrat', 'tri'),
-            } for i in type_tri
+                "on_release": lambda x=f"{i}": self.menu_callback(x, name,'contrat', screen),
+            } for i in menu
         ]
         self.dropdown_menu(button, home, (0.647, 0.847, 0.992, 1))
 
+    def dropdown_histo(self, button, name):
+        tri = ['Récents', 'Mois', 'Type de contrat']
+        tri_trait = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage industriel',"Ramassages d'ordures", 'Fumigation']
+        menu = tri if name=='tri' else tri_trait
+        home = [
+            {
+                "text": i,
+                "viewclass": "OneLineListItem",
+                "on_release": lambda x=f"{i}": self.retour_histo(name,x),
+            } for i in menu
+        ]
+        self.dropdown_menu(button, home, (0.647, 0.847, 0.992, 1))
+    
+    def retour_histo(self, champ, text):
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids[champ].text = text
+        self.menu.dismiss()
+        
     def dropdown_new_contrat(self,button,  champ):
         type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage']
         durée = ['12 mois', '6 mois', '4 mois', '3 mois', '2 mois']
@@ -535,7 +609,7 @@ class Screen(MDApp):
 
     def dropdown_rendu_excel(self,button,  champ):
         type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage']
-        mois = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai']
+        mois = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', "Décembre"]
         client = ['DevCorps', 'ApexNovaLabs', 'Cleanliness Of Madagascar']
 
         item_menu = type if champ == 'type_traitement_planning' else mois if champ == 'mois_planning' else client
@@ -593,7 +667,7 @@ class Screen(MDApp):
         client_box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.contrats
         for client in clients:
             card = contrat(client["name"], client["phone"], client["email"], client["address"], client["city"],
-                              client["zip_code"])
+                              client["zip_code"], self)
             client_box.add_widget(card)
 
     def tableau_contrat(self, place):
@@ -687,9 +761,41 @@ class Screen(MDApp):
         self.liste_planning.bind(on_row_press=self.row_pressed_planning)
         place.add_widget(self.liste_planning)
 
+    def tableau_selection_planning(self, place):
+        self.liste_planning = MDDataTable(
+            pos_hint={'center_x':.5, "center_y": .5},
+            size_hint=(.6,1),
+            rows_num=20,
+            elevation=0,
+            column_data=[
+                ("Mois", dp(35)),
+                ("Statistique", dp(35)),
+                ("Etat du traitement", dp(40)),
+            ],
+            row_data=[
+                ("Janvier", "1 mois", "Effectué"),
+                ("Fevrier", "2 mois", "Effectué"),
+            ],
+        )
+        self.liste_planning.bind(on_row_press=self.row_pressed_tableau_planning)
+        place.add_widget(self.liste_planning)
+
     def row_pressed_planning(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
+
+        place = self.planning_manager.get_screen('selection_planning').ids.tableau_select_planning
+        self.tableau_selection_planning(place)
+        self.fenetre_planning('', 'selection_planning')
+        
+    def row_pressed_tableau_planning(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+        
+        self.fermer_ecran()
+        self.dismiss_planning()
+        self.fenetre_planning('', 'selection_element_tableau')
+        #self.fenetre_planning('', 'option_decalage')
         
     def tableau_historic(self, place):
         self.historique = MDDataTable(
@@ -700,24 +806,47 @@ class Screen(MDApp):
             rows_num=1,
             elevation=0,
             column_data=[
-                ("Nom client", dp(60)),
-                ("Adresse du client", dp(60)),
-                ("Date du contrat", dp(40)),
+                ("Client", dp(50)),
+                ("Durée", dp(40)),
+                ("Type de traitement", dp(40)),
+                ("Remarques", dp(40))
             ],
             row_data=[
-                ("DEV-CORPS MDG", "Ankadindramamy", "27/11/25"),
-                ("Cleanliness Madagascar", "Anjanahary", " 02/07/24"),
+                ("DEV-CORPS MDG", "Ankadindramamy", "27/11/25", 'Voir les remarques'),
+                ("Cleanliness Madagascar", "Anjanahary", "[color=#6C9331]3[/color]", "[color=#FF3333]Voir les remarques[/color]"),
             ],
         )
         self.historique.bind(on_row_press=self.row_pressed_histo)
         place.add_widget(self.historique)
 
+    def tableau_rem_histo(self, place):
+        self.remarque_historique = MDDataTable(
+            pos_hint={'center_x':.5, "center_y": .53},
+            size_hint=(1,1),
+            rows_num=5,
+            elevation=0,
+            column_data=[
+                ("Dates", dp(30)),
+                ("Remarque", dp(60)),
+                ("Avancement", dp(35)),
+                ("Décalage", dp(35)),
+                ("Motif", dp(40)),
+            ],
+            row_data=[
+                ("janvier", "Mahafinaritra", "Aucun", 'Aucun', 'Aucun'),
+                ("Septembre", "Somary nisy olana fa avy eo nilamina ihany", "Aucun", 'Aucun', 'Aucun'),
+            ],
+        )
+        #self.historique.bind(on_row_press=self.row_pressed_histo)
+        place.add_widget(self.remarque_historique)
+
     def row_pressed_histo(self, table, row):
         row_num = int(row.index / len(table.column_data))
-        row_data = table.row_data[row_num]
+        row_data = table.row_data
 
-        print(row_data)
-        self.fenetre_histo('', 'option_historique')
+        place = self.historic_manager.get_screen('histo_remarque').ids.tableau_rem_histo
+        self.fenetre_histo('', 'histo_remarque')
+        self.tableau_rem_histo(place)
 
     def all_users(self, place):
         async def data_account():
@@ -773,11 +902,13 @@ class Screen(MDApp):
 
     def modification_compte(self):
         self.dismiss_compte()
-
+        
+        titre = "Modification des informations de l'administrateur"  if self.compte[6] == 'Administrateur' else f"Modification des informations de {self.compte[4]}"
         self.account_manager.get_screen('modif_info_compte').ids.nom.text = self.compte[1]
         self.account_manager.get_screen('modif_info_compte').ids.prenom.text = self.compte[2]
         self.account_manager.get_screen('modif_info_compte').ids.email.text = self.compte[3]
         self.account_manager.get_screen('modif_info_compte').ids.username.text = self.compte[4]
+        self.account_manager.get_screen('modif_info_compte').ids.titre_info.text = titre
         self.fenetre_account('', 'modif_info_compte')
 
     def modification_client(self ,nom):
