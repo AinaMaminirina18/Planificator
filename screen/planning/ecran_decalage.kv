@@ -1,0 +1,107 @@
+MDScreen:
+    name: 'ecran_decalage'
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDLabel:
+            text: "Signalement d'un avancement pour {DEVCORPS}"
+            halign: 'center'
+            font_name: 'poppins-bold'
+            font_size: 18
+            pos_hint: {'center_x': .7, 'center_y': .95}
+
+        MDLabel:
+            text: 'CONTRAT DU 25/11/2025'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .52,'center_y':.85}
+
+        MDLabel:
+            text: 'Fin du contrat'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .755,'center_y':.85}
+
+        MDTextField:
+            id: mois_fin
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.38,"center_y":.7}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDIconButton:
+            icon: 'Assets/calendar.png'
+            pos_hint:{"center_x": .48, "center_y":.7}
+            on_release:
+
+        MDLabel:
+            text: "Mois de l'avancement"
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": 1.09,'center_y':.85}
+
+        MDTextField:
+            id: mois
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.715,"center_y":.7}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDLabel:
+            text: "Motif de l'avancement"
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .52,'center_y':.57}
+
+        MDTextField:
+            id: motif
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .82,None
+            radius:[10]
+            pos_hint:{"center_x":.43,"center_y":.42}
+
+        MDLabel:
+            text: "Voulez-vous enregistrer cet avancement?"
+            font_name: "poppins"
+            font_size: 16
+            pos_hint: {"center_x": .75,'center_y':.28}
+
+        MDRectangleFlatButton
+            text: "Oui j'accepte"
+            font_name: 'poppins'
+            text_color: 'black'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            size_hint: .3, None
+            pos_hint: {'center_x': .65, 'center_y': .13}
+            on_release:
+                app.dismiss_planning()
+                app.fermer_ecran()
+                app.show_dialog('', "Signalement d'un décalage effectué")
+        MDRectangleFlatButton
+            text: "Annuler"
+            font_name: 'poppins'
+            text_color: 'black'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            size_hint: .3, None
+            pos_hint: {'center_x': .2, 'center_y': .13}

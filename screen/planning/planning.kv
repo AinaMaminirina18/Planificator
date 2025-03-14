@@ -96,17 +96,12 @@ MDScreen:
                 font_name: 'poppins'
                 pos_hint:{'center_x':.55, 'center_y': .5}
 
-            MDTextField:
-                id : tri
-                mode : 'round'
-                fill_color_normal: '#56B5FB'
-                line_color_normal: '#56B5FB'
-                text: 'Décembre'
-                size_hint: .6, None
-                font_size: 14
+            MDLabel:
+                id: tri
+                text : 'Décembre'
+                font_size: 15
                 font_name: 'poppins'
-                disabled: True
-                pos_hint:{'center_x':.5, 'center_y': .5}
+                pos_hint:{'center_x':.8, 'center_y': .5}
 
             MDIconButton:
                 icon: 'chevron-down'

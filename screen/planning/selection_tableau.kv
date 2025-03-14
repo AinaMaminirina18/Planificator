@@ -1,0 +1,73 @@
+MDScreen:
+    name: 'selection_element_tableau'
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDIconButton:
+            icon: 'arrow-left'
+            pos_hint:{"center_x":.02, "center_y":.97}
+            on_release:
+
+        MDLabel:
+            text: 'Dératisation pour DevCorps'
+            font_size: 18
+            font_name: 'poppins'
+            pos_hint:{"center_x":.6, "center_y":.97}
+
+        MDLabel:
+            text: 'Contrat du 19/12/2024 au 12/12/2026'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.55, "center_y":.8}
+
+        MDLabel:
+            text: 'Mois séléctionné: Mars'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.55, "center_y":.65}
+
+        MDLabel:
+            text: 'Durée totale du traitement: 12 mois'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":1, "center_y":.65}
+
+        MDLabel:
+            text: 'Mois du traitement: 3 ème mois'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.55, "center_y":.5}
+
+        MDLabel:
+            text: 'Nombre de traitement restant: 7'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":1, "center_y":.5}
+
+        MDRectangleFlatButton
+            text: 'Signaler'
+            font_name: 'poppins'
+            text_color: 'black'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            size_hint: .3, None
+            pos_hint: {'center_x': .3, 'center_y': .2}
+            on_release:
+                app.dismiss_planning()
+                app.fermer_ecran()
+                app.fenetre_planning('', 'option_decalage')
+
+
+        MDRectangleFlatButton
+            text: 'Ajouter une remarque'
+            font_name: 'poppins'
+            text_color: 'black'
+            md_bg_color: 'white'
+            line_color: 'white'
+            size_hint: .3, None
+            pos_hint: {'center_x': .7, 'center_y': .2}
+            on_release:
+                app.dismiss_planning()
+                app.fermer_ecran()
+                app.fenetre_planning('', 'ajout_remarque')

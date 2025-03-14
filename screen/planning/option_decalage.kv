@@ -1,0 +1,40 @@
+MDScreen:
+    name: 'option_decalage'
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDLabel:
+            text: 'Veuillez choisir le type de signalement'
+            halign: 'center'
+            font_name: 'poppins-bold'
+            font_size: 20
+            pos_hint: {'center_x': .75, 'center_y': .95}
+
+        MDLabel:
+            text: 'Client: {Client}'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint: {'center_x': .9, 'center_y': .7}
+
+        MDRectangleFlatButton
+            text: 'Avancement'
+            font_name: 'poppins'
+            text_color: 'black'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            size_hint: .4, None
+            pos_hint: {'center_x': .25, 'center_y': .28}
+            on_release:
+                app.dismiss_planning()
+                app.fermer_ecran()
+                app.fenetre_planning('', 'ecran_decalage')
+
+        MDRectangleFlatButton
+            text: 'Décalage'
+            font_name: 'poppins'
+            text_color: 'black'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            size_hint: .4, None
+            pos_hint: {'center_x': .79, 'center_y': .28}
