@@ -20,7 +20,7 @@ MDScreen:
 
         MDTextButton:
             id: home
-            pos_hint:{"center_x":.3,"center_y":.68}
+            pos_hint:{"center_x":.31,"center_y":.68}
             text:'Acceuil'
             theme_text_color:'Custom'
             text_color: '#FFFFFF'
@@ -68,8 +68,8 @@ MDScreen:
 
         MDTextButton:
             id: historique
-            pos_hint:{"center_x":.36,"center_y":.36}
-            text:'Historiques'
+            pos_hint:{"center_x":.35,"center_y":.36}
+            text:'Historique'
             theme_text_color:'Custom'
             text_color: 'black'
             font_name:"poppins"
@@ -135,7 +135,7 @@ MDScreen:
             size_hint: .5,None
             on_release:
                 root.manager.transition.direction = "right"
-                app.show_dialog('Déconnexion',"Tena hiala tokoa ve ianao? Otran'ireny afaka ireny :)")
+                app.show_dialog('Déconnexion',"Voulez-vous vraiment déconnecter ?")
 
         MDIconButton:
             icon: 'Assets/logout.png'
@@ -143,7 +143,7 @@ MDScreen:
             icon_color: '#292D32'
             pos_hint:{"center_x":.7,"center_y":.08}
             on_release:
-                app.show_dialog('Déconnexion',"Tena hiala tokoa ve ianao? Otran'ireny afaka ireny :)")
+                app.show_dialog('Déconnexion',"Voulez-vous vraiment déconnecter ?")
 
     MDFloatLayout:
         ScreenManager:
