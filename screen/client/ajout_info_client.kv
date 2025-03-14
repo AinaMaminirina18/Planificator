@@ -23,6 +23,8 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            on_focus:
+                app.calendrier('modif_client', 'date_contrat_client')
 
         MDIconButton:
             icon: 'Assets/calendar.png'
@@ -48,6 +50,8 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            on_focus:
+                app.calendrier('modif_client', 'ajout_client')
 
         MDIconButton:
             icon: 'Assets/calendar.png'
