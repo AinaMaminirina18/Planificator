@@ -23,14 +23,6 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-            on_focus:
-                app.calendrier('modif_client', 'date_contrat_client')
-
-        MDIconButton:
-            icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .225, "center_y":.88}
-            on_release:
-                app.calendrier('modif_client', 'date_contrat_client')
 
         MDLabel:
             text: "Date d'ajout du client"
@@ -50,14 +42,6 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-            on_focus:
-                app.calendrier('modif_client', 'ajout_client')
-
-        MDIconButton:
-            icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .6, "center_y":.88}
-            on_release:
-                app.calendrier('modif_client', 'ajout_client')
 
         MDLabel:
             text: "Catégorie du client"
@@ -82,9 +66,10 @@ MDScreen:
             icon: 'chevron-down'
             pos_hint:{"center_x": .93, "center_y":.88}
             on_release:
+                app.dropdown_new_contrat(self, 'cat_client', 'ajout_info_client')
 
         MDLabel:
-            text: "Nom de l'entreprise"
+            text: "Nom"
             font_size: 16
             font_name: 'poppins'
             pos_hint: {'center_x': .5, 'center_y': .8}
@@ -103,7 +88,7 @@ MDScreen:
             radius:[10]
 
         MDLabel:
-            text: "Adresse mail de l'entreprise"
+            text: "Adresse mail"
             font_size: 16
             font_name: 'poppins'
             pos_hint: {'center_x': 1.005, 'center_y': .8}
@@ -122,32 +107,13 @@ MDScreen:
             radius:[10]
 
         MDLabel:
-            text: "Adresse de l'entreprise"
-            font_size: 16
-            font_name: 'poppins'
-            pos_hint: {'center_x': .5, 'center_y': .61}
-
-        MDTextField:
-            id: adresse_entreprise
-            text_color_normal: 'black'
-            mode: 'fill'
-            text_color_focus: 'black'
-            font_name:"poppins"
-            pos_hint:{"center_x":.225,"center_y":.52}
-            line_color_focus: '#56B5FB'
-            fill_color_normal: 'white'
-            line_color_normal: 'white'
-            size_hint: .45,None
-            radius:[10]
-
-        MDLabel:
-            text: "Responsable"
+            text: "Adresse"
             font_size: 16
             font_name: 'poppins'
             pos_hint: {'center_x': 1.005, 'center_y': .61}
 
         MDTextField:
-            id: responsable_entreprise
+            id: adresse_client
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -160,13 +126,33 @@ MDScreen:
             radius:[10]
 
         MDLabel:
-            text: "Axe de l'entreprise"
+            id: label_resp
+            text: "Responsable"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .61}
+
+        MDTextField:
+            id: responsable_client
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.225,"center_y":.52}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDLabel:
+            text: "Axe "
             font_size: 16
             font_name: 'poppins'
             pos_hint: {'center_x': .5, 'center_y': .42}
 
         MDTextField:
-            id: Axe_entreprise
+            id: Axe_client
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -179,13 +165,13 @@ MDScreen:
             radius:[10]
 
         MDLabel:
-            text: "Type de client"
+            text: "Téléphone"
             font_size: 16
             font_name: 'poppins'
             pos_hint: {'center_x': 1.005, 'center_y': .42}
 
         MDTextField:
-            id: type_client
+            id: telephone
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
