@@ -592,17 +592,18 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids[champ].text = text
         self.menu.dismiss()
         
-    def dropdown_new_contrat(self,button,  champ):
+    def dropdown_new_contrat(self,button,  champ, screen):
         type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage']
-        durée = ['12 mois', '6 mois', '4 mois', '3 mois', '2 mois']
+        durée = ['Indéterminée', 'Déterminée']
         categorie = ['Nouveau contrat', 'Renouvellement contrat']
+        type_client = ['Entreprise', 'Organisation', 'Particulier']
 
-        item_menu = type if champ == 'type_traitement' else durée if champ == 'duree_new_contrat' else categorie
+        item_menu = type if champ == 'type_traitement' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else type_client
         menu = [
             {
                 "text": i,
                 "viewclass": "OneLineListItem",
-                "on_release": lambda x=f"{i}": self.retour_new(x, champ),
+                "on_release": lambda x=f"{i}": self.retour_new(x, champ, screen),
             } for i in item_menu
         ]
         self.dropdown_menu(button, menu, 'white')
@@ -622,8 +623,22 @@ class Screen(MDApp):
         ]
         self.dropdown_menu(button, menu, 'white')
 
-    def retour_new(self,text,  champ):
-        self.contrat_manager.get_screen('new_contrat').ids[f'{champ}'].text = text
+    def retour_new(self,text,  champ, screen):
+        categ_client = ['Organisation', 'Entreprise', 'Particulier']
+        if text == 'Indéterminée':
+            self.contrat_manager.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": 0, "center_y": -10}
+            self.contrat_manager.get_screen(screen).ids.label_fin.text = ''
+            self.contrat_manager.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": 0, "center_y": -10}
+        elif text == 'Déterminée':
+            self.contrat_manager.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": .83, "center_y": .8}
+            self.contrat_manager.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": .93, "center_y":.8}
+            self.contrat_manager.get_screen(screen).ids.label_fin.text = 'Fin du contrat'
+        elif text in categ_client:
+            if text == 'Particulier':
+                self.contrat_manager.get_screen(screen).ids.label_resp.text = 'Prénom'
+            else:
+                self.contrat_manager.get_screen(screen).ids.label_resp.text = 'Responsable'
+        self.contrat_manager.get_screen(screen).ids[f'{champ}'].text = text
         self.menu.dismiss()
 
     def retour_planning(self,text,  champ):
@@ -826,7 +841,7 @@ class Screen(MDApp):
             rows_num=5,
             elevation=0,
             column_data=[
-                ("Dates", dp(30)),
+                ("Mois", dp(30)),
                 ("Remarque", dp(60)),
                 ("Avancement", dp(35)),
                 ("Décalage", dp(35)),
