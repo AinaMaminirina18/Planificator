@@ -58,6 +58,7 @@ MDScreen:
                 app.calendrier('new_contrat', 'debut_new_contrat')
 
         MDLabel:
+            id: label_fin
             text: 'Fin du contrat'
             font_name: "poppins"
             font_size: 15
@@ -77,6 +78,7 @@ MDScreen:
             radius:[10]
 
         MDIconButton:
+            id: fin_icon
             icon: 'Assets/calendar.png'
             pos_hint:{"center_x": .93, "center_y":.8}
             on_release:
@@ -106,7 +108,7 @@ MDScreen:
             icon: 'chevron-down'
             pos_hint:{"center_x": .27, "center_y":.5}
             on_release:
-                app.dropdown_new_contrat(self, 'type_traitement')
+                app.dropdown_new_contrat(self, 'type_traitement', 'new_contrat')
 
         MDLabel:
             text: 'Durée du contrat'
@@ -116,7 +118,7 @@ MDScreen:
 
         MDTextField:
             id: duree_new_contrat
-            text: '12 mois'
+            text: 'Déterminée'
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -132,7 +134,7 @@ MDScreen:
             icon: 'chevron-down'
             pos_hint:{"center_x": .6, "center_y":.5}
             on_release:
-                app.dropdown_new_contrat(self, 'duree_new_contrat')
+                app.dropdown_new_contrat(self, 'duree_new_contrat', 'new_contrat')
 
         MDLabel:
             text: 'Catégorie du contrat'
@@ -157,7 +159,7 @@ MDScreen:
             icon: 'chevron-down'
             pos_hint:{"center_x": .93, "center_y":.5}
             on_release:
-                app.dropdown_new_contrat(self, 'cat_contrat')
+                app.dropdown_new_contrat(self, 'cat_contrat', 'new_contrat')
 
         MDRectangleFlatButton:
             text: 'Continuer'
