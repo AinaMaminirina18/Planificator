@@ -1,5 +1,5 @@
 import aiomysql
-
+from datetime import date
 class DatabaseManager:
     """Gestionnaire de la base de données utilisant aiomysql."""
     def __init__(self, loop):
@@ -85,12 +85,43 @@ class DatabaseManager:
                 current = await cursor.fetchone()
                 return current
     
-    async def create_contrat(pool, client_id, date_contrat, date_debut, date_fin, categorie):
-        async with pool.acquire() as conn:
+    async def create_contrat(self, client_id, date_contrat, date_debut, date_fin, duree, categorie):
+        async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
-                    "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin, categorie) VALUES (%s, %s, %s, %s, %s)",
-                    (client_id, date_contrat, date_debut, date_fin, categorie))
+                    "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin,duree, categorie) VALUES (%s, %s, %s, %s, %s, %s)",
+                    (client_id, date_contrat, date_debut, date_fin, duree, categorie))
+                await conn.commit()
+                return cur.lastrowid
+    
+    async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO Client (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                    (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe))
+                await conn.commit()
+                return cur.lastrowid
+            
+    async def get_all_client(self):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("SELECT nom, email, adresse, date_ajout FROM Client ")
+                return await cur.fetchall()
+            
+    async def typetraitement(self, type):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                await cursor.execute("INSERT INTO TypeTraitement (typeTraitement) VALUES (%s)",
+                                        (type,))
+                await conn.commit()
+                return cursor.lastrowid
+    
+    async def creation_traitement(self, contrat_id, id_type_traitement):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute("INSERT INTO Traitement (contrat_id, id_type_traitement) VALUES (%s, %s)",
+                                  (contrat_id, id_type_traitement))
                 await conn.commit()
                 return cur.lastrowid
             
