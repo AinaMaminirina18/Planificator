@@ -27,12 +27,8 @@ MDScreen:
             size_hint: .25,None
             radius:[10]
 
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .27, "center_y":.8}
-            on_release:
-
         MDLabel:
+            id: label_fin_planning
             text: 'Mois de fin du traitement'
             font_name: "poppins"
             font_size: 15
@@ -50,12 +46,6 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .6, "center_y":.8}
-            on_release:
-
 
         MDLabel:
             text: 'Axe concerné'
@@ -75,6 +65,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            readonly: True
 
         MDLabel:
             text: 'Type de traitement'
@@ -95,12 +86,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .27, "center_y":.5}
-            on_release:
-                app.dropdown_new_contrat(self, 'type_traitement')
+            readonly: True
 
         MDLabel:
             text: 'Mois de pause (Prévu)'
@@ -122,11 +108,6 @@ MDScreen:
             size_hint: .25,None
             radius:[10]
 
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .6, "center_y":.5}
-            on_release:
-
         MDLabel:
             text: 'Redondance du traitement'
             font_name: "poppins"
@@ -135,8 +116,10 @@ MDScreen:
 
         MDTextField:
             id: red_trait
-            text: 'Nouveau contrat'
+            text: 'Mensuel'
             mode: 'fill'
+            text_color_normal: 'black'
+            text_color_focus: 'black'
             font_name:"poppins"
             pos_hint:{"center_x":.83,"center_y":.5}
             line_color_focus: '#56B5FB'
@@ -144,12 +127,13 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-            disabled :True
+            readonly :True
 
         MDIconButton:
             icon: 'chevron-down'
             pos_hint:{"center_x": .93, "center_y":.5}
             on_release:
+                app.dropdown_new_contrat(self, 'red_trait', 'ajout_planning')
 
         MDRectangleFlatButton:
             text: 'Passer à la facture'
@@ -161,9 +145,7 @@ MDScreen:
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
-                app.dismiss_contrat()
-                app.fermer_ecran()
-                app.fenetre_contrat('Ajout de la facture', 'ajout_facture')
+                app.gestion_planning()
 
         MDRectangleFlatButton:
             text: 'Annuler'

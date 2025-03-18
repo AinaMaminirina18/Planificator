@@ -15,7 +15,7 @@ MDScreen:
             pos_hint: {"center_x": .55,'center_y':.92}
 
         MDTextField:
-            id: mois_date
+            id: montant
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -28,6 +28,7 @@ MDScreen:
             radius:[10]
 
         MDLabel:
+            id: label_fin_facture
             text: 'Mois de fin du traitement'
             font_name: "poppins"
             font_size: 15
@@ -45,6 +46,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            readonly: True
 
         MDLabel:
             text: 'Axe concerné'
@@ -64,11 +66,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .93, "center_y":.8}
-            on_release:
+            readonly: True
 
         MDLabel:
             text: 'Traitement concerné'
@@ -89,11 +87,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .27, "center_y":.5}
-            on_release:
+            readonly: True
 
         MDLabel:
             text: 'Mois de pause (Prévu)'
@@ -103,7 +97,6 @@ MDScreen:
 
         MDTextField:
             id: pause_prevu
-            text: '12 mois'
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -114,11 +107,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'chevron-down'
-            pos_hint:{"center_x": .6, "center_y":.5}
-            on_release:
+            readonly: True
 
         MDLabel:
             text: 'Redondance du traitement'
@@ -128,7 +117,7 @@ MDScreen:
 
         MDTextField:
             id: red_trait
-            text: 'Nouveau contrat'
+            text: ''
             mode: 'fill'
             font_name:"poppins"
             pos_hint:{"center_x":.83,"center_y":.5}
@@ -137,7 +126,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-            disabled :True
+            readonly :True
 
         MDIconButton:
             icon: 'chevron-down'
@@ -145,6 +134,7 @@ MDScreen:
             on_release:
 
         MDRectangleFlatButton:
+            id: accept
             text: 'Suivant'
             text_color: 'black'
             font_name: 'poppins'
@@ -154,6 +144,7 @@ MDScreen:
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
+                app.save_planning()
 
         MDRectangleFlatButton:
             text: 'Annuler'
