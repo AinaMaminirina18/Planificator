@@ -6,7 +6,8 @@ MDScreen:
         pos_hint: {'center_x': .5, 'center_y': .5}
 
         MDLabel:
-            text: 'A propos du contrat de DevCorps MDG'
+            id: titre
+            text: 'A propos du contrat de '
             font_size: 18
             font_name: 'poppins'
             halign: 'center'
@@ -29,18 +30,19 @@ MDScreen:
         MDLabel:
             id: fin_contrat
             text: 'fin'
-            pos_hint: {'center_x':1.25, 'center_y': .79}
+            pos_hint: {'center_x':1.2, 'center_y': .79}
             font_size: 16
             font_name: 'poppins'
 
         MDLabel:
             id: type_traitement
-            text: 'tsy aiko'
+            text: ''
             pos_hint: {'center_x':.52, 'center_y': .66}
             font_size: 16
             font_name: 'poppins'
 
         MDLabel:
+            id: duree
             text: 'Durée du contrat : {12 mois}'
             pos_hint: {'center_x':.52, 'center_y': .53}
             font_size: 16
