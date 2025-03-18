@@ -60,7 +60,7 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 await cursor.execute(
-                    "SELECT username, email FROM Account WHERE type_compte != 'Administrateur'"
+                    "SELECT username, email FROM Account WHERE type_compte != 'Administrateur' ORDER BY username ASC"
                 )
                 resultat = await cursor.fetchall()
                 return resultat
@@ -106,25 +106,79 @@ class DatabaseManager:
     async def get_all_client(self):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT nom, email, adresse, date_ajout FROM Client ")
+                await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER date_ajout ASC")
                 return await cur.fetchall()
             
     async def typetraitement(self, type):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
-                await cursor.execute("INSERT INTO TypeTraitement (typeTraitement) VALUES (%s)",
-                                        (type,))
-                await conn.commit()
-                return cursor.lastrowid
+                try:
+                    await cursor.execute("INSERT INTO TypeTraitement (typeTraitement) VALUES (%s)",
+                                            (type,))
+                    await conn.commit()
+                    return cursor.lastrowid
+                except Exception as e:
+                    print(e)
     
     async def creation_traitement(self, contrat_id, id_type_traitement):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("INSERT INTO Traitement (contrat_id, id_type_traitement) VALUES (%s, %s)",
-                                  (contrat_id, id_type_traitement))
+                try:
+                    await cur.execute("INSERT INTO Traitement (contrat_id, id_type_traitement) VALUES (%s, %s)",
+                                      (contrat_id, id_type_traitement))
+                    await conn.commit()
+                    return cur.lastrowid
+                except Exception as e:
+                    print(e)
+    
+    async def create_planning(self, traitement_id, mois_debut, mois_fin, mois_pause, redondance):
+        """Crée un planning pour un traitement donné."""
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO Planning (traitement_id, mois_debut, mois_fin, mois_pause, redondance) VALUES (%s, %s, %s, %s, %s)",
+                    (traitement_id, mois_debut, mois_fin, mois_pause, redondance))
+                await conn.commit()
+                return cur.lastrowid
+    
+    async def create_facture(self, traitement_id, montant, date_traitement, axe, remarque):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "INSERT INTO Facture (planning_detail_id, montant, date_traitement, axe, remarque) VALUES (%s, %s, %s, %s, %s)",
+                    (traitement_id, montant, date_traitement, axe, remarque))
                 await conn.commit()
                 return cur.lastrowid
             
+    async def get_client(self):
+        async with self.pool.acquire() as conn :
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute(
+                        """SELECT c.nom AS nom_client,
+                                  co.date_contrat,
+                                  tt.typeTraitement AS type_traitement,
+                                  co.duree AS duree_contrat,
+                                  co.date_debut AS debut_contrat,
+                                  co.date_fin AS fin_contrat,
+                                  co.duree AS duree,
+                                  c.categorie AS categorie
+                           FROM
+                              Client c
+                           JOIN
+                              Contrat co ON c.client_id = co.client_id
+                           JOIN
+                              Traitement t ON co.contrat_id = t.contrat_id
+                           JOIN
+                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           ORDER BY
+                              co.date_contrat ASC;"""
+                    )
+                    result = await cursor.fetchall()
+                    return result
+                except Exception as e:
+                    print(e)
+                    
     async def close(self):
         """Ferme le pool de connexions."""
         self.pool.close()
