@@ -66,7 +66,7 @@ class contrat(MDCard):
             _radius = 8,
             line_color= 'white',
             font_name= 'poppins',
-            on_release= lambda x: app_instance.fenetre_acceuil('', 'about_contrat',client, date_contrat )
+            on_release= lambda x: app_instance.fenetre_acceuil('', 'about_contrat',client, date_contrat, type_traitement, durée, debut_contrat, fin_prévu )
         )
         #more_info_btn.bind(on_release= ecran.fenetre_acceuil(ecran, '', 'about_contrat'))
         conteneur_btn.add_widget(more_info_btn)
