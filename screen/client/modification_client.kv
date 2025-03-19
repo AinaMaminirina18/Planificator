@@ -23,12 +23,7 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .225, "center_y":.88}
-            on_release:
-                app.calendrier('modif_client', 'date_contrat_client')
+            readonly: True
 
         MDLabel:
             text: "Catégorie du client"
@@ -39,6 +34,7 @@ MDScreen:
         MDTextField:
             id: cat_client
             text_color_normal: 'black'
+            text_color_focus: 'black'
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
@@ -47,7 +43,7 @@ MDScreen:
             fill_color_normal: 'white'
             line_color_normal: 'white'
             size_hint: .25,None
-            disabled: True
+            readonly: True
             radius:[10]
 
         MDLabel:
@@ -73,7 +69,7 @@ MDScreen:
             text: "Adresse mail"
             font_size: 16
             font_name: 'poppins'
-            pos_hint: {'center_x': 1.005, 'center_y': .8}
+            pos_hint: {'center_x': .5, 'center_y': .61}
 
         MDTextField:
             id: email_client
@@ -81,7 +77,7 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.73,"center_y":.71}
+            pos_hint:{"center_x":.225,"center_y":.52}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -108,18 +104,18 @@ MDScreen:
             radius:[10]
 
         MDLabel:
-            text: "Responsable"
+            text: "Axe"
             font_size: 16
             font_name: 'poppins'
-            pos_hint: {'center_x': .5, 'center_y': .61}
+            pos_hint: {'center_x': .5, 'center_y': .42}
 
         MDTextField:
-            id: responsable_client
+            id: axe_client
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.225,"center_y":.52}
+            pos_hint:{"center_x":.225,"center_y":.33}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -127,18 +123,38 @@ MDScreen:
             radius:[10]
 
         MDLabel:
-            text: "Axe"
+            id: label_resp
+            text: "Responsable"
             font_size: 16
             font_name: 'poppins'
-            pos_hint: {'center_x': .5, 'center_y': .42}
+            pos_hint: {'center_x': 1.005, 'center_y': .8}
 
         MDTextField:
-            id: Axe_client
+            id: resp_client
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.225,"center_y":.33}
+            pos_hint:{"center_x":.73,"center_y":.71}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+        MDLabel:
+            text: "Telephone"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': 1.005, 'center_y': .42}
+
+        MDTextField:
+            id: telephone
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.73,"center_y":.33}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -154,6 +170,8 @@ MDScreen:
             pos_hint: {'center_x':.7, 'center_y': .1}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
+            on_release:
+                app.enregistrer_modif_client(nom_client.text, resp_client.text, email_client.text, telephone.text, adresse_client.text, cat_client.text, axe_client.text)
 
         MDRectangleFlatButton:
             text: 'Annuler'
