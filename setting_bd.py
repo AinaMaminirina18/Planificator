@@ -106,9 +106,9 @@ class DatabaseManager:
     async def get_all_client(self):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER date_ajout ASC")
+                await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER BY date_ajout DESC")
                 return await cur.fetchall()
-            
+                
     async def typetraitement(self, type):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
@@ -149,7 +149,39 @@ class DatabaseManager:
                     (traitement_id, montant, date_traitement, axe, remarque))
                 await conn.commit()
                 return cur.lastrowid
-            
+    
+    async def get_current_client(self, client, date):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute("""SELECT c.client_id AS id,
+                                  c.nom AS nom_client,
+                                  c.prenom AS prenom_client,
+                                  c.categorie AS categorie,
+                                  co.date_contrat,
+                                  tt.typeTraitement AS type_traitement,
+                                  co.duree AS duree_contrat,
+                                  co.date_debut AS debut_contrat,
+                                  co.date_fin AS fin_contrat,
+                                  c.email,
+                                  c.adresse,
+                                  c.axe,
+                                  c.telephone
+                           FROM
+                              Client c
+                           JOIN
+                              Contrat co ON c.client_id = co.client_id
+                           JOIN
+                              Traitement t ON co.contrat_id = t.contrat_id
+                           JOIN
+                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           WHERE
+                              c.nom = %s AND co.date_contrat = %s;""", (client, date))
+                    resultat = await cursor.fetchone()
+                    return resultat
+                except Exception as e:
+                    print(e)
+                    
     async def get_client(self):
         async with self.pool.acquire() as conn :
             async with conn.cursor() as cursor:
@@ -172,13 +204,21 @@ class DatabaseManager:
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            ORDER BY
-                              co.date_contrat ASC;"""
+                              co.date_contrat DESC;"""
                     )
                     result = await cursor.fetchall()
                     return result
                 except Exception as e:
                     print(e)
-                    
+    
+    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
+                    (nom, prenom, email, telephone, adresse, categorie, axe, client_id))
+                await conn.commit()
+                
     async def close(self):
         """Ferme le pool de connexions."""
         self.pool.close()

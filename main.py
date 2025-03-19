@@ -72,8 +72,11 @@ class Screen(MDApp):
         self.compte = None
         self.not_admin = None
         self.client =[]
+        self.current_client = None
 
 
+        self.liste_contrat = None
+        self.liste_client = None
         #Gestion des écrans dans contrat
         self.contrat_manager = ScreenManager(size_hint=(None, None))
 
@@ -233,9 +236,9 @@ class Screen(MDApp):
     def get_client(self):
         async def client():
             try:
+                Clock.schedule_once(lambda x :self.ajout_carte(result))
                 result = await self.database.get_client()
                 self.client = result
-                Clock.schedule_once(lambda x :self.ajout_carte(result))
             except Exception as e:
                 print(e)
                 
@@ -266,8 +269,8 @@ class Screen(MDApp):
         elif not self.traitement:
             self.dismiss_contrat()
             self.fermer_ecran()
-            #self.contrat_manager.get_screen('ajout_facture').ids.accept.on_release = None
-            #bouton.unbind(on_release= lambda a: self.save_planning())
+            Clock.schedule_once(lambda dt: self.remove_tables('contrat'))
+            Clock.schedule_once(lambda dt: self.remove_tables('client'))
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
         
         else:
@@ -356,7 +359,7 @@ class Screen(MDApp):
                     Clock.schedule_once(lambda dt: self.dismiss_compte())
                     Clock.schedule_once(lambda dt: self.fermer_ecran())
                     Clock.schedule_once(lambda dt: self.show_dialog('', 'Suppression du compte réussie'))
-                    Clock.schedule_once(lambda dt: self.remove_tables())
+                    Clock.schedule_once(lambda dt: self.remove_tables('compte'))
 
                 except Exception as error:
                     erreur = error
@@ -491,7 +494,7 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint= (.8, .65),
+            size_hint= (.8, .65) if ecran == 'option_client' else (.8, .85),
             content_cls= self.client_manager
         )
         self.client_manager.height = '390dp' if ecran == 'option_client' else '550dp'
@@ -872,11 +875,21 @@ class Screen(MDApp):
             else:
                 self.root.get_screen('Sidebar').ids[ids].text_color = 'black'
 
-    def remove_tables(self):
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('compte').ids.tableau_compte
-        place.remove_widget(self.account)
+    def remove_tables(self, screen):
+        if screen == 'compte':
+            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('compte').ids.tableau_compte
+            place.remove_widget(self.account)
 
-        self.all_users(place)
+            self.all_users(place)
+        else:
+            if self.liste_contrat != None:
+                place1 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+                place1.remove_widget(self.liste_contrat)
+                self.all_contrats()
+            if self.liste_client != None:
+                place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
+                place2.remove_widget(self.liste_client)
+                self.all_clients()
 
     def ajout_carte(self, datas, limite= 6):
         client_box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.contrats
@@ -927,6 +940,7 @@ class Screen(MDApp):
         self.contrat_manager.get_screen('option_contrat').ids.type_traitement.text = f'Type de traitement : {row_data[2]}'
         self.fenetre_contrat('', 'option_contrat')
 
+        
     def tableau_client(self, place, data):
         self.liste_client = MDDataTable(
             pos_hint={'center_x':.5, "center_y": .53},
@@ -955,13 +969,28 @@ class Screen(MDApp):
     def row_pressed_client(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-
-        self.client_manager.get_screen('option_client').ids.titre.text = f'A propos de {row_data[0]}'
-        self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {row_data[3]}'
-        self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : 28/11/24'
-        self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : 29/11/25'
-        self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {row_data[1]}'
-        self.fenetre_client('', 'option_client')
+        def maj_ecran():
+            if self.current_client[3] == 'Particulier':
+                nom = self.current_client[1] + ' ' + self.current_client[2]
+            else:
+                nom = self.current_client[1]
+            
+            self.client_manager.get_screen('option_client').ids.titre.text = f'A propos de {nom}'
+            self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.current_client[4]}'
+            self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.current_client[7]}'
+            self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {self.current_client[8]}'
+            self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[4]}'
+            self.client_manager.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
+            
+        async def current_client():
+            try:
+                self.current_client = await self.database.get_current_client(row_data[0], self.reverse_date(row_data[3]))
+                Clock.schedule_once(lambda x: maj_ecran())
+                Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'))
+            except Exception as e:
+                print(e)
+                
+        asyncio.run_coroutine_threadsafe(current_client(),self.loop)
     
     def tableau_planning(self, place):
         self.liste_planning = MDDataTable(
@@ -1136,11 +1165,40 @@ class Screen(MDApp):
         self.fenetre_account('', 'modif_info_compte')
 
     def modification_client(self ,nom):
-        #self.client_manager.get_screen('modif_client').ids.titre.text = f'Modifications des informartion sur {nom}'
         self.dismiss_client()
         self.fermer_ecran()
+        if self.current_client[3] == 'Particulier':
+            self.client_manager.get_screen('modif_client').ids.label_resp.text = 'Prenom'
+            nom = self.current_client[1] + ' ' + self.current_client[2]
+        else:
+            self.client_manager.get_screen('modif_client').ids.label_resp.text = 'Responsable'
+            nom = self.current_client[1]
+            
+        self.client_manager.get_screen('modif_client').ids.date_contrat_client.text = self.reverse_date(self.current_client[4])
+        self.client_manager.get_screen('modif_client').ids.cat_client.text = self.current_client[3]
+        self.client_manager.get_screen('modif_client').ids.nom_client.text = self.current_client[1]
+        self.client_manager.get_screen('modif_client').ids.email_client.text = self.current_client[9]
+        self.client_manager.get_screen('modif_client').ids.adresse_client.text = self.current_client[10]
+        self.client_manager.get_screen('modif_client').ids.axe_client.text = self.current_client[11]
+        self.client_manager.get_screen('modif_client').ids.resp_client.text = self.current_client[2]
+        self.client_manager.get_screen('modif_client').ids.telephone.text = self.current_client[12]
         self.fenetre_client(f'Modifications des informartion sur {nom}', 'modif_client')
-
+        
+    def enregistrer_modif_client(self, nom, prenom, email, telephone, adresse, categorie, axe):
+        async def save():
+            try:
+                Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
+                Clock.schedule_once(lambda x: self.dismiss_client())
+                Clock.schedule_once(lambda x: self.fermer_ecran())
+                await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, categorie, axe)
+                Clock.schedule_once(lambda c: self.remove_tables('contrat'))
+                Clock.schedule_once(lambda c: self.remove_tables('clientt'))
+                self.current_client = None
+            except Exception as e:
+                print(e)
+            
+        asyncio.run_coroutine_threadsafe(save(), self.loop)
+        
     def suppression_contrat(self, titre, contrat, debut, fin):
         client = titre.split(' ')
 
