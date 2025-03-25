@@ -122,7 +122,7 @@ MDScreen:
 
         MDCheckbox:
             id: desinsectisation
-            pos_hint: {"center_x": .02,'center_y':.2}
+            pos_hint: {"center_x": .18,'center_y':.5}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
 
@@ -130,19 +130,19 @@ MDScreen:
             text: 'Désinsectisation'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .54,'center_y':.2}
+            pos_hint: {"center_x": .7,'center_y':.5}
 
         MDCheckbox:
             id: nettoyage
-            pos_hint: {"center_x": .18,'center_y':.5}
-            size_hint: .07, .07
+            pos_hint: {"center_x": .02,'center_y':.05}
+            size_hint: .05, .07
             checkbox_icon_down: 'check'
 
         MDLabel:
-            text: 'Nettoyage'
+            text: 'Nettoyage Industriel'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .7,'center_y':.5}
+            pos_hint: {"center_x": .54,'center_y':.05}
 
         MDCheckbox:
             id: fumigation
@@ -152,6 +152,30 @@ MDScreen:
 
         MDLabel:
             text: 'Fumigation'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .7,'center_y':.2}
+
+        MDCheckbox:
+            id: anti_ter
+            pos_hint: {"center_x": .02,'center_y':.2}
+            size_hint: .07, .07
+            checkbox_icon_down: 'check'
+
+        MDLabel:
+            text: 'Anti termites'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .54,'center_y':.2}
+
+        MDCheckbox:
+            id: ramassage
+            pos_hint: {"center_x": .18,'center_y':.2}
+            size_hint: .05, .07
+            checkbox_icon_down: 'check'
+
+        MDLabel:
+            text: "Ramassage d'ordures "
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": .7,'center_y':.35}
@@ -194,12 +218,14 @@ MDScreen:
             mode: 'fill'
             font_name:"poppins"
             pos_hint:{"center_x":.83,"center_y":.5}
-            text_color: 'black'
+            text_color_normal: 'black'
+            text_color_focus: 'black'
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            readonly: True
 
         MDIconButton:
             icon: 'chevron-down'
@@ -212,8 +238,8 @@ MDScreen:
             text_color: 'black'
             font_name: 'poppins'
             font_size: 15
-            size_hint: .3, None
-            pos_hint: {'center_x':.7, 'center_y': .1}
+            size_hint: .2, None
+            pos_hint: {'center_x':.85, 'center_y': .1}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
@@ -224,8 +250,8 @@ MDScreen:
             text_color: 'black'
             font_name: 'poppins'
             font_size: 15
-            size_hint: .3, None
-            pos_hint: {'center_x':.3, 'center_y': .1}
+            size_hint: .2, None
+            pos_hint: {'center_x':.5, 'center_y': .1}
             md_bg_color: '#FF3333'
             line_color: '#FF3333'
             on_release:

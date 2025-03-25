@@ -9,9 +9,10 @@ MDScreen:
         MDLabel:
             id: titre
             text:''
-            pos_hint: {'center_x':.8, 'center_y': .97}
+            pos_hint: {'center_x':.5, 'center_y': .97}
             font_size: 18
             font_name: 'poppins'
+            halign: 'center'
 
         MDLabel:
             id: date_contrat
@@ -43,12 +44,14 @@ MDScreen:
             font_name: 'poppins'
 
         MDLabel:
-            text: 'Axe : {tsy deodorant}'
+            id: axe
+            text: ''
             pos_hint: {'center_x':.87, 'center_y': .72}
             font_size: 16
             font_name: 'poppins'
 
         MDLabel:
+            id: duree
             text: 'Durée du contrat : {12 mois}'
             pos_hint: {'center_x':.52, 'center_y': .59}
             font_size: 16

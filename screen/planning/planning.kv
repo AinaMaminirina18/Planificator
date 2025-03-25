@@ -24,7 +24,7 @@ MDScreen:
             size_hint: .22, .055
             radius: [8]
             padding: 8
-            pos_hint:{'center_x':.35, 'center_y': .89}
+            pos_hint:{'center_x':.35, 'center_y': .81}
 
             MDTextButton:
                 text : ' Obtenir un rendu excel'
@@ -68,7 +68,7 @@ MDScreen:
             size_hint: .22, .055
             radius: [8]
             padding: 8
-            pos_hint:{'center_x':.35, 'center_y': .81}
+            pos_hint:{'center_x':.6, 'center_y': .81}
 
             MDTextButton:
                 text : ' Rechercher un client'
@@ -80,34 +80,6 @@ MDScreen:
                 icon: 'Assets/search.png'
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
-
-        MDFloatLayout:
-            id: tri_container_planning
-            orientation: 'horizontal'
-            md_bg_color: '#56B5FB'
-            size_hint: .22, .055
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .81}
-
-            MDLabel:
-                text : 'Trier'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.55, 'center_y': .5}
-
-            MDLabel:
-                id: tri
-                text : 'Décembre'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.8, 'center_y': .5}
-
-            MDIconButton:
-                icon: 'chevron-down'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
-                on_release:
 
         MDFloatLayout:
             id: tableau_planning

@@ -3,8 +3,9 @@ from kivy.uix.screenmanager import SlideTransition
 
 
 def gestion_ecran(root):
-    root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/historique/historique.kv'))
+    root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/Home.kv'))
+    root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file(f'screen/historique/choix_traitement.kv'))
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/contrat/contrat.kv'))
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/planning/planning.kv'))
     root.get_screen('Sidebar').ids['gestion_ecran'].add_widget(Builder.load_file('screen/about.kv'))

@@ -17,64 +17,6 @@ MDScreen:
             font_name: 'poppins-bold'
             pos_hint:{'center_x':.5, 'center_y': .83}
 
-        MDFloatLayout:
-            id: tri_container
-            orientation: 'horizontal'
-            md_bg_color: '#56B5FB'
-            size_hint: .22, .055
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .91}
-
-            MDLabel:
-                text : 'Trier'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.55, 'center_y': .5}
-
-            MDLabel:
-                id: tri_trait
-                text : 'Dératisation'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.8, 'center_y': .5}
-
-            MDIconButton:
-                icon: 'chevron-down'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
-                on_release:
-                    app.dropdown_histo(self, 'tri_trait')
-
-        MDFloatLayout:
-            id: tri_container
-            orientation: 'horizontal'
-            md_bg_color: '#56B5FB'
-            size_hint: .22, .055
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .83}
-
-            MDLabel:
-                text : 'Trier'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.55, 'center_y': .5}
-
-            MDLabel:
-                id: tri
-                text : 'Récents'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.8, 'center_y': .5}
-
-            MDIconButton:
-                icon: 'chevron-down'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
-                on_release:
-                    app.dropdown_histo(self, 'tri')
-
         MDBoxLayout:
             id: search_client
             orientation: 'horizontal'
@@ -82,7 +24,7 @@ MDScreen:
             size_hint: .22, .055
             radius: [8]
             padding: 8
-            pos_hint:{'center_x':.35, 'center_y': .83}
+            pos_hint:{'center_x':.6, 'center_y': .83}
 
             MDTextButton:
                 text : 'Rechercher un client'

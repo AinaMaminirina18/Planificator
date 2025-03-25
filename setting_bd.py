@@ -106,7 +106,7 @@ class DatabaseManager:
     async def get_all_client(self):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER BY date_ajout DESC")
+                await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER BY nom ASC")
                 return await cur.fetchall()
                 
     async def typetraitement(self, type):
@@ -193,7 +193,6 @@ class DatabaseManager:
                                   co.duree AS duree_contrat,
                                   co.date_debut AS debut_contrat,
                                   co.date_fin AS fin_contrat,
-                                  co.duree AS duree,
                                   c.categorie AS categorie
                            FROM
                               Client c
@@ -204,7 +203,7 @@ class DatabaseManager:
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            ORDER BY
-                              co.date_contrat DESC;"""
+                              c.nom ASC;"""
                     )
                     result = await cursor.fetchall()
                     return result

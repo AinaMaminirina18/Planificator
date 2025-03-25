@@ -166,6 +166,13 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .45,None
             radius:[10]
+            readonly: True
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .42, "center_y":.33}
+            on_release:
+                app.dropdown_new_contrat(self, 'axe_client', 'ajout_info_client')
 
         MDLabel:
             text: "Téléphone"

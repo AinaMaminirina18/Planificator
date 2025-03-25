@@ -1,0 +1,59 @@
+MDScreen:
+    name: 'choix_type'
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+        orientation: 'horizontal'
+        spacing: '12dp'  # Espacement entre les boutons
+
+        MDRectangleFlatButton:
+            text: 'AT'
+            size_hint: .15, .05
+            pos_hint: {'center_x': .5, 'center_y': .6}
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            text_size: 25
+            font_name: 'poppins-bold'
+            radius: [10]
+            on_release:
+                app.afficher_historique('AT')
+
+        MDRectangleFlatButton:
+            text: 'NI'
+            size_hint: .15, .05
+            pos_hint: {'center_x': .7, 'center_y': .6}
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            text_size: 25
+            font_name: 'poppins-bold'
+            radius: [10]
+            on_release:
+                app.afficher_historique('NI')
+
+        MDRectangleFlatButton:
+            text: 'PC'
+            size_hint: .15, .05
+            pos_hint: {'center_x': .5, 'center_y': .4}
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            text_size: 25
+            font_name: 'poppins-bold'
+            radius: [10]
+            on_release:
+                app.afficher_historique('PC')
+
+        MDRectangleFlatButton:
+            text: 'RO'
+            size_hint: .15, .05
+            pos_hint: {'center_x': .7, 'center_y': .4}
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            text_size: 25
+            font_name: 'poppins-bold'
+            radius: [10]
+            on_release:
+                app.afficher_historique('RO')

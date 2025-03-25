@@ -50,7 +50,7 @@ MDScreen:
             size_hint: .22, .055
             radius: [8]
             padding: 8
-            pos_hint:{'center_x':.35, 'center_y': .83}
+            pos_hint:{'center_x':.6, 'center_y': .83}
 
             MDTextButton:
                 text : 'Rechercher un client'
@@ -63,32 +63,12 @@ MDScreen:
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
 
-        MDFloatLayout:
-            id: tri_container
-            orientation: 'horizontal'
-            md_bg_color: '#56B5FB'
-            size_hint: .22, .055
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .83}
-
-            MDLabel:
-                text : 'Trier'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.55, 'center_y': .5}
-
-            MDLabel:
-                id: type_trait
-                text : 'Type de traitement'
-                font_size: 15
-                font_name: 'poppins'
-                pos_hint:{'center_x':.8, 'center_y': .5}
-
-            MDIconButton:
-                icon: 'chevron-down'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
+        MDSpinner:
+            id: client_spinner
+            size_hint: None, None
+            size: dp(46), dp(46)
+            pos_hint: {'center_x': .35, 'center_y': .45}
+            active: True
 
         MDFloatLayout:
             id: tableau_client

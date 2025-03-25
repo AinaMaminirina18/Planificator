@@ -1,5 +1,5 @@
 from functools import partial
-
+import asynckivy as ak
 from kivy.metrics import dp
 from kivymd.app import MDApp
 from kivymd.uix.datatables import MDDataTable
@@ -7,8 +7,8 @@ from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.dialog import MDDialog
 
-from kivy.uix.screenmanager import ScreenManager
-from kivy.clock import Clock
+from kivy.uix.screenmanager import ScreenManager, SlideTransition
+from kivy.clock import Clock, mainthread
 from kivy.core.text import LabelBase
 from kivy.lang import Builder
 from kivy.core.window import Window
@@ -49,7 +49,6 @@ class Screen(MDApp):
 
     def on_start(self):
         gestion_ecran(self.root)
-
         self.get_client()
         
 
@@ -73,7 +72,7 @@ class Screen(MDApp):
         self.not_admin = None
         self.client =[]
         self.current_client = None
-
+        self.card = None
 
         self.liste_contrat = None
         self.liste_client = None
@@ -212,7 +211,7 @@ class Screen(MDApp):
             self.contrat_manager.get_screen('ajout_planning').ids.axe_client.text = axe
             
         async def create():
-            self.traitement = self.get_trait_from_form()
+            self.traitement, self.categorie_trait = self.get_trait_from_form()
             self.id_traitement = []
             try:
                 client = await self.database.create_client(nom, prenom, email, telephone, adresse, self.reverse_date(date_ajout), categorie_client, axe)
@@ -234,16 +233,21 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(create(), self.loop)
     
     def get_client(self):
-        async def client():
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
+
+        async def load_clients_and_update_ui():
             try:
-                Clock.schedule_once(lambda x :self.ajout_carte(result))
+                
                 result = await self.database.get_client()
                 self.client = result
+                self.update_cards(result)
             except Exception as e:
-                print(e)
+                print(f"Erreur lors de la récupération des clients: {e}")
+                self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des clients.")
                 
-        asyncio.run_coroutine_threadsafe(client(), self.loop)
-        
+        if not self.card:
+            asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)  # ou asyncio.run_coroutine_threadsafe si asynchrone
+    
     def gestion_planning(self):
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
         pause = self.contrat_manager.get_screen('ajout_planning').ids.pause_prevu.text
@@ -373,24 +377,39 @@ class Screen(MDApp):
     def get_trait_from_form(self):
         
         traitement = []
+        categorie =[]
         dératisation = self.contrat_manager.get_screen('new_contrat').ids.deratisation.active
         désinfection = self.contrat_manager.get_screen('new_contrat').ids.desinfection.active
         désinsectisation = self.contrat_manager.get_screen('new_contrat').ids.desinsectisation.active
         nettoyage = self.contrat_manager.get_screen('new_contrat').ids.nettoyage.active
         fumigation = self.contrat_manager.get_screen('new_contrat').ids.fumigation.active
+        ramassage = self.contrat_manager.get_screen('new_contrat').ids.ramassage.active
+        anti_termite = self.contrat_manager.get_screen('new_contrat').ids.anti_ter.active
         
         if dératisation:
-            traitement.append('Dératisation')
+            traitement.append('Dératisation (PC)')
+            categorie.append('PC')
         if désinfection:
-            traitement.append('Désinfection')
+            traitement.append('Désinfection (PC)')
+            categorie.append('PC')
         if désinsectisation:
-            traitement.append('Désinsectisation')
+            categorie.append('PC')
+            traitement.append('Désinsectisation (PC)')
         if nettoyage:
-            traitement.append('Nettoyage industriel')
+            categorie.append('NI: Nettoyage indutriel')
+            traitement.append('Nettoyage industriel (NI)')
         if fumigation:
-            traitement.append('Fumigation')
+            categorie.append('PC')
+            traitement.append('Fumigation (PC)')
+        if ramassage:
+            categorie.append("RO: Ramassage d'ordures")
+            traitement.append("Ramassage d'ordures (RO)")
+        if anti_termite:
+            categorie.append('AT: Anti termites')
+            traitement.append('Anti termites (AT)')
             
-        return traitement
+        print(traitement)
+        return traitement, categorie
         
     def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
@@ -660,40 +679,50 @@ class Screen(MDApp):
             self.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
     
     def all_clients(self):
-
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
-        async def clients():
-            try:
-                client = await self.database.get_all_client()
-                Clock.schedule_once(lambda a: self.switch_to_client())
-                if client:
-                    Clock.schedule_once(lambda dt: self.tableau_client(place, client))
-            except:
-                self.show_dialog('erreur', 'Merde !!!')
-        
-        asyncio.run_coroutine_threadsafe(clients(), self.loop)
-        
-    def all_contrats(self):
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-        try:
-            Clock.schedule_once(lambda a: self.tableau_contrat(place, self.client))
-            print(self.client)
-        except Exception as e:
-            print(e)
-        
-    def switch_to_contrat(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
-        self.all_contrats()
+        spinner = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.client_spinner
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
 
+        async def load_clients_and_update_ui():
+            try:
+                spinner.active = True
+                client_data = await self.database.get_all_client()
+
+                if client_data:
+                    self.update_client_table_and_switch(place, client_data)
+                    spinner.active = False
+                else:
+                    self.show_dialog('Information', 'Aucun client trouvé.')
+                    
+            except Exception as e:
+                spinner.active = False
+                print(f"Erreur lors de la récupération des clients: {e}")
+                self.show_dialog('Erreur', 'Une erreur est survenue lors du chargement des clients.')
+        if not self.liste_client:
+            asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)
+    
+    def all_contrats(self):
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+        
+        if not self.client:
+            self.get_client()
+        
+        def load_contracts_and_update_ui():
+            try:
+                contract_data = self.client  # Assurez vous que self.client contient bien les données necessaires.
+                self.update_contract_table(place, contract_data)
+            except Exception as e:
+                print(f"Erreur lors du chargement des contrats: {e}")
+                self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des contrats.")
+        if not self.liste_contrat:
+            threading.Thread(target=load_contracts_and_update_ui).start()
+        
     def switch_to_home(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
 
     def switch_to_login(self):
         self.root.current =  'login'
-
-    def switch_to_client(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
-
 
     def switch_to_compte(self):
         ecran = 'compte' if self.admin else 'not_admin'
@@ -708,10 +737,16 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(ecran).ids.username.text = f"Nom d'utilisateur : {self.compte[4]}"
 
     def switch_to_historique(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'historique'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current ='choix_type'
+
+    def afficher_historique(self, type_trait):
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='left')
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current ='historique'
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='up')
+
 
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids.tableau_historic
-
+        print(type_trait)
         self.tableau_historic(place)
 
     def switch_to_planning(self):
@@ -785,13 +820,13 @@ class Screen(MDApp):
         self.menu.dismiss()
         
     def dropdown_new_contrat(self,button,  champ, screen):
-        type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage', 'Fumigation']
+        axe = ['Nord (N)', 'Sud (S)', 'Est (E)', 'Ouest (O)']
         durée = ['Déterminée', 'Indéterminée']
         categorie = ['Nouveau ', 'Renouvellement']
         type_client = ['Société', 'Organisation', 'Particulier']
         redondance = ['Mensuel', '2 mois', '3 mois', '4 mois', '6 mois']
 
-        item_menu = type if champ == 'type_traitement' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else redondance if champ == 'red_trait' else type_client
+        item_menu = axe if champ == 'axe_client' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else redondance if champ == 'red_trait' else type_client
         menu = [
             {
                 "text": i,
@@ -889,65 +924,99 @@ class Screen(MDApp):
             if self.liste_client != None:
                 place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
                 place2.remove_widget(self.liste_client)
-                self.all_clients()
-
-    def ajout_carte(self, datas, limite= 6):
+                
+                threading.Thread(target=self.all_clients()).start()
+    
+    @mainthread
+    def update_cards(self, datas, limite=6):
         client_box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.contrats
+        client_box.clear_widgets()  # Supprimer les anciennes cartes.
         count = 0
-        print(datas)
         for data in datas:
             if count < limite:
                 fin = 'Indéterminée' if data[5] == 'Indéterminée' else self.reverse_date(data[5])
-                card = contrat(data[0],self.reverse_date(data[1]),data[2],data[3],self.reverse_date(data[4]),fin, self)
-                client_box.add_widget(card)
+                self.card = contrat(data[0], self.reverse_date(data[1]), data[2], data[3], self.reverse_date(data[4]), fin,
+                               self)
+                client_box.add_widget(self.card)
                 count += 1
-            else: break
-            
-    def tableau_contrat(self, place ,data):
+            else:
+                break
+    
+    @mainthread
+    def update_contract_table(self, place, contract_data):
+        
+        row_data = [ (i[0],self.reverse_date(i[1]), i[2], i[3]) for i in contract_data]
+        
         self.liste_contrat = MDDataTable(
-            pos_hint={'center_x':.5, "center_y": .53},
-            size_hint=(1,1),
-            background_color_header = '#56B5FB',
-            background_color= '#56B5FB',
-            rows_num=len(self.client),
+            pos_hint={'center_x': 0.5, "center_y": 0.53},
+            size_hint=(1, 1),
+            background_color_header='#56B5FB',
+            background_color='#56B5FB',
+            rows_num=len(contract_data),
             elevation=0,
             column_data=[
-                ("Date du contrat", dp(35)),
                 ("Client concerné", dp(60)),
+                ("Date du contrat", dp(35)),
                 ("Type de traitement", dp(40)),
                 ("Durée", dp(40)),
             ],
-            row_data=[(
-                self.reverse_date(i[1]),
-                i[0],
-                i[2],
-                i[3] )
-                for i in data
-            ],
+            row_data=row_data,
         )
         self.liste_contrat.bind(on_row_press=self.row_pressed_contrat)
+        place.clear_widgets()  # Supprimer l'ancien tableau si nécessaire
         place.add_widget(self.liste_contrat)
-
+        
     def row_pressed_contrat(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-
-        date = row_data[3].split(' ')
-        self.contrat_manager.get_screen('option_contrat').ids.titre.text = f'A propos du contrat de {row_data[1]}'
-        self.contrat_manager.get_screen('option_contrat').ids.date_contrat.text = f'Contrat du : {row_data[0]}'
-        self.contrat_manager.get_screen('option_contrat').ids.debut_contrat.text = f'Début du contrat : {date[0]}'
-        self.contrat_manager.get_screen('option_contrat').ids.fin_contrat.text = f'Fin du contrat : {date[2]}'
-        self.contrat_manager.get_screen('option_contrat').ids.type_traitement.text = f'Type de traitement : {row_data[2]}'
-        self.fenetre_contrat('', 'option_contrat')
-
         
-    def tableau_client(self, place, data):
+        def maj_ecran():
+            if self.current_client[3] == 'Particulier':
+                nom = self.current_client[1] + ' ' + self.current_client[2]
+            else:
+                nom = self.current_client[1]
+            
+            if self.current_client[6] == 'Indéterminée':
+                fin = self.reverse_date(self.current_client[8])
+            else :
+                fin = self.current_client[8]
+                
+            self.contrat_manager.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
+            self.contrat_manager.get_screen(
+                'option_contrat').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
+            self.contrat_manager.get_screen(
+                'option_contrat').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
+            self.contrat_manager.get_screen(
+                'option_contrat').ids.fin_contrat.text = f'Fin du contrat : {fin}'
+            self.contrat_manager.get_screen(
+                'option_contrat').ids.type_traitement.text = f'Type de traitement : {self.current_client[4]}'
+            self.contrat_manager.get_screen(
+                'option_contrat').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
+            self.contrat_manager.get_screen(
+                'option_contrat').ids.axe.text = f'Axe du client: {self.current_client[11]}'
+        
+        async def current_client():
+            try:
+                self.current_client = await self.database.get_current_client(row_data[1],self.reverse_date(row_data[0]))
+                print(self.current_client)
+                Clock.schedule_once(lambda x: maj_ecran())
+                Clock.schedule_once(lambda x: self.fenetre_contrat('', 'option_contrat'))
+            except Exception as e:
+                print(e)
+        
+        asyncio.run_coroutine_threadsafe(current_client(), self.loop)
+    
+    @mainthread
+    def update_client_table_and_switch(self, place, client_data):
+        
+        row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
+        
         self.liste_client = MDDataTable(
-            pos_hint={'center_x':.5, "center_y": .53},
-            size_hint=(1,1),
-            background_color_header = '#56B5FB',
-            background_color= '#56B5FB',
-            rows_num=len(data),
+            pos_hint={'center_x': 0.5, "center_y": 0.53},
+            size_hint=(1, 1),
+            background_color_header='#56B5FB',
+            background_color='#56B5FB',
+            rows_num=len(client_data),
             elevation=0,
             column_data=[
                 ("Client", dp(35)),
@@ -955,17 +1024,12 @@ class Screen(MDApp):
                 ("Adresse du client", dp(40)),
                 ("Date de contrat du client", dp(40)),
             ],
-            row_data=[
-                (i[0],
-                 i[1],
-                 i[2],
-                 self.reverse_date(i[3]))
-                for i in data
-            ]
+            row_data=row_data,
         )
         self.liste_client.bind(on_row_press=self.row_pressed_client)
+        place.clear_widgets()  # Supprimer l'ancien tableau si nécessaire
         place.add_widget(self.liste_client)
-
+        
     def row_pressed_client(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
@@ -974,11 +1038,16 @@ class Screen(MDApp):
                 nom = self.current_client[1] + ' ' + self.current_client[2]
             else:
                 nom = self.current_client[1]
-            
+
+            if self.current_client[6] == 'Indéterminée':
+                fin = self.reverse_date(self.current_client[8])
+            else :
+                fin = self.current_client[8]
+                
             self.client_manager.get_screen('option_client').ids.titre.text = f'A propos de {nom}'
-            self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.current_client[4]}'
-            self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.current_client[7]}'
-            self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {self.current_client[8]}'
+            self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
+            self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
+            self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {fin}'
             self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[4]}'
             self.client_manager.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
             
@@ -1186,6 +1255,8 @@ class Screen(MDApp):
         
     def enregistrer_modif_client(self, nom, prenom, email, telephone, adresse, categorie, axe):
         async def save():
+            spinner = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.client_spinner
+            spinner.active = True
             try:
                 Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
                 Clock.schedule_once(lambda x: self.dismiss_client())
