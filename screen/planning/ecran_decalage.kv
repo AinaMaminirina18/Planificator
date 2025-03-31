@@ -9,7 +9,7 @@ MDScreen:
             halign: 'center'
             font_name: 'poppins-bold'
             font_size: 18
-            pos_hint: {'center_x': .7, 'center_y': .95}
+            pos_hint: {'center_x': .4, 'center_y': .95}
 
         MDLabel:
             text: 'CONTRAT DU 25/11/2025'
@@ -80,13 +80,32 @@ MDScreen:
             pos_hint:{"center_x":.43,"center_y":.42}
 
         MDLabel:
-            text: "Voulez-vous enregistrer cet avancement?"
+            text: "Garder la redondance"
             font_name: "poppins"
             font_size: 16
-            pos_hint: {"center_x": .75,'center_y':.28}
+            pos_hint: {"center_x": .6,'center_y':.28}
+
+        MDCheckbox:
+            id: garder
+            pos_hint: {"center_x": .07,'center_y':.28}
+            size_hint: .05, .07
+            active: True
+            group: 'etat_redondance'
+
+        MDLabel:
+            text: "Changer la redondance"
+            font_name: "poppins"
+            font_size: 16
+            pos_hint: {"center_x": 1.05,'center_y':.28}
+
+        MDCheckbox:
+            id: changer
+            pos_hint: {"center_x": .52,'center_y':.28}
+            size_hint: .05, .07
+            group: 'etat_redondance'
 
         MDRectangleFlatButton
-            text: "Oui j'accepte"
+            text: "Enregistrer"
             font_name: 'poppins'
             text_color: 'black'
             md_bg_color: '#B3F844'
@@ -97,6 +116,7 @@ MDScreen:
                 app.dismiss_planning()
                 app.fermer_ecran()
                 app.show_dialog('', "Signalement d'un décalage effectué")
+
         MDRectangleFlatButton
             text: "Annuler"
             font_name: 'poppins'
