@@ -1,0 +1,25 @@
+MDScreen:
+    name: 'all_treatment'
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDIconButton:
+            icon: 'arrow-left'
+            pos_hint:{"center_x":.02, "center_y":.97}
+            on_release:
+                app.fermer_ecran()
+                app.dismiss_contrat()
+
+        MDLabel:
+            id: titre
+            text: ''
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint:{"center_x":.6, "center_y":.97}
+
+        MDFloatLayout:
+            id: tableau_treat
+            pos_hint:{'center_x': .5,'center_y': .45}
+            size_hint: 1,.85
+            radius: 8
