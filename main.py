@@ -1,9 +1,12 @@
 from datetime import datetime
+from threading import Thread
+
 from dateutil.relativedelta import relativedelta
 from functools import partial
 import locale
 
 from kivy.metrics import dp
+from kivy.properties import BooleanProperty
 from kivymd.app import MDApp
 from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.menu import MDDropdownMenu
@@ -49,13 +52,13 @@ class Screen(MDApp):
     description = 'Logiciel de suivi et gestion de contrat'
     CLM = 'Assets/CLM.JPG'
     CL = 'Assets/CL.JPG'
-
+    
+    loading = BooleanProperty(True)
 
     def on_start(self):
         gestion_ecran(self.root)
         self.get_client()
         
-
     def build(self):
         #Parametre de la base de données
         self.loop = asyncio.new_event_loop()
@@ -242,39 +245,28 @@ class Screen(MDApp):
                 Clock.schedule_once(self.show_dialog('Erreur', f'{error}'))
          
         asyncio.run_coroutine_threadsafe(create(), self.loop)
-    
-    def planning_per_year(self, debut, redondance):
-        date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
-        mois = date.strftime("%B")
-        
-
-        def ajouter_mois(date_depart, nombre_mois):
-            """Ajoute des mois à une date donnée."""
-            mois = date_depart.month - 1 + nombre_mois
-            annee = date_depart.year + mois // 12
-            mois = mois % 12 + 1
-            jour = min(date_depart.day, [31, 29 if annee % 4 == 0 and annee % 100 != 0 or annee % 400 == 0 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mois - 1])
-            return datetime.strptime(f'{annee}-{mois}-{jour}',"%Y-%m-%d").date()
-        
-        for i in range(12/redondance):
-            date_suivante = ajouter_mois(date, i * redondance)
-            print(date_suivante.strftime("%B %Y"))
         
     def get_client(self):
 
         async def load_clients_and_update_ui():
             try:
-                result = await self.database.get_client()
-                #print(result)
-                self.client = result
-                self.update_cards(result)
-            
+                if not self.client:
+                    result = await self.database.get_client()
+                    if result:
+                        if 'None' not in result[0]:
+                            self.client = result
+                            self.update_cards(result)
+                            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+                            
+                            self.loading = False
+                            Clock.schedule_once(lambda dt:self.update_contract_table(place, self.client))
+                            print(result)
+                            
             except Exception as e:
                 print(f"Erreur lors de la récupération des clients: {e}")
                 self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des clients.")
                 
-        if not self.card:
-            asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)  # ou asyncio.run_coroutine_threadsafe si asynchrone
+        asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)  # ou asyncio.run_coroutine_threadsafe si asynchrone
     
     def gestion_planning(self):
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
@@ -310,46 +302,88 @@ class Screen(MDApp):
             self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text = ''
             self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text = 'Indéterminée' if mois_fin == 'Indéterminée' else ''
             self.contrat_manager.get_screen('ajout_planning').ids.pause_prevu.text = ''
-            self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text = 'Mensuel'
+            self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text = '1 mois'
             self.contrat_manager.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
             self.dismiss_contrat()
             self.fermer_ecran()
             self.fenetre_contrat('Ajout du planning','ajout_planning')
-           
+         
+      
     def save_planning(self,):
         mois_debut = self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
         pause = self.contrat_manager.get_screen('ajout_planning').ids.pause_prevu.text
         redondance = self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text
+        date_debut = self.contrat_manager.get_screen('new_contrat').ids.debut_new_contrat.text
+        temp = date_debut.split('-')
+        date_fin = datetime.strptime(f'{temp[0]}-{(int(temp[1])+11) % 12}-{temp[2]}',  "%d-%m-%Y").date()
         
         montant = self.contrat_manager.get_screen('ajout_facture').ids.montant.text
         axe_client = self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text
-        date = '2025-12-12'
-        remarque = 'Vide'
+        
+        int_red = redondance.split(" ")
+        
         async def save():
             try:
-                planning = await self.database.create_planning(self.id_traitement[0], mois_debut, mois_fin, pause, redondance)
-                #facture = await self.database.create_facture(traitement_id, int(montant), date, axe_client, remarque)
+                planning = await self.database.create_planning(self.id_traitement[0],
+                                                               self.reverse_date(date_debut),
+                                                               datetime.strptime(mois_debut.lower(), "%B").month,
+                                                               datetime.strptime(mois_fin.lower(), "%B").month if mois_fin != 'Indéterminée' else 0,
+                                                               datetime.strptime(pause.lower(), "%B").month if pause != 'Aucune' or '' else 0,
+                                                               int_red[0],
+                                                               date_fin)
+                
+                dates_planifiees = self.planning_per_year(date_debut, redondance)
+                
+                for mois in dates_planifiees:
+                    try:
+                        planning_detail = await self.database.create_planning_details(planning, mois)
+                        await self.database.create_facture(planning_detail,
+                                                           int(montant) if ' ' not in montant else int(montant.replace(' ', '')),
+                                                           axe_client)
+                        print('Réussi ')
+                    except Exception as e:
+                        print("enregistrement planning detail ", e)
+                    
                 self.id_traitement.pop(0)
+                
             except Exception as e:
-                print(e)
+                print('eto', e)
         
         asyncio.run_coroutine_threadsafe(save(), self.loop)
         self.gestion_planning()
+    
+    def planning_per_year(self, debut, redondance):
+        red = redondance.split(' ')
+        date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
         
+        def ajouter_mois(date_depart, nombre_mois):
+            """Ajoute des mois à une date donnée."""
+            mois = date_depart.month - 1 + nombre_mois
+            annee = date_depart.year + mois // 12
+            mois = mois % 12 + 1
+            jour = min(date_depart.day, [31, 29 if annee % 4 == 0 and annee % 100 != 0 or annee % 400 == 0 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mois - 1])
+            return datetime.strptime(f'{annee}-{mois}-{jour}',"%Y-%m-%d").date()
+        
+        dates = []
+        for i in range(12 // int(red[0])):
+            date_suivante = ajouter_mois(date, i * int(red[0]))
+            dates.append(date_suivante.strftime("%B %Y"))
+        return dates
+    
     def update_account(self, nom, prenom, email, username, password, confirm):
         valid_password = vp.get_valid_password(nom, prenom, password, confirm)
-
+        
         if not nom or not prenom or not email or not password or not username or not confirm:
-            Clock.schedule_once(lambda  dt: self.show_dialog("Erreur", "Veuillez completer tous les champs"))
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Veuillez completer tous les champs"))
             return
-
+        
         elif not is_valid_email(email):
             Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Verifier votre adresse email'))
-
+        
         elif 'Le' in str(valid_password):
             Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password))
-
+        
         else:
             async def update_user_task():
                 try:
@@ -709,43 +743,23 @@ class Screen(MDApp):
     
     def all_clients(self):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
-        spinner = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.client_spinner
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
-
         async def load_clients_and_update_ui():
             try:
-                spinner.active = True
                 client_data = await self.database.get_all_client()
 
                 if client_data:
-                    self.update_client_table_and_switch(place, client_data)
-                    spinner.active = False
+                    print(client_data)
+                    Clock.schedule_once(lambda dt: self.update_client_table_and_switch(place,client_data))
                 else:
                     self.show_dialog('Information', 'Aucun client trouvé.')
                     
             except Exception as e:
-                spinner.active = False
                 print(f"Erreur lors de la récupération des clients: {e}")
                 self.show_dialog('Erreur', 'Une erreur est survenue lors du chargement des clients.')
+                
         if not self.liste_client:
             asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)
-    
-    def all_contrats(self):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-        
-        if not self.client:
-            self.get_client()
-        
-        def load_contracts_and_update_ui():
-            try:
-                contract_data = self.client  # Assurez vous que self.client contient bien les données necessaires.
-                self.update_contract_table(place, contract_data)
-            except Exception as e:
-                print(f"Erreur lors du chargement des contrats: {e}")
-                self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des contrats.")
-        if not self.liste_contrat:
-            load_contracts_and_update_ui()
+            
         
     def switch_to_home(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
@@ -792,7 +806,14 @@ class Screen(MDApp):
         self.root.current = 'Sidebar'
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
         self.reset()
-
+    
+    def switch_to_contrat(self):
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
+        Thread(target=self.get_client(), daemon=True).start()
+        
+    def switch_to_client(self):
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
+        Thread(target=self.all_clients(), daemon=True).start()
 
     def dropdown_compte(self, button, name):
         type_compte = ['Administrateur', 'Utilisateur']
@@ -853,7 +874,7 @@ class Screen(MDApp):
         durée = ['Déterminée', 'Indéterminée']
         categorie = ['Nouveau ', 'Renouvellement']
         type_client = ['Société', 'Organisation', 'Particulier']
-        redondance = ['Mensuel', '2 mois', '3 mois', '4 mois', '6 mois']
+        redondance = ['1 mois', '2 mois', '3 mois', '4 mois', '6 mois']
 
         item_menu = axe if champ == 'axe_client' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else redondance if champ == 'red_trait' else type_client
         menu = [
@@ -945,16 +966,22 @@ class Screen(MDApp):
             place.remove_widget(self.account)
 
             self.all_users(place)
+            
         elif screen == 'contrat':
             if self.liste_contrat != None:
+                self.loading = True
+                
                 place1 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
                 place1.remove_widget(self.liste_contrat)
-                self.all_contrats()
+                self.client = []
                 
-        elif screen == 'client':
+                self.get_client()
+                
             if self.liste_client != None:
-                place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
+                place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
+                     'client').ids.tableau_client
                 place2.remove_widget(self.liste_client)
+                self.liste_client = None
                 
                 self.all_clients()
     
@@ -973,9 +1000,7 @@ class Screen(MDApp):
             else:
                 break
     
-    @mainthread
     def update_contract_table(self, place, contract_data):
-        
         row_data = [ (i[0],self.reverse_date(i[1]), i[7], i[3]) for i in contract_data]
         
         self.liste_contrat = MDDataTable(
@@ -994,7 +1019,6 @@ class Screen(MDApp):
             row_data=row_data,
         )
         self.liste_contrat.bind(on_row_press=self.get_traitement_par_client)
-        place.clear_widgets()  # Supprimer l'ancien tableau si nécessaire
         place.add_widget(self.liste_contrat)
         
     def get_traitement_par_client(self, table, row):
@@ -1082,7 +1106,7 @@ class Screen(MDApp):
     
     @mainthread
     def update_client_table_and_switch(self, place, client_data):
-        
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.client_spinner.active = False
         row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
         
         self.liste_client = MDDataTable(
