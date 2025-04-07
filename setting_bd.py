@@ -1,5 +1,5 @@
 import aiomysql
-from datetime import date
+
 class DatabaseManager:
     """Gestionnaire de la base de données utilisant aiomysql."""
     def __init__(self, loop):
@@ -96,15 +96,6 @@ class DatabaseManager:
                     return cur.lastrowid
                 except Exception as e:
                     print(e)
-                    
-    async def create_planning_details(self):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "INSERT INTO Planning (traitement_id, mois_debut, mois_fin, mois_pause, redondance) VALUES (%s, %s, %s, %s, %s)",
-                    (traitement_id, mois_debut, mois_fin, mois_pause, redondance))
-                await conn.commit()
-                return cur.lastrowid
             
     async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe):
         async with self.pool.acquire() as conn:
@@ -143,25 +134,55 @@ class DatabaseManager:
                 except Exception as e:
                     print(e)
     
-    async def create_planning(self, traitement_id, mois_debut, mois_fin, mois_pause, redondance):
+    async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, mois_pause, redondance, date_fin):
         """Crée un planning pour un traitement donné."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    "INSERT INTO Planning (traitement_id, mois_debut, mois_fin, mois_pause, redondance) VALUES (%s, %s, %s, %s, %s)",
-                    (traitement_id, mois_debut, mois_fin, mois_pause, redondance))
-                await conn.commit()
-                return cur.lastrowid
-    
-    async def create_facture(self, traitement_id, montant, date_traitement, axe, remarque):
+                try:
+                    await cur.execute(
+                        "INSERT INTO Planning (traitement_id,date_debut_planification, mois_debut, mois_fin, mois_pause, redondance, date_fin_planification) VALUES (%s, %s, %s, %s, %s, %s,%s)",
+                        (traitement_id, date_debut, mois_debut, mois_fin, mois_pause, redondance, date_fin))
+                    await conn.commit()
+                    return cur.lastrowid
+           
+                except Exception as e:
+                    print("planning",e)
+                    
+    async def create_planning_details(self, planning_id, mois ,statut='À venir'):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(
-                    "INSERT INTO Facture (planning_detail_id, montant, date_traitement, axe, remarque) VALUES (%s, %s, %s, %s, %s)",
-                    (traitement_id, montant, date_traitement, axe, remarque))
-                await conn.commit()
-                return cur.lastrowid
+                try:
+                    await cur.execute(
+                        "INSERT INTO PlanningDetails (planning_id, mois, statut) VALUES ( %s, %s, %s)",
+                        (planning_id, mois, statut))
+                    await conn.commit()
+                    return cur.lastrowid
+                except Exception as e:
+                    print("detail",e)
     
+    async def create_facture(self, planning_id, montant, axe,etat = 'Non payé'):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(
+                        "INSERT INTO Facture (planning_detail_id, montant, etat,  axe) VALUES (%s, %s, %s, %s)",
+                        (planning_id, montant,etat,  axe))
+                    await conn.commit()
+                    return cur.lastrowid
+                except Exception as e:
+                    print("facture",e)
+    
+    async def create_remarque(self,client, planning_details, facture, contenu):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    cur.execute(
+                    "INSERT INTO Remarque (client_id, planning_detail_id, facture_id, contenu) VALUES (%s, %s, %s, %s, %s)",
+                    (client, planning_details, facture, contenu))
+                    await conn.commit()
+                except Exception as e:
+                    print("remarque",e)
+                
     async def get_current_contrat(self, client, date, traitement):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
