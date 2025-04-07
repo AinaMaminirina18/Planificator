@@ -67,6 +67,13 @@ MDScreen:
                 on_release:
                     app.fenetre_contrat('Nouveau contrat','new_contrat')
 
+        MDSpinner:
+            id: spinner
+            size_hint: None, None
+            size: dp(46), dp(46)
+            pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+            active: app.loading
+
         MDFloatLayout:
             id: tableau_contrat
             pos_hint:{'center_x': .355,'center_y': .4}
