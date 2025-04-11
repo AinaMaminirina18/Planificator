@@ -160,12 +160,88 @@ class DatabaseManager:
                 except Exception as e:
                     print("detail",e)
     
+    async def get_all_planning(self):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute(
+                        """SELECT c.nom AS nom_client,
+                                  tt.typeTraitement AS type_traitement,
+                                  co.duree AS duree_contrat,
+                                  p.planning_id
+                                  
+                           FROM
+                              Client c
+                           JOIN
+                              Contrat co ON c.client_id = co.client_id
+                           JOIN
+                              Traitement t ON co.contrat_id = t.contrat_id
+                           JOIN
+                              Planning p ON t.traitement_id = p.traitement_id
+                           JOIN
+                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           ORDER BY
+                              c.nom ASC;"""
+                    )
+                    return await cursor.fetchall()
+                except Exception as e:
+                    print('all planning', e)
+                    
+                    
+    async def get_details(self, planning_id):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute("""SELECT
+                                                mois, statut
+                                            FROM
+                                                PlanningDetails
+                                            WHERE
+                                                planning_id = %s""", (planning_id,))
+                    return await cursor.fetchall()
+                except Exception as e:
+                    print('details', e)
+    
+    async def get_info_planning(self, planning_id, mois):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute("""SELECT c.nom AS nom_client,
+                                                  tt.typeTraitement AS type_traitement,
+                                                  p.duree_traitement,
+                                                  co.date_debut,
+                                                  co.date_fin,
+                                                  c.client_id,
+                                                  f.facture_id,
+                                                  p.planning_id,
+                                                  pdl.planning_detail_id
+                                                  
+                                           FROM
+                                              Client c
+                                           JOIN
+                                              Contrat co ON c.client_id = co.client_id
+                                           JOIN
+                                              Traitement t ON co.contrat_id = t.contrat_id
+                                           JOIN
+                                              Planning p ON t.traitement_id = p.traitement_id
+                                           JOIN
+                                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                           JOIN
+                                              PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                           JOIN
+                                              Facture f ON pdl.planning_detail_id = f.planning_detail_id
+                                           WHERE
+                                              p.planning_id = %s AND pdl.mois = %s""", (planning_id,mois))
+                    return await cursor.fetchone()
+                except Exception as e:
+                    print('get_info', e)
+                    
     async def create_facture(self, planning_id, montant, axe,etat = 'Non payé'):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "INSERT INTO Facture (planning_detail_id, montant, etat,  axe) VALUES (%s, %s, %s, %s)",
+                        "INSERT INTO Facture (planning_detail_id, montant, etat,  axe) VALUES (%s, %s, %s, %s, %s)",
                         (planning_id, montant,etat,  axe))
                     await conn.commit()
                     return cur.lastrowid
@@ -176,13 +252,44 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
-                    cur.execute(
-                    "INSERT INTO Remarque (client_id, planning_detail_id, facture_id, contenu) VALUES (%s, %s, %s, %s, %s)",
+                    await cur.execute(
+                    "INSERT INTO Remarque (client_id, planning_detail_id, facture_id, contenu) VALUES (%s, %s, %s, %s)",
                     (client, planning_details, facture, contenu))
                     await conn.commit()
                 except Exception as e:
                     print("remarque",e)
-                
+    
+    async def get_historic(self, categorie):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute(""" SELECT c.nom,
+                                                co.duree,
+                                                tt.typeTraitement,
+                                                r.contenu
+                                             FROM
+                                                Client c
+                                             JOIN
+                                                Contrat co ON c.client_id = co.client_id
+                                             JOIN
+                                                Traitement t ON co.contrat_id = t.contrat_id
+                                             JOIN
+                                                TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                             JOIN
+                                                Planning p ON t.traitement_id = p.traitement_id
+                                             JOIN
+                                                PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                             JOIN
+                                                Remarque r ON pdl.planning_detail_id = r.planning_detail_id
+                                             WHERE
+                                                tt.categorieTraitement = %s
+                                                """, (categorie,))
+                    result = await cursor.fetchall()
+                    print(result)
+                    return result
+                except Exception as e:
+                    print('histo',e)
+                    
     async def get_current_contrat(self, client, date, traitement):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
@@ -259,7 +366,7 @@ class DatabaseManager:
                                   co.date_debut AS debut_contrat,
                                   co.date_fin AS fin_contrat,
                                   c.categorie AS categorie,
-                                  count(c.client_id)
+                                  count(t.traitement_id)
                            FROM
                               Client c
                            JOIN
@@ -268,6 +375,8 @@ class DatabaseManager:
                               Traitement t ON co.contrat_id = t.contrat_id
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           GROUP BY
+                              c.nom
                            ORDER BY
                               c.nom ASC;"""
                     )
