@@ -10,12 +10,14 @@ MDScreen:
             on_release:
 
         MDLabel:
+            id: titre
             text: 'Dératisation pour DevCorps pour le mois de mars'
             font_size: 18
             font_name: 'poppins'
             pos_hint:{"center_x":.6, "center_y":.97}
 
         MDLabel:
+            id: contrat
             text: 'Contrat du 19/12/2024 au 12/12/2026'
             font_name: 'poppins'
             font_size: 16
@@ -28,6 +30,7 @@ MDScreen:
             pos_hint:{"center_x":1, "center_y":.7}
 
         MDLabel:
+            id: duree
             text: 'Durée totale du traitement: 12 mois'
             font_name: 'poppins'
             font_size: 16
@@ -63,6 +66,8 @@ MDScreen:
             size_hint: .25, None
             pos_hint: {'center_x': .3, 'center_y': .1}
             on_release:
+                app.fermer_ecran()
+                app.dismiss_planning()
 
         MDRectangleFlatButton
             text: 'Enregistrer'
@@ -73,3 +78,4 @@ MDScreen:
             size_hint: .25, None
             pos_hint: {'center_x': .7, 'center_y': .1}
             on_release:
+                app.create_remarque()
