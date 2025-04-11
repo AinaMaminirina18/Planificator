@@ -36,7 +36,7 @@ from gestion_ecran_histo import gestion_ecran_histo
 from setting_bd import DatabaseManager
 import verif_password as vp
 
-Window.size = (1200, 680)
+Window.size = (1300, 680)
 Window.left = 40
 Window.top = 20
 
@@ -259,7 +259,7 @@ class Screen(MDApp):
                             place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
                             
                             self.loading = False
-                            Clock.schedule_once(lambda dt:self.update_contract_table(place, self.client))
+                            Clock.schedule_once(lambda dt:self.update_contract_table(place, self.client), 2)
                             print(result)
                             
             except Exception as e:
@@ -295,6 +295,7 @@ class Screen(MDApp):
             self.fermer_ecran()
             Clock.schedule_once(lambda dt: self.remove_tables('contrat'))
             Clock.schedule_once(lambda dt: self.remove_tables('client'))
+            self.clear_fields('new_contrat')
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
         
         else:
@@ -371,6 +372,16 @@ class Screen(MDApp):
             dates.append(date_suivante.strftime("%B %Y"))
         return dates
     
+    def get_all_planning(self, place):
+        async def all_planning():
+            try:
+                result = await self.database.get_all_planning()
+                Clock.schedule_once(lambda dt: self.tableau_planning(place, result))
+            except Exception as e:
+                print('func get planning', e)
+                
+        asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
+        
     def update_account(self, nom, prenom, email, username, password, confirm):
         valid_password = vp.get_valid_password(nom, prenom, password, confirm)
         
@@ -472,7 +483,11 @@ class Screen(MDApp):
             
         print(traitement)
         return traitement, categorie
-        
+    
+    def search(self, text, search='False'):
+        if search:
+            print(text)
+            
     def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
         if not hasattr(self, 'dialogue') or self.dialogue is None or titre != 'Déconnexion':
@@ -707,6 +722,30 @@ class Screen(MDApp):
         sign_up = ['nom','prenom','Email','type','signup_username','signup_password','confirm_password']
         modif_compte = ['nom','prenom','email','username','password','confirm_password']
         login = ['login_username', 'login_password']
+        new_contrat = ['date_new_contrat', 'debut_new_contrat', 'fin_new_contrat']
+        new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone']
+        planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'pause_prevu']
+        facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'pause_prevu', 'red_trait']
+        if screen == 'new_contrat':
+            #pour l'ecran new_contrat
+            self.contrat_manager.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
+            self.contrat_manager.get_screen('new_contrat').ids['cat_contrat'].text = 'Nouveau'
+            
+            #pour l'ecran ajout_client
+            self.contrat_manager.get_screen('ajout_info_client').ids['axe_client'].text = 'Nord (N)'
+            
+            #pour l'ajout du planning
+            self.contrat_manager.get_screen('ajout_planning').ids['red_trait'].text = '1 mois'
+            
+            for id in new_contrat:
+                self.contrat_manager.get_screen('new_contrat').ids[id].text = ''
+            for id in new_client:
+                self.contrat_manager.get_screen('ajout_info_client').ids[id].text = ''
+            for id in planning:
+                self.contrat_manager.get_screen('ajout_planning').ids[id].text = ''
+            for id in facture:
+                self.contrat_manager.get_screen('ajout_facture').ids[id].text = ''
+                
         if screen == 'signup':
             for id in sign_up:
                 self.root.get_screen('signup').ids[id].text = ''
@@ -786,18 +825,24 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='left')
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current ='historique'
         self.root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='up')
+        if type_trait == 'AT':
+            categorie = 'AT: Anti termites'
+        if type_trait == 'PC':
+            categorie = 'PC'
+        if type_trait == 'NI':
+            categorie = 'NI: Nettoyage Industriel'
+        if type_trait == 'RO':
+            categorie = 'RO: Ramassage Ordures'
+        print(categorie)
 
-
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids.tableau_historic
-        print(type_trait)
-        self.tableau_historic(place)
+        self.historique_par_categorie(categorie)
 
     def switch_to_planning(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'planning'
 
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
 
-        self.tableau_planning(place)
+        self.get_all_planning(place)
 
     def switch_to_about(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'about'
@@ -809,7 +854,8 @@ class Screen(MDApp):
     
     def switch_to_contrat(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
-        Thread(target=self.get_client(), daemon=True).start()
+        #Thread(target=self.get_client(), daemon=True).start()
+        Clock.schedule_once(lambda dt:self.get_client(), 2)
         
     def switch_to_client(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
@@ -1052,8 +1098,8 @@ class Screen(MDApp):
             rows_num=len(data),
             elevation=0,
             column_data=[
-                ("Date du contrat", dp(35)),
-                ("Type de traitement", dp(40)),
+                ("Date du contrat", dp(40)),
+                ("Type de traitement", dp(50)),
                 ("Durée", dp(40)),
             ],
             row_data=row_data,
@@ -1159,65 +1205,126 @@ class Screen(MDApp):
                 
         asyncio.run_coroutine_threadsafe(current_client(),self.loop)
     
-    def tableau_planning(self, place):
+    def tableau_planning(self, place, result):
+        liste_id = []
+        row_data = [(i[0], i[1], i[2], 'Aucun decalage') for i in result ]
+        for i in result:
+            liste_id.append(i[3])
+        
         self.liste_planning = MDDataTable(
             pos_hint={'center_x':.5, "center_y": .5},
             size_hint=(1,1),
             background_color_header = '#56B5FB',
             background_color= '#56B5FB',
-            rows_num=20,
+            rows_num=len(result),
             elevation=0,
             column_data=[
-                ("Client", dp(55)),
-                ("Durée du contrat", dp(35)),
+                ("Client", dp(50)),
+                ("Durée du contrat", dp(30)),
                 ("Type de traitement", dp(40)),
                 ("Option", dp(40)),
             ],
-            row_data=[
-                ("DEV-CORPS MDG", "12 mois", "Dératisation", "Aucun decalage"),
-                ("Cleanliness Madagascar", "6mois", "Nettoyage", "Décalage"),
-            ],
+            row_data= row_data
         )
-        self.liste_planning.bind(on_row_press=self.row_pressed_planning)
+        self.liste_planning.bind(on_row_press=lambda instance, row:self.row_pressed_planning(liste_id, instance, row))
         place.add_widget(self.liste_planning)
 
-    def tableau_selection_planning(self, place):
-        self.liste_planning = MDDataTable(
+    def  tableau_selection_planning(self, place, data, traitement):
+        row_data = [(i[0], ' x mois', i[1]) for i in data]
+        print(traitement)
+        
+        self.liste_select_planning = MDDataTable(
             pos_hint={'center_x':.5, "center_y": .5},
             size_hint=(.6,1),
-            rows_num=20,
+            rows_num=len(data),
             elevation=0,
             column_data=[
                 ("Mois", dp(35)),
                 ("Statistique", dp(35)),
                 ("Etat du traitement", dp(40)),
             ],
-            row_data=[
-                ("Janvier", "1 mois", "Effectué"),
-                ("Fevrier", "2 mois", "Effectué"),
-            ],
+            row_data= row_data
         )
-        self.liste_planning.bind(on_row_press=self.row_pressed_tableau_planning)
-        place.add_widget(self.liste_planning)
+        self.liste_select_planning.bind(on_row_press= lambda instance, row:self.row_pressed_tableau_planning(traitement, instance, row))
+        place.add_widget(self.liste_select_planning)
 
-    def row_pressed_planning(self, table, row):
+    def row_pressed_planning(self, list_id, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-
         place = self.planning_manager.get_screen('selection_planning').ids.tableau_select_planning
-        self.tableau_selection_planning(place)
-        self.fenetre_planning('', 'selection_planning')
         
-    def row_pressed_tableau_planning(self, table, row):
+        async def details():
+            result = await self.database.get_details(list_id[row_num])
+            if result:
+                Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_planning'))
+                Clock.schedule_once(lambda dt: self.tableau_selection_planning(place, result, list_id[row_num]))
+                
+        asyncio.run_coroutine_threadsafe(details(), self.loop)
+        
+    def row_pressed_tableau_planning(self,traitement,  table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
         
         self.fermer_ecran()
         self.dismiss_planning()
-        self.fenetre_planning('', 'selection_element_tableau')
-        #self.fenetre_planning('', 'option_decalage')
         
-    def tableau_historic(self, place):
+        def maj_ui():
+            try:
+                titre = self.planning_detail[1].split(' ')
+                self.planning_manager.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+                self.planning_manager.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+                
+                self.planning_manager.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
+                self.planning_manager.get_screen('ajout_remarque').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
+                
+                self.planning_manager.get_screen('selection_element_tableau').ids['mois'].text = f'Mois séléctionné : {row_data[0]}'
+                self.planning_manager.get_screen('ajout_remarque').ids['duree'].text = f'Durée total du traitement : {self.planning_detail[2]}'
+                
+            except Exception as e:
+                print(e)
+        async def get():
+            self.planning_detail = await self.database.get_info_planning(traitement, row_data[0])
+            Clock.schedule_once(lambda x: maj_ui())
+            Clock.schedule_once(lambda x: self.fenetre_planning('', 'selection_element_tableau'))
+        
+        asyncio.run_coroutine_threadsafe(get(), self.loop)
+       
+    def create_remarque(self):
+        contenu = self.planning_manager.get_screen('ajout_remarque').ids.remarque.text
+        
+        if contenu:
+            async def remarque():
+                try:
+                    await self.database.create_remarque(self.planning_detail[5], self.planning_detail[6], self.planning_detail[8], contenu)
+                    Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
+                    
+                    Clock.schedule_once(lambda dt: self.fermer_ecran())
+                    Clock.schedule_once(lambda dt: self.dismiss_planning())
+                except Exception as e:
+                    print('remarque tsy db',e)
+                    
+            asyncio.run_coroutine_threadsafe(remarque(), self.loop)
+            
+        else:
+            self.show_dialog('Erreur', 'Veuillez remplir la case de remarque')
+            
+    def historique_par_categorie(self, categorie):
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids.tableau_historic
+
+        async def get_histo():
+            try:
+                print('efa mi try')
+                result = await self.database.get_historic(categorie)
+                if result:
+                    print(result)
+                    Clock.schedule_once(lambda dt: self.tableau_historic(place, result))
+                    
+            except Exception as e:
+                print(e)
+        asyncio.run_coroutine_threadsafe(get_histo(), self.loop)
+        
+    def tableau_historic(self, place, data):
+        row_data = [(i[0], i[1], i[2], i[3] if i [3] != 'None' else 'pas de remarque') for i in data]
         self.historique = MDDataTable(
             pos_hint={'center_x':.5, "center_y": .53},
             size_hint=(1,1),
@@ -1231,10 +1338,7 @@ class Screen(MDApp):
                 ("Type de traitement", dp(40)),
                 ("Remarques", dp(40))
             ],
-            row_data=[
-                ("DEV-CORPS MDG", "Ankadindramamy", "27/11/25", 'Voir les remarques'),
-                ("Cleanliness Madagascar", "Anjanahary", "[color=#6C9331]3[/color]", "[color=#FF3333]Voir les remarques[/color]"),
-            ],
+            row_data=row_data,
         )
         self.historique.bind(on_row_press=self.row_pressed_histo)
         place.add_widget(self.historique)
@@ -1386,7 +1490,6 @@ class Screen(MDApp):
             webbrowser.open('https://github.com/AinaMaminirina18')
         else:
             webbrowser.open('https://github.com/josoavj')
-
 
     def on_stop(self):
         """Arrête proprement la boucle asyncio et le gestionnaire de base de données."""
