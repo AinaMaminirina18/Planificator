@@ -26,11 +26,15 @@ MDScreen:
             padding: 8
             pos_hint:{'center_x':.6, 'center_y': .83}
 
-            MDTextButton:
-                text : 'Rechercher un client'
+            MDTextField:
                 font_size: 15
+                line_color_normal : '#B3F844'
+                line_color_normal: 'black'
+                text_color_focus: 'black'
                 font_name: 'poppins'
-                padding:0,0,80,0
+                pos_hint:{'center_x':.9, 'center_y': .5}
+                on_text:
+                    app.search(self.text, True)
 
             MDIconButton:
                 icon: 'Assets/search.png'
