@@ -43,6 +43,9 @@ Window.top = 20
 Window.minimum_height = 680
 Window.minimum_width = 1300
 
+Window.maximum_height = 680
+Window.maximum_width = 1300
+
 locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
 class Screen(MDApp):
@@ -523,6 +526,7 @@ class Screen(MDApp):
         self.root.current = 'before login'
         self.admin = False
         self.compte = None
+        self.liste_client = None
 
     def close_dialog(self):
         self.dialogue.dismiss()
@@ -726,6 +730,8 @@ class Screen(MDApp):
         new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone']
         planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'pause_prevu']
         facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'pause_prevu', 'red_trait']
+        signalement = ['motif', 'mois', 'mois_fin']
+        
         if screen == 'new_contrat':
             #pour l'ecran new_contrat
             self.contrat_manager.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
@@ -749,6 +755,9 @@ class Screen(MDApp):
         if screen == 'signup':
             for id in sign_up:
                 self.root.get_screen('signup').ids[id].text = ''
+        if screen == 'signalement':
+            for id in signalement:
+                self.planning_manager.get_screen('ecran_decalage').ids[id].text = ''
         if screen == 'login':
             for id in login:
                 self.root.get_screen('login').ids[id].text = ''
@@ -798,8 +807,28 @@ class Screen(MDApp):
                 
         if not self.liste_client:
             asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)
-            
+         
+    def signaler(self):
+        motif = self.planning_manager.get_screen('ecran_decalage').ids.motif.text
+        mois_modif = self.planning_manager.get_screen('ecran_decalage').ids.mois
         
+        async def enregistrer_signalment():
+            try:
+                await self.database.creer_signalment(self.planning_detail[8], motif, self.option.capitalize())
+                Clock.schedule_once(lambda dt: self.show_dialog('', "Signalement d'un décalage effectué"))
+                Clock.schedule_once(lambda dt: self.fermer_ecran())
+                Clock.schedule_once(lambda dt: self.dismiss_planning())
+                Clock.schedule_once(lambda dt: self.clear_fields('signalement'))
+                
+            except Exception as e:
+                print('enregistrement',e)
+                
+        asyncio.run_coroutine_threadsafe(enregistrer_signalment(), self.loop)
+    def option_decalage(self, titre):
+        self.planning_manager.get_screen('ecran_decalage').ids.titre.text= f'Signalemnt d\'un {titre} pour ianina'
+        self.option = titre
+        self.fenetre_planning('', 'ecran_decalage')
+    
     def switch_to_home(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
 
@@ -855,7 +884,7 @@ class Screen(MDApp):
     def switch_to_contrat(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
         #Thread(target=self.get_client(), daemon=True).start()
-        Clock.schedule_once(lambda dt:self.get_client(), 2)
+        self.get_client()
         
     def switch_to_client(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
@@ -1273,6 +1302,7 @@ class Screen(MDApp):
                 titre = self.planning_detail[1].split(' ')
                 self.planning_manager.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
                 self.planning_manager.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+                self.planning_manager.get_screen('option_decalage').ids.client.text = f'Client: {self.planning_detail[0]}'
                 
                 self.planning_manager.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
                 self.planning_manager.get_screen('ajout_remarque').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
