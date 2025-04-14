@@ -236,12 +236,12 @@ class DatabaseManager:
                 except Exception as e:
                     print('get_info', e)
                     
-    async def create_facture(self, planning_id, montant, axe,etat = 'Non payé'):
+    async def create_facture(self, planning_id, montant, axe, etat = 'Non payé'):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "INSERT INTO Facture (planning_detail_id, montant, etat,  axe) VALUES (%s, %s, %s, %s, %s)",
+                        "INSERT INTO Facture (planning_detail_id, montant, etat,  axe) VALUES (%s, %s, %s, %s)",
                         (planning_id, montant,etat,  axe))
                     await conn.commit()
                     return cur.lastrowid
@@ -259,6 +259,16 @@ class DatabaseManager:
                 except Exception as e:
                     print("remarque",e)
     
+    async def creer_signalment(self,planning_detail, motif, option):
+        async with self.pool.acquire() as conn:
+            try:
+                async with conn.cursor() as cursor:
+                    await cursor.execute("""INSERT INTO Signalement (planning_detail_id, motif, type) VALUES (%s, %s, %s)""",
+                                   (planning_detail, motif, option))
+                    await conn.commit()
+            except Exception as e:
+                print('signalement', e)
+                
     async def get_historic(self, categorie):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
