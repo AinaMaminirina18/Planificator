@@ -12,6 +12,7 @@ MDScreen:
             pos_hint: {'center_x': .5, 'center_y': .95}
 
         MDLabel:
+            id: client
             text: 'Client: {Client}'
             font_name: 'poppins'
             font_size: 16
@@ -28,7 +29,7 @@ MDScreen:
             on_release:
                 app.dismiss_planning()
                 app.fermer_ecran()
-                app.fenetre_planning('', 'ecran_decalage')
+                app.option_decalage('avancement')
 
         MDRectangleFlatButton
             text: 'Décalage'
@@ -38,3 +39,7 @@ MDScreen:
             line_color: '#FF3333'
             size_hint: .4, None
             pos_hint: {'center_x': .79, 'center_y': .28}
+            on_release:
+                app.dismiss_planning()
+                app.fermer_ecran()
+                app.option_decalage('décalage')
