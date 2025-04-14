@@ -5,6 +5,7 @@ MDScreen:
         pos_hint: {'center_x': .5, 'center_y': .5}
 
         MDLabel:
+            id: titre
             text: "Signalement d'un avancement pour {DEVCORPS}"
             halign: 'center'
             font_name: 'poppins-bold'
@@ -113,9 +114,7 @@ MDScreen:
             size_hint: .3, None
             pos_hint: {'center_x': .65, 'center_y': .13}
             on_release:
-                app.dismiss_planning()
-                app.fermer_ecran()
-                app.show_dialog('', "Signalement d'un décalage effectué")
+                app.signaler()
 
         MDRectangleFlatButton
             text: "Annuler"
@@ -125,3 +124,6 @@ MDScreen:
             line_color: '#FF3333'
             size_hint: .3, None
             pos_hint: {'center_x': .2, 'center_y': .13}
+            on_release:
+                app.dismiss_planning()
+                app.fermer_ecran()
