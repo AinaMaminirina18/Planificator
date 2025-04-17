@@ -2,7 +2,7 @@
 
 - **Planificator** : Projet de gestion de contrat et de planning
 - **Techno:** KivyMD
-- **Based Language:** Python (Version 3.12)
+- **Based Language:** Python (Version 3.13.2)
 - **Database**: MySQL
 - **Database Script:** [Planificator_database](https://github.com/josoavj/Planificator_Database)
 
