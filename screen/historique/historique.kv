@@ -41,6 +41,13 @@ MDScreen:
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
 
+        MDSpinner:
+            id: spinner
+            size_hint: None, None
+            size: dp(46), dp(46)
+            pos_hint: {'center_x': .35, 'center_y': .45}
+            active: True
+
         MDFloatLayout:
             id: tableau_historic
             pos_hint:{'center_x': .355,'center_y': .4}

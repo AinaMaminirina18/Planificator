@@ -18,6 +18,13 @@ MDScreen:
             font_name: 'poppins'
             pos_hint:{"center_x":.6, "center_y":.97}
 
+        MDSpinner:
+            id: spinner
+            size_hint: None, None
+            size: dp(46), dp(46)
+            pos_hint: {'center_x': .5, 'center_y': .45}
+            active: True
+
         MDFloatLayout:
             id: tableau_treat
             pos_hint:{'center_x': .5,'center_y': .45}
