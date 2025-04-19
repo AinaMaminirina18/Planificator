@@ -60,7 +60,10 @@ class Screen(MDApp):
 
     def on_start(self):
         gestion_ecran(self.root)
-        self.get_client()
+        def chargement_home():
+            asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
+
+        Clock.schedule_once(lambda dt : chargement_home(), 0)
         
     def build(self):
         #Parametre de la base de données
@@ -249,27 +252,23 @@ class Screen(MDApp):
          
         asyncio.run_coroutine_threadsafe(create(), self.loop)
         
-    def get_client(self):
-
-        async def load_clients_and_update_ui():
-            try:
-                if not self.client:
-                    result = await self.database.get_client()
-                    if result:
-                        if 'None' not in result[0]:
-                            self.client = result
-                            self.update_cards(result)
-                            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+    async def get_client(self):
+        try:
+            if not self.client:
+                result = await self.database.get_client()
+                if result:
+                    if 'None' not in result[0]:
+                        self.client = result
+                        self.update_cards(result)
+                        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
                             
-                            self.loading = False
-                            Clock.schedule_once(lambda dt:self.update_contract_table(place, self.client), 2)
-                            print(result)
+                        self.loading = False
+                        Clock.schedule_once(lambda dt:self.update_contract_table(place, self.client))
+                        #print(result)
                             
-            except Exception as e:
-                print(f"Erreur lors de la récupération des clients: {e}")
-                self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des clients.")
-                
-        asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)  # ou asyncio.run_coroutine_threadsafe si asynchrone
+        except Exception as e:
+            print(f"Erreur lors de la récupération des clients: {e}")
+            self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des clients.")
     
     def gestion_planning(self):
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
@@ -375,15 +374,14 @@ class Screen(MDApp):
             dates.append(date_suivante.strftime("%B %Y"))
         return dates
     
-    def get_all_planning(self, place):
-        async def all_planning():
-            try:
-                result = await self.database.get_all_planning()
-                Clock.schedule_once(lambda dt: self.tableau_planning(place, result))
-            except Exception as e:
-                print('func get planning', e)
+    async def get_all_planning(self, place):
+        try:
+            result = await self.database.get_all_planning()
+            Clock.schedule_once(lambda dt: self.tableau_planning(place, result))
+        except Exception as e:
+            print('func get planning', e)
                 
-        asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
+        #asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
         
     def update_account(self, nom, prenom, email, username, password, confirm):
         valid_password = vp.get_valid_password(nom, prenom, password, confirm)
@@ -789,9 +787,9 @@ class Screen(MDApp):
             
             self.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
     
-    def all_clients(self):
+    async def all_clients(self):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
-        async def load_clients_and_update_ui():
+        if not self.liste_client:
             try:
                 client_data = await self.database.get_all_client()
 
@@ -804,9 +802,6 @@ class Screen(MDApp):
             except Exception as e:
                 print(f"Erreur lors de la récupération des clients: {e}")
                 self.show_dialog('Erreur', 'Une erreur est survenue lors du chargement des clients.')
-                
-        if not self.liste_client:
-            asyncio.run_coroutine_threadsafe(load_clients_and_update_ui(), self.loop)
          
     def signaler(self):
         motif = self.planning_manager.get_screen('ecran_decalage').ids.motif.text
@@ -866,12 +861,26 @@ class Screen(MDApp):
 
         self.historique_par_categorie(categorie)
 
+    def loading_spinner(self,manager, ecran):
+        gestion = None
+        if manager == 'Sidebar':
+            gestion = self.root.get_screen('Sidebar').ids['gestion_ecran']
+        else:
+            gestion = manager
+
+        gestion.get_screen(ecran).ids.spinner.active = True
+
     def switch_to_planning(self):
+
+        def chargement_planning():
+            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
+            asyncio.run_coroutine_threadsafe(self.get_all_planning(place), self.loop)
+
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'planning'
 
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
 
-        self.get_all_planning(place)
+        Clock.schedule_once(lambda dt:self.loading_spinner('Sidebar', 'planning'),0)
+        Clock.schedule_once(lambda dt:chargement_planning(),0.5)
 
     def switch_to_about(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'about'
@@ -883,12 +892,20 @@ class Screen(MDApp):
     
     def switch_to_contrat(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
-        #Thread(target=self.get_client(), daemon=True).start()
-        self.get_client()
-        
+        def chargement_contrat():
+            asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
+
+        Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar','contrat'), 0)
+        Clock.schedule_once(lambda dt: chargement_contrat(), 0.5)
+
     def switch_to_client(self):
+        def chargement_client():
+            asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
+
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
-        Thread(target=self.all_clients(), daemon=True).start()
+
+        Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar','client'), 0)
+        Clock.schedule_once(lambda dt: chargement_client(), 0.5)
 
     def dropdown_compte(self, button, name):
         type_compte = ['Administrateur', 'Utilisateur']
@@ -1050,7 +1067,7 @@ class Screen(MDApp):
                 place1.remove_widget(self.liste_contrat)
                 self.client = []
                 
-                self.get_client()
+                asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
                 
             if self.liste_client != None:
                 place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
@@ -1058,8 +1075,8 @@ class Screen(MDApp):
                 place2.remove_widget(self.liste_client)
                 self.liste_client = None
                 
-                self.all_clients()
-    
+                asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
+
     @mainthread
     def update_cards(self, datas, limite=6):
         client_box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.contrats
@@ -1100,20 +1117,24 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
         place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
-        
+        self.fenetre_contrat('', 'all_treatment')
+
         self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_data[0]}'
         self.client_name = row_data[0]
         async def get():
             try:
                 result = await self.database.traitement_par_client(row_data[0])
                 Clock.schedule_once(lambda dt: self.show_about_treatment(place, result))
-                Clock.schedule_once(lambda x: self.fenetre_contrat('', 'all_treatment'))
 
             except Exception as e:
                 print('erreur get traitement'+ str(e))
-        
-        asyncio.run_coroutine_threadsafe(get(), self.loop)
-        
+
+        def maj_ecran():
+            asyncio.run_coroutine_threadsafe(get(), self.loop)
+
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.contrat_manager,'all_treatment'),0.5)
+        Clock.schedule_once(lambda dt: maj_ecran(),0.5)
+
     def show_about_treatment(self, place, data):
         self.contrat_manager.current = 'all_treatment'
         
@@ -1139,49 +1160,51 @@ class Screen(MDApp):
     def row_pressed_contrat(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-        
+
         self.dismiss_contrat()
         self.fermer_ecran()
-        
-        def maj_ecran():
-            if self.current_client[3] == 'Particulier':
-                nom = self.current_client[1] + ' ' + self.current_client[2]
-            else:
-                nom = self.current_client[1]
-            
-            if self.current_client[6] == 'Indéterminée':
-                fin = self.reverse_date(self.current_client[8])
-            else :
-                fin = self.current_client[8]
-                
-            self.contrat_manager.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
-            self.contrat_manager.get_screen(
-                'option_contrat').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
-            self.contrat_manager.get_screen(
-                'option_contrat').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
-            self.contrat_manager.get_screen(
-                'option_contrat').ids.fin_contrat.text = f'Fin du contrat : {fin}'
-            self.contrat_manager.get_screen(
-                'option_contrat').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
-            self.contrat_manager.get_screen(
-                'option_contrat').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
-            self.contrat_manager.get_screen(
-                'option_contrat').ids.axe.text = f'Axe du client: {self.current_client[11]}'
-        
-        async def current_client():
+        self.fenetre_contrat('', 'option_contrat')
+
+        async def maj_ecran():
             try:
                 self.current_client = await self.database.get_current_contrat(self.client_name,self.reverse_date(row_data[0]), row_data[1])
                 print(self.current_client)
                 Clock.schedule_once(lambda x: maj_ecran())
-                Clock.schedule_once(lambda x: self.fenetre_contrat('', 'option_contrat'))
+
+                if self.current_client[3] == 'Particulier':
+                    nom = self.current_client[1] + ' ' + self.current_client[2]
+                else:
+                    nom = self.current_client[1]
+
+                if self.current_client[6] == 'Indéterminée':
+                    fin = self.reverse_date(self.current_client[8])
+                else :
+                    fin = self.current_client[8]
+
+                self.contrat_manager.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
+                self.contrat_manager.get_screen(
+                    'option_contrat').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
+                self.contrat_manager.get_screen(
+                    'option_contrat').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
+                self.contrat_manager.get_screen(
+                    'option_contrat').ids.fin_contrat.text = f'Fin du contrat : {fin}'
+                self.contrat_manager.get_screen(
+                    'option_contrat').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
+                self.contrat_manager.get_screen(
+                    'option_contrat').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
+                self.contrat_manager.get_screen(
+                    'option_contrat').ids.axe.text = f'Axe du client: {self.current_client[11]}'
+
             except Exception as e:
                 print(e)
-        
-        asyncio.run_coroutine_threadsafe(current_client(), self.loop)
-    
-    @mainthread
+
+        def ecran():
+            asyncio.run_coroutine_threadsafe(maj_ecran(),self.loop)
+
+        Clock.schedule_once(lambda x: ecran(), 0.5)
+
+
     def update_client_table_and_switch(self, place, client_data):
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.client_spinner.active = False
         row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
         
         self.liste_client = MDDataTable(
@@ -1280,16 +1303,22 @@ class Screen(MDApp):
     def row_pressed_planning(self, list_id, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-        place = self.planning_manager.get_screen('selection_planning').ids.tableau_select_planning
-        
+
+        self.fenetre_planning('', 'selection_planning')
+
         async def details():
             result = await self.database.get_details(list_id[row_num])
+            place = self.planning_manager.get_screen('selection_planning').ids.tableau_select_planning
+
             if result:
-                Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_planning'))
                 Clock.schedule_once(lambda dt: self.tableau_selection_planning(place, result, list_id[row_num]))
-                
-        asyncio.run_coroutine_threadsafe(details(), self.loop)
-        
+
+        def maj_ecran():
+            asyncio.run_coroutine_threadsafe(details(), self.loop)
+
+        Clock.schedule_once(lambda ct: self.loading_spinner( self.planning_manager, 'selection_planning'), 0)
+        Clock.schedule_once(lambda ct: maj_ecran(), 0.5)
+
     def row_pressed_tableau_planning(self,traitement,  table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
@@ -1343,16 +1372,19 @@ class Screen(MDApp):
 
         async def get_histo():
             try:
-                print('efa mi try')
                 result = await self.database.get_historic(categorie)
                 if result:
-                    print(result)
                     Clock.schedule_once(lambda dt: self.tableau_historic(place, result))
                     
             except Exception as e:
                 print(e)
-        asyncio.run_coroutine_threadsafe(get_histo(), self.loop)
-        
+
+        def maj_ecran():
+            asyncio.run_coroutine_threadsafe(get_histo(), self.loop)
+
+        Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'historique'), 0)
+        Clock.schedule_once(lambda dt: maj_ecran(), 0.5)
+
     def tableau_historic(self, place, data):
         row_data = [(i[0], i[1], i[2], i[3] if i [3] != 'None' else 'pas de remarque') for i in data]
         self.historique = MDDataTable(
