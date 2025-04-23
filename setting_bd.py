@@ -268,7 +268,37 @@ class DatabaseManager:
                     await conn.commit()
             except Exception as e:
                 print('signalement', e)
-                
+
+    async def get_historic_par_client(self, nom):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute(""" SELECT c.nom,
+                                                co.duree,
+                                                tt.typeTraitement,
+                                                r.contenu
+                                             FROM
+                                                Client c
+                                             JOIN
+                                                Contrat co ON c.client_id = co.client_id
+                                             JOIN
+                                                Traitement t ON co.contrat_id = t.contrat_id
+                                             JOIN
+                                                TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                             JOIN
+                                                Planning p ON t.traitement_id = p.traitement_id
+                                             JOIN
+                                                PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                             JOIN
+                                                Remarque r ON pdl.planning_detail_id = r.planning_detail_id
+                                             WHERE
+                                                c.nom = %s
+                                                """, (nom,))
+                    result = await cursor.fetchall()
+                    print(result)
+                    return result
+                except Exception as e:
+                    print('histo',e)
     async def get_historic(self, categorie):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
@@ -372,7 +402,7 @@ class DatabaseManager:
                         """SELECT c.nom AS nom_client,
                                   co.date_contrat,
                                   tt.typeTraitement AS type_traitement,
-                                  co.duree AS duree_contrat,
+                                  co.duree_contrat AS duree_contrat,
                                   co.date_debut AS debut_contrat,
                                   co.date_fin AS fin_contrat,
                                   c.categorie AS categorie,
