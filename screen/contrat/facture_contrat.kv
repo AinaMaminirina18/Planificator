@@ -121,7 +121,6 @@ MDScreen:
             mode: 'fill'
             font_name:"poppins"
             pos_hint:{"center_x":.83,"center_y":.5}
-            line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
             text_color: 'black'
@@ -132,7 +131,8 @@ MDScreen:
         MDRectangleFlatButton:
             id: accept
             text: 'Suivant'
-            text_color: 'black'
+            text_color_normal: 'black'
+            text_color_focus: 'black'
             font_name: 'poppins'
             font_size: 15
             size_hint: .3, None
