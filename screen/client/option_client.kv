@@ -51,13 +51,15 @@ MDScreen:
             font_name: 'poppins'
 
         MDRectangleFlatButton:
-            text: 'Voir le planning des traitements'
+            text: 'Voir les traitements'
             size_hint: .3, None
             font_name: 'poppins'
             md_bg_color: 'white'
             line_color: 'white'
             text_color: 'black'
             pos_hint: {'center_x':.27, 'center_y': .33}
+            on_release:
+                app.traitement_par_client('client')
 
         MDRectangleFlatButton:
             text: "Voir l'historique du client"
@@ -67,6 +69,8 @@ MDScreen:
             line_color: 'white'
             text_color: 'black'
             pos_hint: {'center_x':.27, 'center_y': .18}
+            on_release:
+                app.historique_par_client('client')
 
         MDRectangleFlatButton:
             text: 'Voir les factures du client'
