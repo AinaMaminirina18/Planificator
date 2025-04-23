@@ -33,19 +33,20 @@ MDScreen:
             pos_hint:{'center_x':.6, 'center_y': .83}
 
             MDTextField:
+                id: text
                 font_size: 15
                 line_color_normal : '#B3F844'
                 line_color_normal: 'black'
                 text_color_focus: 'black'
                 font_name: 'poppins'
                 pos_hint:{'center_x':.9, 'center_y': .5}
-                on_text:
-                    app.search(self.text, True)
 
             MDIconButton:
                 icon: 'Assets/search.png'
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
+                on_press:
+                    app.search(text.text, True)
 
         MDBoxLayout:
             id: nouveau_contrat
@@ -76,7 +77,7 @@ MDScreen:
             size_hint: None, None
             size: dp(46), dp(46)
             pos_hint: {'center_x': 0.5, 'center_y': 0.5}
-            active: app.loading
+            active: False
 
         MDFloatLayout:
             id: tableau_contrat
