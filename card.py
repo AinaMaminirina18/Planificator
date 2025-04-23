@@ -20,7 +20,7 @@ class contrat(MDCard):
         info_conteneur.add_widget(MDLabel(text=f"Client : {client}", font_style="Body1", halign="left", font_name='poppins', font_size=12))
         info_conteneur.add_widget(MDLabel(text=f"Date du contrat : {date_contrat}", font_style="Body1", halign="left", font_name='poppins', font_size=12))
         info_conteneur.add_widget(MDLabel(text=f"Nombre de traitement: {type_traitement}", font_style="Body1", halign="left", font_name='poppins', font_size=12))
-        info_conteneur.add_widget(MDLabel(text=f"Durée du contrat : {durée}", font_style="Body1", halign="left", font_name='poppins', font_size=12))
+        info_conteneur.add_widget(MDLabel(text=f"Durée du contrat : {durée} mois", font_style="Body1", halign="left", font_name='poppins', font_size=12))
         info_conteneur.add_widget(MDLabel(text=f"Début du contrat : {debut_contrat}", font_style="Body1", halign="left", font_name='poppins', font_size=12))
         info_conteneur.add_widget(MDLabel(text=f"Fin prévu du contrat : {fin_prévu}", font_style="Body1", halign="left", font_name='poppins', font_size=12))
 
