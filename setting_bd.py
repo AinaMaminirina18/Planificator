@@ -361,7 +361,16 @@ class DatabaseManager:
                     return resultat
                 except Exception as e:
                     print(e)
-                    
+
+    async def delete_client(self, id_contrat):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute("""DELETE FROM Client where client_id = %s""", (id_contrat,))
+                    await conn.commit()
+                except Exception as e:
+                    print("Delete",e)
+
     async def get_current_client(self, client, date):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:

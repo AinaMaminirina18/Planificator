@@ -262,7 +262,7 @@ class Screen(MDApp):
                         self.client = result
                         self.update_cards(result)
                         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-                        place.clear_widgets()
+                        #place.clear_widgets()
                         self.loading = False
                         Clock.schedule_once(lambda dt:self.update_contract_table(place, self.client))
                         #print(result)
@@ -297,7 +297,6 @@ class Screen(MDApp):
             self.dismiss_contrat()
             self.fermer_ecran()
             Clock.schedule_once(lambda dt: self.remove_tables('contrat'))
-            Clock.schedule_once(lambda dt: self.remove_tables('client'))
             self.clear_fields('new_contrat')
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
 
@@ -376,7 +375,6 @@ class Screen(MDApp):
         return dates
 
     async def get_all_planning(self, place):
-        place.clear_widgets()
         try:
             result = await self.database.get_all_planning()
             if result:
@@ -431,6 +429,23 @@ class Screen(MDApp):
             self.compte = compte
 
         asyncio.run_coroutine_threadsafe(current(), self.loop)
+
+    async def supprimer_client(self):
+        try:
+            await self.database.delete_client(self.current_client[0])
+        except Exception as e:
+            print('suppression', e)
+
+    def delete_client(self):
+        self.fermer_ecran()
+        self.dismiss_contrat()
+        def dlt():
+            asyncio.run_coroutine_threadsafe(self.supprimer_client(), self.loop)
+
+        Clock.schedule_once(lambda dt: dlt(),0)
+        Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
+        Clock.schedule_once(lambda dt: self.remove_tables('contrat'),0)
+
 
     def delete_account(self, admin_password):
         if vp.reverse(admin_password,self.compte[5]):
@@ -822,8 +837,8 @@ class Screen(MDApp):
 
             self.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
 
-    async def all_clients(self):
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
+    async def all_clients(self, place):
+
         if not self.liste_client:
             try:
                 client_data = await self.database.get_all_client()
@@ -905,8 +920,10 @@ class Screen(MDApp):
 
     def switch_to_planning(self):
 
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
+        place.clear_widgets()
+
         def chargement_planning():
-            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
             asyncio.run_coroutine_threadsafe(self.get_all_planning(place), self.loop)
 
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'planning'
@@ -938,10 +955,10 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
         boutton = self.root.get_screen('Sidebar').ids.clients
         self.choose_screen(boutton)
-
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
+        #place.clear_widgets()
         def chargement_client():
-            asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
-
+            asyncio.run_coroutine_threadsafe(self.all_clients(place), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar','client'), 0)
         Clock.schedule_once(lambda dt: chargement_client(), 0.5)
@@ -1141,8 +1158,7 @@ class Screen(MDApp):
                      'client').ids.tableau_client
                 place2.remove_widget(self.liste_client)
                 self.liste_client = None
-
-                asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
+                asyncio.run_coroutine_threadsafe(self.all_clients(place2), self.loop)
 
     @mainthread
     def update_cards(self, datas, limite=6):
@@ -1388,7 +1404,7 @@ class Screen(MDApp):
             asyncio.run_coroutine_threadsafe(details(), self.loop)
 
         Clock.schedule_once(lambda ct: self.loading_spinner( self.planning_manager, 'selection_planning'), 0)
-        Clock.schedule_once(lambda ct: maj_ecran(), 0.5)
+        Clock.schedule_once(lambda ct: maj_ecran(), 1)
 
     def row_pressed_tableau_planning(self,traitement,  table, row):
         row_num = int(row.index / len(table.column_data))
@@ -1630,20 +1646,19 @@ class Screen(MDApp):
                 Clock.schedule_once(lambda x: self.fermer_ecran())
                 await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, categorie, axe)
                 Clock.schedule_once(lambda c: self.remove_tables('contrat'))
-                Clock.schedule_once(lambda c: self.remove_tables('client'))
                 self.current_client = None
             except Exception as e:
                 print(e)
 
         asyncio.run_coroutine_threadsafe(save(), self.loop)
 
-    def suppression_contrat(self, titre, contrat, debut, fin):
-        client = titre.split(' ')
+    def suppression_contrat(self):
 
-        self.contrat_manager.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {client[5] + client[6]}'
-        self.contrat_manager.get_screen('suppression_contrat').ids.date_contrat.text = contrat
-        self.contrat_manager.get_screen('suppression_contrat').ids.debut_contrat.text = debut
-        self.contrat_manager.get_screen('suppression_contrat').ids.fin_contrat.text = fin
+        fin = self.reverse_date(self.current_client[8]) if self.current_client[8] != 'Indéterminée' else 'Indéterminée'
+        self.contrat_manager.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {self.current_client[1]}'
+        self.contrat_manager.get_screen('suppression_contrat').ids.date_contrat.text = f'Date du contrat: {self.reverse_date(self.current_client[4])}'
+        self.contrat_manager.get_screen('suppression_contrat').ids.debut_contrat.text = f'Début du contrat: {self.reverse_date(self.current_client[7])}'
+        self.contrat_manager.get_screen('suppression_contrat').ids.fin_contrat.text = f'Fin du contrat: {fin}'
 
         self.dismiss_contrat()
         self.fermer_ecran()
