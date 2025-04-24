@@ -123,7 +123,8 @@ MDScreen:
             pos_hint:{"center_x":.83,"center_y":.5}
             fill_color_normal: 'white'
             line_color_normal: 'white'
-            text_color: 'black'
+            text_color_focus: 'black'
+            text_color_normal: 'black'
             size_hint: .25,None
             radius:[10]
             readonly :True
@@ -131,8 +132,7 @@ MDScreen:
         MDRectangleFlatButton:
             id: accept
             text: 'Suivant'
-            text_color_normal: 'black'
-            text_color_focus: 'black'
+            text_color: 'black'
             font_name: 'poppins'
             font_size: 15
             size_hint: .3, None
