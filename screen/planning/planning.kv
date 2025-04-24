@@ -42,26 +42,6 @@ MDScreen:
                     app.fenetre_planning('', 'rendu_planning')
 
         MDBoxLayout:
-            id: actualiser
-            orientation: 'horizontal'
-            md_bg_color: '#B3F844'
-            size_hint: .22, .055
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .89}
-
-            MDTextButton:
-                text : ' Actualiser'
-                padding: 0,0,155,0
-                font_size: 15
-                font_name: 'poppins'
-
-            MDIconButton:
-                icon: 'Assets/refresh.png'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
-
-        MDBoxLayout:
             id: search_client
             orientation: 'horizontal'
             md_bg_color: '#B3F844'
