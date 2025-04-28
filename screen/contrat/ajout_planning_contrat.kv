@@ -89,13 +89,13 @@ MDScreen:
             readonly: True
 
         MDLabel:
-            text: 'Mois de pause (Prévu)'
+            text: 'Date prévu pour les traitements'
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": .88,'center_y':.62}
 
         MDTextField:
-            id: pause_prevu
+            id: date_prevu
             text: ''
             text_color_normal: 'black'
             mode: 'fill'
@@ -107,6 +107,12 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+
+        MDIconButton:
+            icon: 'Assets/calendar.png'
+            pos_hint:{"center_x": .6, "center_y":.5}
+            on_release:
+                app.calendrier('ajout_planning', 'date_prevu')
 
         MDLabel:
             text: 'Redondance du traitement'
