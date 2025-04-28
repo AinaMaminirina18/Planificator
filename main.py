@@ -1,4 +1,5 @@
-from datetime import datetime
+import calendar
+from datetime import datetime, timedelta
 from threading import Thread
 
 from dateutil.relativedelta import relativedelta
@@ -276,7 +277,7 @@ class Screen(MDApp):
 
     def gestion_planning(self):
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
-        pause = self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text
+        date = self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text
         redondance = self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text
 
         bouton = self.contrat_manager.get_screen('ajout_facture').ids.accept
@@ -285,7 +286,7 @@ class Screen(MDApp):
 
             self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
             self.contrat_manager.get_screen('ajout_facture').ids.montant.text = ''
-            self.contrat_manager.get_screen('ajout_facture').ids.pause_prevu.text = pause
+            self.contrat_manager.get_screen('ajout_facture').ids.date_prevu.text = date
             self.contrat_manager.get_screen('ajout_facture').ids.red_trait.text = redondance
             self.contrat_manager.get_screen('ajout_facture').ids.traitement_c.text = self.traitement[0]
             if len(self.traitement) == 1:
@@ -307,18 +308,17 @@ class Screen(MDApp):
 
             self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text = ''
             self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text = 'Indéterminée' if mois_fin == 'Indéterminée' else ''
-            self.contrat_manager.get_screen('ajout_planning').ids.pause_prevu.text = ''
+            self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text = ''
             self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text = '1 mois'
             self.contrat_manager.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
             self.dismiss_contrat()
             self.fermer_ecran()
             self.fenetre_contrat('Ajout du planning','ajout_planning')
 
-
     def save_planning(self,):
         mois_debut = self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
-        pause = self.contrat_manager.get_screen('ajout_planning').ids.pause_prevu.text
+        date_prevu = self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text
         redondance = self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text
         date_debut = self.contrat_manager.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
@@ -338,15 +338,16 @@ class Screen(MDApp):
                                                                int_red[0],
                                                                date_fin)
 
-                dates_planifiees = self.planning_per_year(date_debut, redondance)
+                dates_planifiees = self.planning_per_year(date_prevu, redondance)
 
-                for mois in dates_planifiees:
+                for date in dates_planifiees:
                     try:
-                        planning_detail = await self.database.create_planning_details(planning, mois)
+                        planning_detail = await self.database.create_planning_details(planning, date)
                         await self.database.create_facture(planning_detail,
                                                            int(montant) if ' ' not in montant else int(montant.replace(' ', '')),
                                                            axe_client)
                         print('Réussi ')
+
                     except Exception as e:
                         print("enregistrement planning detail ", e)
 
@@ -360,20 +361,31 @@ class Screen(MDApp):
 
     def planning_per_year(self, debut, redondance):
         red = redondance.split(' ')
+        pas = int(red[0])
         date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
 
         def ajouter_mois(date_depart, nombre_mois):
-            """Ajoute des mois à une date donnée."""
+            """Ajoute un nombre de mois à une date."""
             mois = date_depart.month - 1 + nombre_mois
             annee = date_depart.year + mois // 12
             mois = mois % 12 + 1
-            jour = min(date_depart.day, [31, 29 if annee % 4 == 0 and annee % 100 != 0 or annee % 400 == 0 else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][mois - 1])
-            return datetime.strptime(f'{annee}-{mois}-{jour}',"%Y-%m-%d").date()
+            jour = min(date_depart.day, calendar.monthrange(annee, mois)[1])
+            return datetime(annee, mois, jour).date()
+
+        def ajuster_si_weekend(date):
+            """Décale la date au lundi si elle tombe un samedi ou un dimanche."""
+            if date.weekday() == 5:  # samedi
+                return date + timedelta(days=2)
+            elif date.weekday() == 6:  # dimanche
+                return date + timedelta(days=1)
+            return date
 
         dates = []
-        for i in range(12 // int(red[0])):
-            date_suivante = ajouter_mois(date, i * int(red[0]))
-            dates.append(date_suivante.strftime("%B %Y"))
+        for i in range(12 // pas):
+            date_suivante = ajouter_mois(date, i * pas)
+            date_suivante = ajuster_si_weekend(date_suivante)
+            dates.append(date_suivante)
+
         return dates
 
     async def get_all_planning(self, place):
@@ -762,8 +774,8 @@ class Screen(MDApp):
         login = ['login_username', 'login_password']
         new_contrat = ['date_new_contrat', 'debut_new_contrat', 'fin_new_contrat']
         new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone']
-        planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'pause_prevu']
-        facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'pause_prevu', 'red_trait']
+        planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'date_prevu']
+        facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'date_prevu', 'red_trait']
         signalement = ['motif', 'mois', 'mois_fin']
 
         if screen == 'new_contrat':

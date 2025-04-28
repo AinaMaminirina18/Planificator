@@ -149,13 +149,13 @@ class DatabaseManager:
                 except Exception as e:
                     print("planning",e)
                     
-    async def create_planning_details(self, planning_id, mois ,statut='À venir'):
+    async def create_planning_details(self, planning_id, date,statut='À venir'):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "INSERT INTO PlanningDetails (planning_id, mois, statut) VALUES ( %s, %s, %s)",
-                        (planning_id, mois, statut))
+                        "INSERT INTO PlanningDetails (planning_id, date_planification, statut) VALUES ( %s, %s, %s)",
+                        (planning_id, date, statut))
                     await conn.commit()
                     return cur.lastrowid
                 except Exception as e:
@@ -187,13 +187,13 @@ class DatabaseManager:
                     return await cursor.fetchall()
                 except Exception as e:
                     print('all planning', e)
-                    
+
     async def get_details(self, planning_id):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
                     await cursor.execute("""SELECT
-                                                mois, statut
+                                                planning_planification, statut
                                             FROM
                                                 PlanningDetails
                                             WHERE
@@ -202,7 +202,7 @@ class DatabaseManager:
                 except Exception as e:
                     print('details', e)
     
-    async def get_info_planning(self, planning_id, mois):
+    async def get_info_planning(self, planning_id, date):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
@@ -231,18 +231,18 @@ class DatabaseManager:
                                            JOIN
                                               Facture f ON pdl.planning_detail_id = f.planning_detail_id
                                            WHERE
-                                              p.planning_id = %s AND pdl.mois = %s""", (planning_id,mois))
+                                              p.planning_id = %s AND pdl.date_planification = %s""", (planning_id,date))
                     return await cursor.fetchone()
                 except Exception as e:
                     print('get_info', e)
                     
-    async def create_facture(self, planning_id, montant, axe, etat = 'Non payé'):
+    async def create_facture(self, planning_id, montant, date, axe, etat = 'Non payé'):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "INSERT INTO Facture (planning_detail_id, montant, etat,  axe) VALUES (%s, %s, %s, %s)",
-                        (planning_id, montant,etat,  axe))
+                        "INSERT INTO Facture (planning_detail_id, montant,date_traitement, etat,  axe) VALUES (%s, %s, %s,%s, %s)",
+                        (planning_id, montant, date, etat, axe))
                     await conn.commit()
                     return cur.lastrowid
                 except Exception as e:
@@ -376,9 +376,11 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    await conn.begin() #commencer une transaction
                     await cursor.execute("""DELETE FROM Client where client_id = %s""", (id_contrat,))
                     await conn.commit()
                 except Exception as e:
+                    await conn.rollback() #rollback en cas d'erreur
                     print("Delete",e)
 
     async def get_current_client(self, client, date):
