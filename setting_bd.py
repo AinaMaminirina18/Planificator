@@ -134,14 +134,15 @@ class DatabaseManager:
                 except Exception as e:
                     print(e)
     
-    async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, mois_pause, redondance, date_fin):
+    async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin):
         """Crée un planning pour un traitement donné."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        "INSERT INTO Planning (traitement_id,date_debut_planification, mois_debut, mois_fin, mois_pause, redondance, date_fin_planification) VALUES (%s, %s, %s, %s, %s, %s,%s)",
-                        (traitement_id, date_debut, mois_debut, mois_fin, mois_pause, redondance, date_fin))
+                        """INSERT INTO Planning (traitement_id,date_debut_planification, mois_debut, mois_fin, redondance, date_fin_planification) 
+                            VALUES (%s, %s, %s, %s, %s,%s)""",
+                        (traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin))
                     await conn.commit()
                     return cur.lastrowid
            
@@ -186,7 +187,6 @@ class DatabaseManager:
                     return await cursor.fetchall()
                 except Exception as e:
                     print('all planning', e)
-                    
                     
     async def get_details(self, planning_id):
         async with self.pool.acquire() as conn:
@@ -258,7 +258,17 @@ class DatabaseManager:
                     await conn.commit()
                 except Exception as e:
                     print("remarque",e)
-    
+
+    async def update_etat_planning(self, details_id):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(
+                    "UPDATE PlanningDetails SET statut = %s WHERE planning_detail_id = %s",('Effectué', details_id))
+                    await conn.commit()
+                except Exception as e:
+                    print("update planning",e)
+
     async def creer_signalment(self,planning_detail, motif, option):
         async with self.pool.acquire() as conn:
             try:
