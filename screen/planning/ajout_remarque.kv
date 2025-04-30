@@ -17,17 +17,11 @@ MDScreen:
             pos_hint:{"center_x":.6, "center_y":.97}
 
         MDLabel:
-            id: contrat
-            text: 'Contrat du 19/12/2024 au 12/12/2026'
+            id: date
+            text: ''
             font_name: 'poppins'
             font_size: 16
             pos_hint:{"center_x":.55, "center_y":.85}
-
-        MDLabel:
-            text: 'Date du traitement: 13 Mars 2025'
-            font_name: 'poppins'
-            font_size: 16
-            pos_hint:{"center_x":1, "center_y":.7}
 
         MDLabel:
             id: duree
@@ -36,8 +30,23 @@ MDScreen:
             font_size: 16
             pos_hint:{"center_x":.55, "center_y":.7}
 
+        MDTextButton:
+            text: 'Payé'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.56, "center_y":.7}
+            on_release:
+                paye_facture.active = True if paye_facture.active is False else False
+
+        MDCheckbox:
+            id: paye_facture
+            pos_hint: {"center_x": .51,'center_y':.7}
+            size_hint: .07, .07
+            checkbox_icon_down: 'check'
+
         MDLabel:
-            text: 'Mois du traitement: 3 ème mois'
+            id: mois_trait
+            text: ' '
             font_name: 'poppins'
             font_size: 16
             pos_hint:{"center_x":1, "center_y":.85}
