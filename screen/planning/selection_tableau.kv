@@ -8,6 +8,8 @@ MDScreen:
             icon: 'arrow-left'
             pos_hint:{"center_x":.02, "center_y":.97}
             on_release:
+                app.fermer_ecran()
+                app.dismiss_planning()
 
         MDLabel:
             text: 'Dératisation pour DevCorps'
@@ -38,13 +40,14 @@ MDScreen:
             pos_hint:{"center_x":1, "center_y":.65}
 
         MDLabel:
-            text: 'Mois du traitement: 3 ème mois'
+            id: mois_trait
+            text: ''
             font_name: 'poppins'
             font_size: 16
             pos_hint:{"center_x":.55, "center_y":.5}
 
         MDLabel:
-            text: 'Nombre de traitement restant: 7'
+            text: ''
             font_name: 'poppins'
             font_size: 16
             pos_hint:{"center_x":1, "center_y":.5}
