@@ -45,6 +45,53 @@ class DatabaseManager:
                 )
                 await conn.commit()
 
+    async def get_facture(self, client_id, traitement):
+        def format_montant(montant):
+            return f"{montant:,}".replace(",", " ")
+
+        factures = []
+        total_paye = 0
+        total_non_paye = 0
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute("""SELECT  pdl.date_planification,
+                                                    f.montant,
+                                                    f.etat
+                                            FROM
+                                                Client c
+                                            JOIN
+                                                Contrat co ON c.client_id = co.client_id
+                                            JOIN
+                                                Traitement t ON co.contrat_id = t.contrat_id
+                                            JOIN
+                                                Planning p ON t.traitement_id = p.traitement_id
+                                            JOIN
+                                                TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                            JOIN
+                                                PlanningDetails pdl ON p.planning_id = pdl.planning_id 
+                                            JOIN
+                                                Facture f ON pdl.planning_detail_id = f.planning_detail_id
+                                            WHERE
+                                                c.client_id = %s
+                                            AND
+                                                tt.typeTraitement = %s
+                                            ORDER BY 
+                                                pdl.date_planification""", (client_id,traitement))
+
+                    resultat = await cursor.fetchall()
+
+                    for row in resultat:
+                        date, montant, etat = row
+                        factures.append((date, format_montant(montant), etat))
+
+                        if etat == 'Payé':
+                            total_paye += montant
+                        else:
+                            total_non_paye += montant
+                    return factures, format_montant(total_paye), format_montant(total_non_paye)
+                except Exception as e:
+                    print('get_facture' ,e)
 
     async def verify_user(self, username):
         """Vérifie si un utilisateur existe avec les informations données."""
@@ -193,7 +240,7 @@ class DatabaseManager:
             async with conn.cursor() as cursor:
                 try:
                     await cursor.execute("""SELECT
-                                                planning_planification, statut
+                                                date_planification, statut
                                             FROM
                                                 PlanningDetails
                                             WHERE
@@ -258,6 +305,16 @@ class DatabaseManager:
                     await conn.commit()
                 except Exception as e:
                     print("remarque",e)
+
+    async def update_etat_facture(self, facture):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(
+                    "UPDATE Facture SET etat = %s WHERE facture_id = %s",('Payé', facture))
+                    await conn.commit()
+                except Exception as e:
+                    print("update facture",e)
 
     async def update_etat_planning(self, details_id):
         async with self.pool.acquire() as conn:
