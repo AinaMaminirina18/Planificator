@@ -413,7 +413,8 @@ class DatabaseManager:
                                   c.email,
                                   c.adresse,
                                   c.axe,
-                                  c.telephone
+                                  c.telephone,
+                                  p.planning_id
                            FROM
                               Client c
                            JOIN
@@ -422,6 +423,8 @@ class DatabaseManager:
                               Traitement t ON co.contrat_id = t.contrat_id
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           JOIN
+                               Planning p ON t.traitement_id = p.traitement_id
                            WHERE
                               c.nom = %s AND co.date_contrat = %s AND tt.TypeTraitement = %s; """, (client, date, traitement))
                     resultat = await cursor.fetchone()
