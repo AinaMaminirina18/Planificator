@@ -709,14 +709,14 @@ class Screen(MDApp):
         self.planning_manager.current = ecran
         height = {"option_decalage": '200dp',
                   "ecran_decalage": '360dp',
-                  "selection_planning": '600dp',
+                  "selection_planning": '500dp',
                   "rendu_planning": '350dp',
                   "selection_element_tableau": "300dp",
                   "ajout_remarque": "350dp"}
 
         size_tableau = {"option_decalage": (.6, .3),
                         "ecran_decalage": (.7, .6),
-                        "selection_planning": (.8, .8),
+                        "selection_planning": (.8, .6),
                         "rendu_planning": (.8, .58),
                         "selection_element_tableau": (.6, .4),
                         "ajout_remarque": (.6, .55)}
@@ -1056,17 +1056,21 @@ class Screen(MDApp):
     def voir_planning_par_traitement(self):
         self.dismiss_contrat()
         self.fermer_ecran()
+        btn_planning = self.root.get_screen('Sidebar').ids.planning
+        self.choose_screen(btn_planning)
+        self.fenetre_planning('', 'selection_planning')
 
         Clock.schedule_once(lambda dt: self.switch_to_planning(), 0)
+        Clock.schedule_once(lambda dt: self.get_and_update(self.current_client[5], self.current_client[1],self.current_client[13]), 0.5)
 
-    def voir_info_client(self,source):
+    def voir_info_client(self,source, option):
         self.fermer_ecran()
         if source == 'home':
             self.dismiss_home()
         if source == 'contrat':
             self.dismiss_contrat()
 
-        Clock.schedule_once(lambda dt: self.modification_client(self.current_client[1]), 0.5)
+        Clock.schedule_once(lambda dt: self.modification_client(self.current_client[1], option), 0.5)
         Clock.schedule_once(lambda dt: self.switch_to_client(),0)
 
     def dropdown_compte(self, button, name):
@@ -1449,10 +1453,10 @@ class Screen(MDApp):
             self.liste_planning.bind(on_row_press=lambda instance, row:self.row_pressed_planning(liste_id, instance, row))
             place.add_widget(self.liste_planning)
 
+    @mainthread
     def  tableau_selection_planning(self, place, data, traitement):
         if data:
             row_data = [(self.reverse_date(i[0]), f'{mois+1}e mois', i[1]) for mois, i in enumerate(data)]
-
             self.liste_select_planning = MDDataTable(
                 pos_hint={'center_x':.5, "center_y": .5},
                 size_hint=(.6,.85),
@@ -1472,27 +1476,34 @@ class Screen(MDApp):
     def row_pressed_planning(self, list_id, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-        titre = row_data[1].split('(')
         self.fenetre_planning('', 'selection_planning')
+
+        Clock.schedule_once(lambda dt: self.get_and_update(row_data[1], row_data[0], list_id[row_num]), 0.5)
+
+    def get_and_update(self, data1, data2, data3):
+        asyncio.run_coroutine_threadsafe(self.planning_par_traitment(data1, data2, data3), self.loop)
+
+    async def planning_par_traitment(self, traitement, client, id_traitement):
+        titre = traitement.split('(')
         screen = self.planning_manager.get_screen('selection_planning')
-        screen.ids.titre.text = f'Planning de {titre[0]} pour {row_data[0]}'
+        screen.ids.titre.text = f'Planning de {titre[0]} pour {client}'
 
         place = screen.ids.tableau_select_planning
-        place.clear_widgets()
+        Clock.schedule_once(lambda dt: place.clear_widgets(), 0)
 
         async def details():
-            result = await self.database.get_details(list_id[row_num])
-
-            def update_ui():
+            try:
+                result = await self.database.get_details(id_traitement)
                 if result:
-                    self.tableau_selection_planning(place, result, list_id[row_num])
-                self.loading_spinner(self.planning_manager, 'selection_planning', show=False)
+                    Clock.schedule_once(self.tableau_selection_planning(place, result, id_traitement))
+                    Clock.schedule_once(self.loading_spinner(self.planning_manager, 'selection_planning', show=False))
+            except Exception as e:
+                print('misy erreur :', e)
 
-            Clock.schedule_once(lambda dt: update_ui())
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(details(), self.loop)
 
-        Clock.schedule_once(lambda ct: maj_ecran(), 1)
+        Clock.schedule_once(lambda ct: maj_ecran(), 0.5)
 
     def row_pressed_tableau_planning(self,traitement,  table, row):
         row_num = int(row.index / len(table.column_data))
@@ -1724,9 +1735,20 @@ class Screen(MDApp):
         self.account_manager.get_screen('modif_info_compte').ids.titre_info.text = titre
         self.fenetre_account('', 'modif_info_compte')
 
-    def modification_client(self ,nom):
+    def modification_client(self ,nom,option ):
         self.dismiss_client()
         self.fermer_ecran()
+
+        btn_enregistrer = self.client_manager.get_screen('modif_client').ids.enregistrer
+        btn_annuler = self.client_manager.get_screen('modif_client').ids.annuler
+
+        if option == 'voir':
+            btn_annuler.text = 'Fermer'
+            btn_enregistrer.opacity = 0
+        else:
+            btn_annuler.text = 'Annuler'
+            btn_enregistrer.opacity = 1
+
         if self.current_client[3] == 'Particulier':
             self.client_manager.get_screen('modif_client').ids.label_resp.text = 'Prenom'
             nom = self.current_client[1] + ' ' + self.current_client[2]
@@ -1744,21 +1766,21 @@ class Screen(MDApp):
         self.client_manager.get_screen('modif_client').ids.telephone.text = self.current_client[12]
         self.fenetre_client(f'Modifications des informartion sur {nom}', 'modif_client')
 
-    def enregistrer_modif_client(self, nom, prenom, email, telephone, adresse, categorie, axe):
-        async def save():
-            spinner = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.client_spinner
-            spinner.active = True
-            try:
-                Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
-                Clock.schedule_once(lambda x: self.dismiss_client())
-                Clock.schedule_once(lambda x: self.fermer_ecran())
-                await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, categorie, axe)
-                Clock.schedule_once(lambda c: self.remove_tables('contrat'))
-                self.current_client = None
-            except Exception as e:
-                print(e)
+    def enregistrer_modif_client(self,btn, nom, prenom, email, telephone, adresse, categorie, axe):
+        print(btn.opacity)
+        if btn.opacity == 1:
+            async def save():
+                try:
+                    Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
+                    Clock.schedule_once(lambda x: self.dismiss_client())
+                    Clock.schedule_once(lambda x: self.fermer_ecran())
+                    await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, categorie, axe)
+                    Clock.schedule_once(lambda c: self.remove_tables('contrat'))
+                    self.current_client = None
+                except Exception as e:
+                    print(e)
 
-        asyncio.run_coroutine_threadsafe(save(), self.loop)
+            asyncio.run_coroutine_threadsafe(save(), self.loop)
 
     def suppression_contrat(self):
 
