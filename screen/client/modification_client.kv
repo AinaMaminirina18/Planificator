@@ -163,6 +163,7 @@ MDScreen:
             radius:[10]
 
         MDRectangleFlatButton:
+            id: enregistrer
             text: 'Enregistrer'
             text_color: 'black'
             font_name: 'poppins'
@@ -172,9 +173,10 @@ MDScreen:
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
-                app.enregistrer_modif_client(nom_client.text, resp_client.text, email_client.text, telephone.text, adresse_client.text, cat_client.text, axe_client.text)
+                app.enregistrer_modif_client(self,nom_client.text, resp_client.text, email_client.text, telephone.text, adresse_client.text, cat_client.text, axe_client.text)
 
         MDRectangleFlatButton:
+            id: annuler
             text: 'Annuler'
             text_color: 'black'
             font_name: 'poppins'
