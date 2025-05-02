@@ -9,7 +9,6 @@ from functools import partial
 from fuzzywuzzy import process
 
 from kivy.metrics import dp
-from kivy.properties import BooleanProperty
 from kivymd.app import MDApp
 from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.menu import MDDropdownMenu
@@ -23,8 +22,6 @@ from kivy.core.text import LabelBase
 from kivy.lang import Builder
 from kivy.core.window import Window
 
-
-
 from card import contrat
 from email_verification import is_valid_email
 from gestion_ecran_acceuil import gestion_ecran_home
@@ -35,6 +32,7 @@ from gestion_ecran import gestion_ecran
 from gestion_ecran_planning import gestion_ecran_planning
 from gestion_ecran_histo import gestion_ecran_histo
 from setting_bd import DatabaseManager
+from tester_date import ajuster_si_weekend, jours_feries
 import verif_password as vp
 
 Window.size = (1300, 680)
@@ -56,8 +54,6 @@ class Screen(MDApp):
     description = 'Logiciel de suivi et gestion de contrat'
     CLM = 'Assets/CLM.JPG'
     CL = 'Assets/CL.JPG'
-
-    loading = BooleanProperty(True)
 
     def on_start(self):
         gestion_ecran(self.root)
@@ -132,8 +128,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -265,8 +261,7 @@ class Screen(MDApp):
                         client_box.clear_widgets()  # Supprimer les anciennes cartes.
                         self.update_cards(result, client_box)
                         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-                        #place.clear_widgets()
-                        self.loading = False
+                        place.clear_widgets()
                         self.update_contract_table(place, self.client)
                         #print(result)
 
@@ -372,18 +367,14 @@ class Screen(MDApp):
             jour = min(date_depart.day, calendar.monthrange(annee, mois)[1])
             return datetime(annee, mois, jour).date()
 
-        def ajuster_si_weekend(date):
-            """Décale la date au lundi si elle tombe un samedi ou un dimanche."""
-            if date.weekday() == 5:  # samedi
-                return date + timedelta(days=2)
-            elif date.weekday() == 6:  # dimanche
-                return date + timedelta(days=1)
-            return date
-
         dates = []
         for i in range(12 // pas):
             date_suivante = ajouter_mois(date, i * pas)
             date_suivante = ajuster_si_weekend(date_suivante)
+            feries = jours_feries(date_suivante.year)
+            while date_suivante in feries.values():
+                date_suivante += timedelta(days=1)
+
             dates.append(date_suivante)
 
         return dates
@@ -657,8 +648,9 @@ class Screen(MDApp):
                 size_hint=(.75,.9),
                 background_color_header = '#56B5FB',
                 background_color= '#56B5FB',
-                rows_num=len(result),
+                rows_num=5,
                 elevation=0,
+                use_pagination= True,
                 column_data=[
                     ("Date", dp(50)),
                     ("Montant", dp(40)),
@@ -1231,8 +1223,6 @@ class Screen(MDApp):
 
         elif screen == 'contrat':
             if self.liste_contrat != None:
-                self.loading = True
-
                 place1 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
                 place1.remove_widget(self.liste_contrat)
                 self.client = []
@@ -1243,6 +1233,7 @@ class Screen(MDApp):
                 place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
                      'client').ids.tableau_client
                 place2.remove_widget(self.liste_client)
+
                 self.liste_client = None
                 asyncio.run_coroutine_threadsafe(self.all_clients(place2), self.loop)
 
