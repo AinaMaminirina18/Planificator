@@ -261,7 +261,8 @@ class DatabaseManager:
                                                   c.client_id,
                                                   f.facture_id,
                                                   p.planning_id,
-                                                  pdl.planning_detail_id
+                                                  pdl.planning_detail_id,
+                                                  pdl.date_planification
                                                   
                                            FROM
                                               Client c
@@ -279,10 +280,41 @@ class DatabaseManager:
                                               Facture f ON pdl.planning_detail_id = f.planning_detail_id
                                            WHERE
                                               p.planning_id = %s AND pdl.date_planification = %s""", (planning_id,date))
-                    return await cursor.fetchone()
+                    resulta = await cursor.fetchone()
+                    return resulta
                 except Exception as e:
                     print('get_info', e)
-                    
+
+    async def modifier_date(self,planning_id, planning_detail_id, option, interval):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                print('eto')
+                try:
+                    avancement = """UPDATE PlanningDetails 
+                                    SET 
+                                        date_planification =DATE_SUB(date_planification, INTERVAL %s MONTH)
+                                    WHERE
+                                        planning_id = %s
+                                    AND
+                                        planning_detail_id >= %s"""
+
+                    décalage = """UPDATE PlanningDetails 
+                                  SET 
+                                     date_planification =DATE_ADD(date_planification, INTERVAL %s MONTH)
+                                  WHERE
+                                     planning_id = %s
+                                  AND
+                                     planning_detail_id >= %s"""
+
+                    requete = décalage if option == 'décalage' else avancement
+                    print(requete)
+
+                    await cur.execute(requete, (interval, planning_id, planning_detail_id))
+                    await conn.commit()
+
+                except Exception as e:
+                    print('Changement de date', e)
+
     async def create_facture(self, planning_id, montant, date, axe, etat = 'Non payé'):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
@@ -305,6 +337,37 @@ class DatabaseManager:
                     await conn.commit()
                 except Exception as e:
                     print("remarque",e)
+
+    async def get_historique_remarque(self, planning_id):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(
+                        """ SELECT  pdl.date_planification,
+                                    r.contenu,
+                                    co.duree,
+                                    tt.typeTraitement
+                                FROM
+                                    Client c
+                                JOIN
+                                    Contrat co ON c.client_id = co.client_id
+                                JOIN
+                                    Traitement t ON co.contrat_id = t.contrat_id
+                                JOIN
+                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                JOIN
+                                    Planning p ON t.traitement_id = p.traitement_id
+                                JOIN
+                                    PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                JOIN
+                                    Remarque r ON pdl.planning_detail_id = r.planning_detail_id
+                                WHERE
+                                    p.planning_id = %s """, (planning_id,)
+                    )
+                    return await cur.fetchall()
+
+                except Exception as e:
+                    print('histo remarque',e)
 
     async def update_etat_facture(self, facture):
         async with self.pool.acquire() as conn:
@@ -343,7 +406,7 @@ class DatabaseManager:
                     await cursor.execute(""" SELECT c.nom,
                                                 co.duree,
                                                 tt.typeTraitement,
-                                                r.contenu
+                                                count(r.remarque_id)
                                              FROM
                                                 Client c
                                              JOIN
@@ -358,6 +421,8 @@ class DatabaseManager:
                                                 PlanningDetails pdl ON p.planning_id = pdl.planning_id
                                              JOIN
                                                 Remarque r ON pdl.planning_detail_id = r.planning_detail_id
+                                             GROUP BY
+                                                tt.typetraitement
                                              WHERE
                                                 c.nom = %s
                                                 """, (nom,))
@@ -366,6 +431,7 @@ class DatabaseManager:
                     return result
                 except Exception as e:
                     print('histo',e)
+
     async def get_historic(self, categorie):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
@@ -373,7 +439,8 @@ class DatabaseManager:
                     await cursor.execute(""" SELECT c.nom,
                                                 co.duree,
                                                 tt.typeTraitement,
-                                                r.contenu
+                                                count(r.remarque_id),
+                                                p.planning_id
                                              FROM
                                                 Client c
                                              JOIN
