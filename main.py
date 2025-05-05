@@ -21,6 +21,7 @@ from kivy.clock import Clock, mainthread
 from kivy.core.text import LabelBase
 from kivy.lang import Builder
 from kivy.core.window import Window
+from kivymd.utils.asynckivy import start
 
 from card import contrat
 from email_verification import is_valid_email
@@ -569,12 +570,20 @@ class Screen(MDApp):
         return date
 
     def calendrier(self, ecran, champ):
-        calendrier = MDDatePicker(primary_color= '#A5D8FD')
+        if ecran == 'ecran_decalage':
+            calendrier = MDDatePicker(year = self.planning_detail[9].year,
+                                      month = self.planning_detail[9].month,
+                                      day = self.planning_detail[9].day,
+                                      primary_color= '#A5D8FD')
+        else:
+            calendrier = MDDatePicker(primary_color= '#A5D8FD')
+
         calendrier.open()
         calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
 
-    def choix_date(self,ecran, champ, instance, value, date_range):
-        manager = self.contrat_manager if 'contrat' or 'planning' in ecran else self.client_manager
+    def choix_date(self, ecran, champ, instance, value, date_range):
+        print(ecran, champ)
+        manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.client_manager
         manager.get_screen(ecran).ids[champ].text = ''
         manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
 
@@ -829,7 +838,7 @@ class Screen(MDApp):
         new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone']
         planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'date_prevu']
         facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'date_prevu', 'red_trait']
-        signalement = ['motif', 'mois', 'mois_fin']
+        signalement = ['motif', 'date_decalage', 'date_prevu']
 
         if screen == 'new_contrat':
             #pour l'ecran new_contrat
@@ -923,22 +932,33 @@ class Screen(MDApp):
 
     def signaler(self):
         motif = self.planning_manager.get_screen('ecran_decalage').ids.motif.text
-        mois_modif = self.planning_manager.get_screen('ecran_decalage').ids.mois
+        date_decalage = self.planning_manager.get_screen('ecran_decalage').ids.date_decalage.text
+        decaler = self.planning_manager.get_screen('ecran_decalage').ids.changer
 
+        self.fermer_ecran()
+        self.dismiss_planning()
         async def enregistrer_signalment():
             try:
+                if decaler.active:
+                    print(decaler.active)
+                    date  = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
+                    newdate = abs(relativedelta(self.planning_detail[9], date))
+                    await self.database.modifier_date(self.planning_detail[7], self.planning_detail[8], self.option.lower(), newdate.months)
                 await self.database.creer_signalment(self.planning_detail[8], motif, self.option.capitalize())
-                Clock.schedule_once(lambda dt: self.show_dialog('', "Signalement d'un décalage effectué"))
-                Clock.schedule_once(lambda dt: self.fermer_ecran())
-                Clock.schedule_once(lambda dt: self.dismiss_planning())
+                Clock.schedule_once(lambda dt: self.show_dialog('', f"Signalement d'un {self.option.lower()} effectué"))
                 Clock.schedule_once(lambda dt: self.clear_fields('signalement'))
 
             except Exception as e:
                 print('enregistrement',e)
 
         asyncio.run_coroutine_threadsafe(enregistrer_signalment(), self.loop)
+
     def option_decalage(self, titre):
-        self.planning_manager.get_screen('ecran_decalage').ids.titre.text= f'Signalemnt d\'un {titre} pour ianina'
+        self.planning_manager.get_screen('ecran_decalage').ids.titre.text= f'Signalement d\'un {titre} pour {self.planning_detail[0]}'
+        print(self.planning_detail)
+        label = "l'avancement" if titre == 'avancement' else 'le décalage'
+        self.planning_manager.get_screen('ecran_decalage').ids.date_prevu.text = self.reverse_date(self.planning_detail[9])
+        self.planning_manager.get_screen('ecran_decalage').ids.label_decalage.text = f'Date pour {label}'
         self.option = titre
         self.fenetre_planning('', 'ecran_decalage')
 
@@ -1450,7 +1470,7 @@ class Screen(MDApp):
                 row_data= row_data
             )
 
-            self.liste_planning.bind(on_row_press=lambda instance, row:self.row_pressed_planning(liste_id, instance, row))
+            self.liste_planning.bind(on_row_press=lambda instance, row :self.row_pressed_planning(liste_id, instance, row))
             place.add_widget(self.liste_planning)
 
     @mainthread
@@ -1542,7 +1562,7 @@ class Screen(MDApp):
     def create_remarque(self):
         contenu = self.planning_manager.get_screen('ajout_remarque').ids.remarque.text
         paye = bool(self.planning_manager.get_screen('ajout_remarque').ids.paye_facture.active)
-        print(f"paye = {paye} (type: {type(paye)})")
+
         if contenu:
             async def remarque(etat_paye):
                 try:
@@ -1592,10 +1612,11 @@ class Screen(MDApp):
                 result = await self.database.get_historic_par_client(self.current_client[1])
                 self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids['spinner'].active = False
                 if result:
-                    Clock.schedule_once(lambda dt: self.tableau_historic(place, result), 0)
+                    #Clock.schedule_once(lambda dt: self.tableau_historic(place, result), 0)
+                    print("c'est bien")
 
             except Exception as e:
-                print(e)
+                print('par cient',e)
 
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(get_histo(), self.loop)
@@ -1607,14 +1628,19 @@ class Screen(MDApp):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids.tableau_historic
         place.clear_widgets()
 
+        datas = []
+        id_planning = []
         async def get_histo():
             try:
                 result = await self.database.get_historic(categorie)
-                if result:
-                    Clock.schedule_once(lambda dt: self.tableau_historic(place, result))
+                for i in result:
+                    datas.append(i)
+                    id_planning.append(i[4])
+
+                Clock.schedule_once(lambda dt: self.tableau_historic(place, datas, id_planning))
 
             except Exception as e:
-                print(e)
+                print('histo par categ', e)
 
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(get_histo(), self.loop)
@@ -1622,7 +1648,7 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'historique'), 0)
         Clock.schedule_once(lambda dt: maj_ecran(), 0.5)
 
-    def tableau_historic(self, place, data):
+    def tableau_historic(self, place, data, planning_id):
         row_data = [(i[0], i[1], i[2], i[3] if i [3] != 'None' else 'pas de remarque') for i in data]
         self.historique = MDDataTable(
             pos_hint={'center_x':.5, "center_y": .53},
@@ -1639,38 +1665,47 @@ class Screen(MDApp):
             ],
             row_data=row_data,
         )
-        self.historique.bind(on_row_press=self.row_pressed_histo)
+        self.historique.bind(on_row_press=lambda instance, row: self.row_pressed_histo(instance, row, planning_id))
         place.add_widget(self.historique)
 
-
-    def tableau_rem_histo(self, place):
-        self.remarque_historique = MDDataTable(
-            pos_hint={'center_x':.5, "center_y": .53},
-            size_hint=(1,1),
-            rows_num=5,
-            elevation=0,
-            column_data=[
-                ("Mois", dp(30)),
-                ("Remarque", dp(60)),
-                ("Avancement", dp(35)),
-                ("Décalage", dp(35)),
-                ("Motif", dp(40)),
-            ],
-            row_data=[
-                ("janvier", "Mahafinaritra", "Aucun", 'Aucun', 'Aucun'),
-                ("Septembre", "Somary nisy olana fa avy eo nilamina ihany", "Aucun", 'Aucun', 'Aucun'),
-            ],
-        )
-        #self.historique.bind(on_row_press=self.row_pressed_histo)
-        place.add_widget(self.remarque_historique)
-
-    def row_pressed_histo(self, table, row):
+    def row_pressed_histo(self, table, row, planning_id):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data
 
         place = self.historic_manager.get_screen('histo_remarque').ids.tableau_rem_histo
+        place.clear_widgets()
         self.fenetre_histo('', 'histo_remarque')
-        self.tableau_rem_histo(place)
+        def get_data():
+            asyncio.run_coroutine_threadsafe(self.historique_remarque(place, planning_id[row_num]), self.loop)
+
+        Clock.schedule_once(lambda c: self.loading_spinner(self.historic_manager, 'histo_remarque'), 0.5)
+        Clock.schedule_once(lambda c: get_data(), 0.5)
+
+
+    async def historique_remarque(self,place, planning_id):
+        resultat = await self.database.get_historique_remarque(planning_id)
+        if resultat:
+            Clock.schedule_once(lambda dt: self.tableau_rem_histo(place, resultat))
+
+    def tableau_rem_histo(self, place, data):
+        if data:
+            row_data = [(self.reverse_date(i[0]), i[1], 'aucun', 'aucun', 'aucun') for i in data]
+            self.remarque_historique = MDDataTable(
+                pos_hint={'center_x':.5, "center_y": .53},
+                size_hint=(1,1),
+                rows_num=5,
+                elevation=0,
+                column_data=[
+                    ("Date", dp(30)),
+                    ("Remarque", dp(60)),
+                    ("Avancement", dp(35)),
+                    ("Décalage", dp(35)),
+                    ("Motif", dp(40)),
+                ],
+                row_data=row_data
+            )
+            #self.historique.bind(on_row_press=self.row_pressed_histo)
+            place.add_widget(self.remarque_historique)
 
     def all_users(self, place):
         async def data_account():
