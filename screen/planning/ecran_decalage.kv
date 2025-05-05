@@ -19,13 +19,13 @@ MDScreen:
             pos_hint: {"center_x": .52,'center_y':.85}
 
         MDLabel:
-            text: 'Fin du contrat'
+            text: 'Date prévu du traitement'
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": .755,'center_y':.85}
 
         MDTextField:
-            id: mois_fin
+            id: date_prevu
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -36,20 +36,17 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
-
-        MDIconButton:
-            icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .48, "center_y":.7}
-            on_release:
+            readonly: True
 
         MDLabel:
+            id: label_decalage
             text: "Mois de l'avancement"
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": 1.09,'center_y':.85}
 
         MDTextField:
-            id: mois
+            id: date_decalage
             text_color_normal: 'black'
             mode: 'fill'
             text_color_focus: 'black'
@@ -60,6 +57,13 @@ MDScreen:
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
+            readonly : True
+
+        MDIconButton:
+            icon: 'Assets/calendar.png'
+            pos_hint:{"center_x": .815, "center_y":.7}
+            on_release:
+                app.calendrier('ecran_decalage', 'date_decalage')
 
         MDLabel:
             text: "Motif de l'avancement"
