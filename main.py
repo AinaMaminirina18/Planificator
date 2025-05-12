@@ -1063,7 +1063,7 @@ class Screen(MDApp):
         self.choose_screen(boutton)
 
         if self.liste_contrat.parent:
-            self.contrat_manager.parent.remove_widget(self.contrat_manager)
+            self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
         def chargement_contrat():
             asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
@@ -1301,18 +1301,13 @@ class Screen(MDApp):
             self.all_users(place)
 
         elif screen == 'contrat':
-            if self.liste_contrat != None:
-                place1 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-                place1.remove_widget(self.liste_contrat)
-                asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
-
-            if self.liste_client != None:
-                place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
-                     'client').ids.tableau_client
-                place2.remove_widget(self.liste_client)
-
-                self.liste_client = None
-                asyncio.run_coroutine_threadsafe(self.all_clients(place2), self.loop)
+            place1 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+            place1.remove_widget(self.liste_contrat)
+            asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
+            place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
+                 'client').ids.tableau_client
+            place2.remove_widget(self.liste_client)
+            asyncio.run_coroutine_threadsafe(self.all_clients(place2), self.loop)
 
     @mainthread
     def update_cards(self, datas,client_box, limite=5):
@@ -1389,25 +1384,50 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: maj_ecran(),0.5)
 
     def show_about_treatment(self, place, data):
-        if data:
-            row_data = [(self.reverse_date(i[1]), i[2], i[3]) for i in data]
-
-            self.all_treat = MDDataTable(
-                pos_hint={'center_x': 0.5, "center_y": 0.53},
-                size_hint=(.7, 1),
-                background_color_header='#56B5FB',
-                background_color='#56B5FB',
-                rows_num=len(data),
-                elevation=0,
-                column_data=[
-                    ("Date du contrat", dp(40)),
-                    ("Type de traitement", dp(50)),
-                    ("Durée", dp(40)),
-                ],
-                row_data=row_data,
+        if not data:
+            label = MDLabel(
+                text="Aucune donnée de planning disponible",
+                halign="center"
             )
-            self.all_treat.bind(on_row_press= self.row_pressed_contrat)
-            place.add_widget(self.all_treat)
+            place.add_widget(label)
+            return
+
+        row_data = []
+        for item in data:
+            try:
+                # Vérifier que l'item contient au moins 4 éléments
+                if len(item) >= 3:
+                    date = self.reverse_date(item[1]) if item[0] is not None else "N/A"
+                    traitement = item[2] if item[1] is not None else "N/A"
+                    duree = item[2] if item[2] is not None else "N/A"
+                    id_planning = item[3] if item[3] is not None else 0
+
+                    row_data.append((date, traitement, duree))
+                else:
+                    print(f"Warning: Planning item doesn't have enough elements: {item}")
+            except Exception as e:
+                print(f"Error processing planning item: {e}")
+
+            try:
+                self.all_treat = MDDataTable(
+                    pos_hint={'center_x': 0.5, "center_y": 0.53},
+                    size_hint=(.7, 1),
+                    background_color_header='#56B5FB',
+                    background_color='#56B5FB',
+                    rows_num=4,
+                    use_pagination= True,
+                    elevation=0,
+                    column_data=[
+                        ("Date du contrat", dp(40)),
+                        ("Type de traitement", dp(50)),
+                        ("Durée", dp(40)),
+                    ],
+                    row_data=row_data,
+                )
+                self.all_treat.bind(on_row_press=self.row_pressed_contrat)
+                place.add_widget(self.all_treat)
+            except Exception as e:
+                print(f'Error creating traitement table: {e}')
 
     def row_pressed_contrat(self, table, row):
         row_num = int(row.index / len(table.column_data))
@@ -1456,7 +1476,7 @@ class Screen(MDApp):
 
 
     def update_client_table_and_switch(self, place, client_data):
-        if client_data:
+        if client_data:  
             row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
             self.liste_client.row_data = row_data
             self.liste_client.bind(on_row_press=self.row_pressed_client)
@@ -1748,7 +1768,7 @@ class Screen(MDApp):
                         datas.append(i)
                         id_planning.append(i[4])
                     else:
-                        datas.append('Aucun', 'Aucun', 'Aucun', 'Aucun')
+                        datas.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
 
                 Clock.schedule_once(lambda dt: self.tableau_historic(place, datas, id_planning))
 
