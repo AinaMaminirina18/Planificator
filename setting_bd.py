@@ -285,10 +285,9 @@ class DatabaseManager:
                 except Exception as e:
                     print('get_info', e)
 
-    async def modifier_date(self,planning_id, planning_detail_id, option, interval):
+    async def modifier_date_signalement(self,planning_id, planning_detail_id, option, interval):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                print('eto')
                 try:
                     avancement = """UPDATE PlanningDetails 
                                     SET 
@@ -307,13 +306,22 @@ class DatabaseManager:
                                      planning_detail_id >= %s"""
 
                     requete = décalage if option == 'décalage' else avancement
-                    print(requete)
 
                     await cur.execute(requete, (interval, planning_id, planning_detail_id))
                     await conn.commit()
 
                 except Exception as e:
                     print('Changement de date', e)
+
+    async def modifier_date(self, planning_detail_id, new_date):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute('''UPDATE PlanningDetails
+                               SET
+                                  date_planification = %s
+                               WHERE
+                                  planning_detail_id = %s''', (new_date, planning_detail_id))
+                await conn.commit()
 
     async def create_facture(self, planning_id, montant, date, axe, etat = 'Non payé'):
         async with self.pool.acquire() as conn:
