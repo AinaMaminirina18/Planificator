@@ -17,35 +17,6 @@ MDScreen:
             font_name: 'poppins'
             pos_hint:{'center_x':.5, 'center_y': .9}
 
-        MDLabel:
-            text: 'Liste des contrats récents'
-            font_size: 20
-            font_name: 'poppins-bold'
-            pos_hint:{'center_x':.5, 'center_y': .7}
-
-        MDFloatLayout:
-            id: tri_container
-            orientation: 'horizontal'
-            md_bg_color: '#56B5FB'
-            size_hint: .2, .06
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .7}
-
-            MDLabel:
-                id: type_contrat
-                text : 'Contrats'
-                font_size: 16
-                font_name: 'poppins'
-                pos_hint:{'center_x':.55, 'center_y': .5}
-
-            MDIconButton:
-                icon: 'chevron-down'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
-                on_release:
-                    app.dropdown_homepage(self, 'home')
-
         ScrollView:
             do_scroll_x: True
             do_scroll_y: False
