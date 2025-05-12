@@ -66,7 +66,7 @@ MDScreen:
                 app.calendrier('ecran_decalage', 'date_decalage')
 
         MDLabel:
-            text: "Motif de l'avancement"
+            text: 'Motif'
             font_name: "poppins"
             font_size: 15
             pos_hint: {"center_x": .52,'center_y':.57}
@@ -129,5 +129,6 @@ MDScreen:
             size_hint: .3, None
             pos_hint: {'center_x': .2, 'center_y': .13}
             on_release:
+                app.clear_fields('signalement')
                 app.dismiss_planning()
                 app.fermer_ecran()
