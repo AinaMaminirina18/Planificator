@@ -7,15 +7,18 @@ class DatabaseManager:
         self.pool = None
 
     async def connect(self):
-        """Crée un pool de connexions à la base de données."""
-        self.pool = await aiomysql.create_pool(
-            host="localhost",
-            port=3306,
-            user="root",
-            password="root",
-            db="Planificator",
-            loop=self.loop
-        )
+        try:
+            """Crée un pool de connexions à la base de données."""
+            self.pool = await aiomysql.create_pool(
+                host="localhost",
+                port=3306,
+                user="root",
+                password="root",
+                db="Planificator",
+                loop=self.loop
+            )
+        except Exception as e:
+            print('Erreur', e)
 
     async def add_user(self, nom, prenom, email, username,  password, type_compte):
         """Ajoute un utilisateur dans la base de données."""
@@ -429,10 +432,10 @@ class DatabaseManager:
                                                 PlanningDetails pdl ON p.planning_id = pdl.planning_id
                                              JOIN
                                                 Remarque r ON pdl.planning_detail_id = r.planning_detail_id
-                                             GROUP BY
-                                                tt.typetraitement
                                              WHERE
                                                 c.nom = %s
+                                             GROUP BY
+                                                tt.typetraitement
                                                 """, (nom,))
                     result = await cursor.fetchall()
                     print(result)
@@ -608,7 +611,42 @@ class DatabaseManager:
                     return result
                 except Exception as e:
                     print(e)
-    
+
+    async def traitement_par_jour(self, year, month):
+        async with self.pool.acquire() as conn:
+            traitements_par_jour = {}
+            async with conn.cursor() as curseur:
+                await curseur.execute(
+                    """SELECT c.nom AS nom_client,
+                              tt.typeTraitement AS type_traitement,
+                              pdl.statut,
+                              pdl.date_planification
+                           FROM
+                              Client c
+                           JOIN
+                              Contrat co ON c.client_id = co.client_id
+                           JOIN
+                              Traitement t ON co.contrat_id = t.contrat_id
+                           JOIN
+                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           JOIN
+                              Planning p ON t.traitement_id = p.traitement_id
+                           JOIN
+                              PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                           WHERE
+                              YEAR(pdl.date_planification) = %s 
+                           AND
+                              MONTH(pdl.date_planification) = %s""",
+                        (year, month)
+                )
+                rows = await curseur.fetchall()
+                for nom, traitement, statut, date_str in rows:
+                    traitements_par_jour.setdefault(date_str, []).append({
+                        "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
+                        'etat': statut
+                    })
+            return traitements_par_jour
+
     async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
