@@ -11,22 +11,6 @@ MDScreen:
             font_name: 'poppins-bold'
             pos_hint:{'center_x':.5, 'center_y': .95}
 
-        MDLabel:
-            text: 'Gestion des contrats et clients - gestion de planning et traitements'
-            font_size: 16
-            font_name: 'poppins'
-            pos_hint:{'center_x':.5, 'center_y': .9}
-
-        ScrollView:
-            do_scroll_x: True
-            do_scroll_y: False
-            pos_hint:{"center_x": .38, "center_y": .15}
-            size_hint: .8, 1
-
-            MDBoxLayout:
-                id: contrats
-                orientation: "horizontal"
-                size_hint_x: None
-                width: self.minimum_width
-                spacing: "25dp"
-                padding: ('30dp', '5dp', '0dp', '0dp')
+        MDFloatLayout:
+            id: box
+            pos_hint:{'center_x':.49, 'center_y': .5}
