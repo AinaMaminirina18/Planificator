@@ -197,8 +197,9 @@ class Screen(MDApp):
 
     async def add_calendar(self):
         box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.box
-        box.clear_widgets()
         today = datetime.today()
+        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.label.text = f"{calendar.month_name[today.month].capitalize()} {today.year}"
+        box.clear_widgets()
 
         async def traitements():
             try:
