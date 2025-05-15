@@ -19,16 +19,6 @@ class CalendarWidget(BoxLayout):
         self.month = month
         self.traitements_par_jour = data
 
-        self.label_mois = MDLabel(
-            text=f"{calendar.month_name[month].capitalize()} {year}",
-            halign="center",
-            pos_hint = {'center_x': .63, 'center_y': .2},
-            theme_text_color="Primary",
-            font_style="H5"
-        )
-
-        self.add_widget(self.label_mois)
-
         self.grid = MDGridLayout(cols=7, adaptive_height=True, padding=10, spacing=5)
         self.grid.pos_hint = {'center_x': .76, 'center_y': .5}
         self.add_widget(self.grid)
