@@ -1,9 +1,22 @@
+from kivy.config import Config
+Config.set('graphics', 'resizable', False)
+
+from kivy.uix.screenmanager import ScreenManager, SlideTransition
+from kivy.clock import Clock, mainthread
+from kivy.core.text import LabelBase
+from kivy.lang import Builder
+from kivy.core.window import Window
+
+Window.size = (1300, 680)
+
 import calendar
 import asyncio
 import threading
 import locale
 
+import aiomysql
 from datetime import datetime, timedelta
+from aiomysql import OperationalError
 
 from dateutil.relativedelta import relativedelta
 from functools import partial
@@ -13,19 +26,12 @@ from kivy.metrics import dp
 from kivymd.app import MDApp
 from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
+from kivymd.uix.pickers import MDDatePicker
 from kivymd.uix.label import MDLabel
 from kivymd.uix.menu import MDDropdownMenu
 from kivymd.uix.button import MDFlatButton
 from kivymd.uix.dialog import MDDialog
-from kivymd.uix.pickers import MDDatePicker
 
-from kivy.uix.screenmanager import ScreenManager, SlideTransition
-from kivy.clock import Clock, mainthread
-from kivy.core.text import LabelBase
-from kivy.lang import Builder
-from kivy.core.window import Window
-
-from calendrier import CalendarWidget
 from email_verification import is_valid_email
 from gestion_ecran_acceuil import gestion_ecran_home
 from gestion_ecran_client import gestion_ecran_client
@@ -38,15 +44,6 @@ from setting_bd import DatabaseManager
 from tester_date import ajuster_si_weekend, jours_feries
 import verif_password as vp
 
-Window.size = (1300, 680)
-Window.left = 20
-Window.top = 20
-
-Window.minimum_height = 680
-Window.minimum_width = 1300
-
-Window.maximum_height = 680
-Window.maximum_width = 1300
 
 locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
@@ -60,7 +57,7 @@ class Screen(MDApp):
 
     def on_start(self):
         gestion_ecran(self.root)
-        asyncio.run_coroutine_threadsafe(self.add_calendar(), self.loop)
+        asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
 
     def build(self):
         #Parametre de la base de données
@@ -83,6 +80,30 @@ class Screen(MDApp):
         self.current_client = None
         self.card = None
 
+        self.table_en_cours = MDDataTable(
+            use_pagination=True,
+            rows_num=7,
+            elevation=0,
+            background_color_header='#56B5FB',
+            column_data=[
+                ("Date", dp(30)),
+                ("Nom", dp(30)),
+                ("État", dp(25)),
+            ]
+        )
+
+        self.table_prevision = MDDataTable(
+            use_pagination=True,
+            rows_num=7,
+            elevation=0,
+            background_color_header='#56B5FB',
+            column_data=[
+                ("Date", dp(30)),
+                ("Nom", dp(30)),
+                ("État", dp(25)),
+            ]
+        )
+
         self.liste_contrat = MDDataTable(
                 pos_hint={'center_x': 0.5, "center_y": 0.53},
                 size_hint=(1, 1),
@@ -99,6 +120,21 @@ class Screen(MDApp):
                 ],
             )
 
+        self.all_treat = MDDataTable(
+            pos_hint={'center_x': 0.5, "center_y": 0.53},
+            size_hint=(.7, 1),
+            background_color_header='#56B5FB',
+            background_color='#56B5FB',
+            rows_num=4,
+            use_pagination=True,
+            elevation=0,
+            column_data=[
+                ("Date du contrat", dp(40)),
+                ("Type de traitement", dp(50)),
+                ("Durée", dp(40)),
+            ],
+        )
+
         self.liste_planning = MDDataTable(
             pos_hint={'center_x': .5, "center_y": .5},
             size_hint=(1, 1),
@@ -112,6 +148,19 @@ class Screen(MDApp):
                 ("Type de traitement", dp(50)),
                 ("Durée du contrat", dp(30)),
                 ("Option", dp(45)),
+            ]
+        )
+
+        self.liste_select_planning = MDDataTable(
+            pos_hint={'center_x': .5, "center_y": .5},
+            size_hint=(.6, .85),
+            rows_num=5,
+            elevation=0,
+            use_pagination=True,
+            column_data=[
+                ("Date", dp(35)),
+                ("Statistique", dp(35)),
+                ("Etat du traitement", dp(40)),
             ]
         )
 
@@ -189,50 +238,27 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
-
-    async def add_calendar(self):
-        box = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.box
-        today = datetime.today()
-        self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home').ids.label.text = f"{calendar.month_name[today.month].capitalize()} {today.year}"
-        box.clear_widgets()
-
-        async def traitements():
-            try:
-                data = await self.database.traitement_par_jour(today.year, today.month)
-                def ajouter(dt):
-                    calendar = CalendarWidget(year=today.year,
-                                              month=today.month,
-                                              data=data)
-                    box.add_widget(calendar)
-
-                Clock.schedule_once(ajouter)
-
-            except Exception as e:
-                print('calendar', e)
-
-        asyncio.run_coroutine_threadsafe(traitements(), self.loop)
-
 
     def login(self):
         """Gestion de l'action de connexion."""
         username = self.root.get_screen('login').ids.login_username.text
         password = self.root.get_screen('login').ids.login_password.text
         if not username or not password:
-            Clock.schedule_once(lambda s: self.show_dialog('Erreur', 'Veuillez completer tous les champs'))
+            Clock.schedule_once(lambda s: self.show_dialog('Erreur', 'Veuillez completer tous les champs'), 0)
             return
         else:
             async def process_login():
                 try:
                     result = await self.database.verify_user(username)
                     if result and vp.reverse(password, result[5]):
-                        Clock.schedule_once(lambda dt: self.switch_to_main())
-                        Clock.schedule_once(lambda a: self.show_dialog("Success", "Connexion réussie !"))
-                        Clock.schedule_once(lambda cl: self.clear_fields('login'))
+                        Clock.schedule_once(lambda dt: self.switch_to_main(),0)
+                        Clock.schedule_once(lambda a: self.show_dialog("Success", "Connexion réussie !"), 0.5)
+                        Clock.schedule_once(lambda cl: self.clear_fields('login'), 0.5)
                         self.compte = result
 
                         if result[6] == 'Administrateur':
@@ -273,10 +299,13 @@ class Screen(MDApp):
                     Clock.schedule_once(lambda a: self.switch_to_login())
                     Clock.schedule_once(lambda dt: self.show_dialog("Success", "Compte créé avec succès !"))
                     Clock.schedule_once(lambda cl: self.clear_fields('signup'))
-                except Exception as error:
-                    erreur = error
-                    Clock.schedule_once(lambda dt : self.show_dialog('Erreur', f'{erreur}'))
-                    print(erreur)
+
+                except OperationalError as error:
+                    print(error.args)
+                    error_code, error_message = error.args
+                    if error_code == 1644:
+                        Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Un compte administrateur existe déjà'))
+
             # Exécuter la tâche d'ajout d'utilisateur dans la boucle asyncio
             asyncio.run_coroutine_threadsafe(add_user_task(), self.loop)
 
@@ -422,9 +451,7 @@ class Screen(MDApp):
                         print("enregistrement planning detail ", e)
 
                 self.id_traitement.pop(0)
-                await self.add_calendar()
-
-
+                asyncio.run_coroutine_threadsafe(self.populate_tables, self.loop)
             except Exception as e:
                 print('eto', e)
 
@@ -513,6 +540,8 @@ class Screen(MDApp):
     async def supprimer_client(self):
         try:
             await self.database.delete_client(self.current_client[0])
+            await self.populate_tables()
+
         except Exception as e:
             print('suppression', e)
 
@@ -524,7 +553,6 @@ class Screen(MDApp):
 
         def dlt():
             asyncio.run_coroutine_threadsafe(self.supprimer_client(), self.loop)
-            asyncio.run_coroutine_threadsafe(self.add_calendar(), self.loop)
 
         Clock.schedule_once(lambda dt: dlt(),0)
         Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
@@ -1422,21 +1450,10 @@ class Screen(MDApp):
                 print(f"Error processing planning item: {e}")
 
             try:
-                self.all_treat = MDDataTable(
-                    pos_hint={'center_x': 0.5, "center_y": 0.53},
-                    size_hint=(.7, 1),
-                    background_color_header='#56B5FB',
-                    background_color='#56B5FB',
-                    rows_num=4,
-                    use_pagination= True,
-                    elevation=0,
-                    column_data=[
-                        ("Date du contrat", dp(40)),
-                        ("Type de traitement", dp(50)),
-                        ("Durée", dp(40)),
-                    ],
-                    row_data=row_data,
-                )
+                self.all_treat.row_data = row_data
+                if self.all_treat.parent:
+                    self.all_treat.parent.remove_widget(self.all_treat)
+
                 self.all_treat.bind(on_row_press=self.row_pressed_contrat)
                 place.add_widget(self.all_treat)
             except Exception as e:
@@ -1643,20 +1660,7 @@ class Screen(MDApp):
                 # Continuer avec les autres éléments sans interrompre
 
         try:
-            self.liste_select_planning = MDDataTable(
-                pos_hint={'center_x': .5, "center_y": .5},
-                size_hint=(.6, .85),
-                rows_num=5,
-                elevation=0,
-                use_pagination=True,
-                column_data=[
-                    ("Date", dp(35)),
-                    ("Statistique", dp(35)),
-                    ("Etat du traitement", dp(40)),
-                ],
-                row_data=row_data
-            )
-
+            self.liste_select_planning.row_data = row_data
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
             place.add_widget(self.liste_select_planning)
@@ -1667,14 +1671,15 @@ class Screen(MDApp):
     def row_pressed_planning(self, list_id, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
+
         self.fenetre_planning('', 'selection_planning')
 
         Clock.schedule_once(lambda dt: self.get_and_update(row_data[1], row_data[0], list_id[row_num]), 0.5)
 
     def get_and_update(self, data1, data2, data3):
-        asyncio.run_coroutine_threadsafe(self.planning_par_traitment(data1, data2, data3), self.loop)
+        asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
 
-    async def planning_par_traitment(self, traitement, client, id_traitement):
+    async def planning_par_traitement(self, traitement, client, id_traitement):
         titre = traitement.partition('(')[0].strip()
         screen = self.planning_manager.get_screen('selection_planning')
         screen.ids.titre.text = f'Planning de {titre} pour {client}'
@@ -1747,7 +1752,6 @@ class Screen(MDApp):
                                                         contenu)
 
                     await self.database.update_etat_planning(self.planning_detail[8])
-                    asyncio.run_coroutine_threadsafe(self.add_calendar(), self.loop)
                     if etat_paye:
                         await self.database.update_etat_facture(self.planning_detail[6])
                     Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
@@ -1959,6 +1963,45 @@ class Screen(MDApp):
         self.fermer_ecran()
         self.fenetre_contrat('', 'suppression_contrat')
 
+    async def populate_tables(self):
+        data_current = []
+        data_next = []
+        home = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home')
+        now = datetime.now()
+        data_en_cours = await self.database.traitement_en_cours(now.year, now.month)
+        data_prevision = await self.database.traitement_prevision(now.year, now.month)
+
+        # Création de data_current
+        data_current = []
+        for i in data_en_cours:
+            data_current.append((self.reverse_date(i["date"]), i["traitement"], i['etat']))
+
+        # Pour vérifier si un traitement spécifique existe dans data_current
+        for i in data_prevision:
+            traitement_a_verifier = i['traitement']
+
+            # Vérifiez si ce traitement existe dans data_current (dans l'indice 1 de chaque tuple)
+            traitement_existe = any(item[1] == traitement_a_verifier for item in data_current)
+
+            # Vous pouvez également utiliser cette vérification pour décider si ajouter à data_next
+            if not traitement_existe:  # Ajouter seulement si le traitement n'existe pas déjà
+                row = (self.reverse_date(i["date"]), i["traitement"], i['etat'])
+                data_next.append(row)
+        Clock.schedule_once(lambda dt: self.home_tables(data_current, data_next, home))
+        print('current', data_current)
+        print('next' ,data_next)
+
+    def home_tables(self, current, next, home):
+        if home.ids.box_current.parent and home.ids.box_next.parent:
+            home.ids.box_current.parent.remove_widget(self.table_en_cours)
+            home.ids.box_next.parent.remove_widget(self.table_prevision)
+
+        self.table_en_cours.row_data = current
+        self.table_prevision.row_data = next
+
+        home.ids.box_current.add_widget(self.table_en_cours)
+        home.ids.box_next.add_widget(self.table_prevision)
+
     def open_compte(self, dev):
         import webbrowser
         if dev == 'Mamy':
@@ -1973,7 +2016,6 @@ class Screen(MDApp):
             future.result()
 
         self.loop.call_soon_threadsafe(self.loop.stop)
-
 
 if __name__ == "__main__":
     LabelBase.register(name='poppins',
