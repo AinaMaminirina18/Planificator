@@ -11,14 +11,21 @@ MDScreen:
             font_name: 'poppins-bold'
             pos_hint:{'center_x':.5, 'center_y': .95}
 
-        MDLabel:
-            id: label
-            text: 'text'
-            font_style: 'H5'
-            halign: 'center'
-            font_name: 'poppins'
-            pos_hint:{'center_x':.36, 'center_y': .9}
-
         MDFloatLayout:
             id: box
             pos_hint:{'center_x':.49, 'center_y': .5}
+            orientation: 'horizontal'
+
+            MDBoxLayout:
+                id: box_next
+                orientation: 'vertical'
+                size_hint_x: 0.35
+                size_hint_y: 0.8
+                pos_hint:{'center_x':.18, 'center_y': .45}
+
+            MDBoxLayout:
+                id: box_current
+                orientation: 'vertical'
+                size_hint_x: 0.35
+                size_hint_y: 0.8
+                pos_hint:{'center_x':.55, 'center_y': .45}
