@@ -145,7 +145,7 @@ class DatabaseManager:
                     await conn.commit()
                     return cur.lastrowid
                 except Exception as e:
-                    print(e)
+                    print('contrat', e)
             
     async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe):
         async with self.pool.acquire() as conn:
@@ -182,7 +182,7 @@ class DatabaseManager:
                     await conn.commit()
                     return cur.lastrowid
                 except Exception as e:
-                    print(e)
+                    print('traitement', e)
     
     async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin):
         """Crée un planning pour un traitement donné."""
@@ -654,14 +654,15 @@ class DatabaseManager:
             async with conn.cursor() as cursor:
                 try:
                     await cursor.execute(
-                        """SELECT c.nom AS nom_client,
+                        """SELECT DISTINCT c.nom ,
                                   co.date_contrat,
-                                  tt.typeTraitement AS type_traitement,
-                                  co.duree_contrat AS duree_contrat,
-                                  co.date_debut AS debut_contrat,
-                                  co.date_fin AS fin_contrat,
-                                  c.categorie AS categorie,
-                                  count(t.traitement_id)
+                                  tt.typeTraitement,
+                                  co.duree_contrat ,
+                                  co.date_debut ,
+                                  co.date_fin ,
+                                  c.categorie ,
+                                  count(t.traitement_id),
+                                  c.client_id
                            FROM
                               Client c
                            JOIN
@@ -671,7 +672,7 @@ class DatabaseManager:
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            GROUP BY
-                              c.nom
+                              c.client_id
                            ORDER BY
                               c.nom ASC;"""
                     )
@@ -680,7 +681,7 @@ class DatabaseManager:
                 except Exception as e:
                     print(e)
                     
-    async def traitement_par_client(self, nom):
+    async def traitement_par_client(self, idclient):
         async with self.pool.acquire() as conn :
             async with conn.cursor() as cursor:
                 try:
@@ -688,7 +689,7 @@ class DatabaseManager:
                         """SELECT c.nom AS nom_client,
                                   co.date_contrat,
                                   tt.typeTraitement AS type_traitement,
-                                  co.duree AS duree_contrat,
+                                  co.duree_contrat AS duree_contrat,
                                   co.date_debut AS debut_contrat,
                                   co.date_fin AS fin_contrat,
                                   c.categorie AS categorie
@@ -701,8 +702,8 @@ class DatabaseManager:
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            WHERE
-                              c.nom = %s;"""
-                    , (nom,))
+                              c.client_id = %s;"""
+                    , (idclient,))
                     result = await cursor.fetchall()
                     return result
                 except Exception as e:
@@ -718,5 +719,6 @@ class DatabaseManager:
                 
     async def close(self):
         """Ferme le pool de connexions."""
-        self.pool.close()
-        await self.pool.wait_closed()
+        if self.pool:
+            self.pool.close()
+            await self.pool.wait_closed()
