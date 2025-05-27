@@ -17,6 +17,7 @@ import locale
 import aiomysql
 from datetime import datetime, timedelta
 from aiomysql import OperationalError
+from asynckivy import start
 
 from dateutil.relativedelta import relativedelta
 from functools import partial
@@ -26,6 +27,8 @@ from kivy.metrics import dp
 from kivymd.app import MDApp
 from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
+from kivymd.uix.dropdownitem import MDDropDownItem
+from kivymd.uix.spinner import MDSpinner
 from kivymd.uix.pickers import MDDatePicker
 from kivymd.uix.label import MDLabel
 from kivymd.uix.menu import MDDropdownMenu
@@ -44,6 +47,8 @@ from setting_bd import DatabaseManager
 from tester_date import ajuster_si_weekend, jours_feries
 import verif_password as vp
 
+import tracemalloc
+tracemalloc.start()
 
 locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
@@ -64,8 +69,6 @@ class Screen(MDApp):
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
-
-        #initialiser la conexion à la base de données
         asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
 
         #Configuration de la fenêtre
@@ -248,66 +251,90 @@ class Screen(MDApp):
         """Gestion de l'action de connexion."""
         username = self.root.get_screen('login').ids.login_username.text
         password = self.root.get_screen('login').ids.login_password.text
+
         if not username or not password:
-            Clock.schedule_once(lambda s: self.show_dialog('Erreur', 'Veuillez completer tous les champs'), 0)
+            Clock.schedule_once(lambda s: self.show_dialog('Erreur', 'Veuillez compléter tous les champs'), 0)
             return
-        else:
-            async def process_login():
-                try:
-                    result = await self.database.verify_user(username)
-                    if result and vp.reverse(password, result[5]):
-                        Clock.schedule_once(lambda dt: self.switch_to_main(),0)
-                        Clock.schedule_once(lambda a: self.show_dialog("Success", "Connexion réussie !"), 0.5)
-                        Clock.schedule_once(lambda cl: self.clear_fields('login'), 0.5)
-                        self.compte = result
 
-                        if result[6] == 'Administrateur':
-                            self.admin = True
-                    else:
-                        Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Aucun compte trouvé dans la base de données"))
-                except:
-                    self.show_dialog("Error", "Une erreur s'est produite")
+        # Appel sécurisé de la coroutine
+        asyncio.run_coroutine_threadsafe(self.process_login(username, password), self.loop)
 
-            asyncio.run_coroutine_threadsafe(process_login(), self.loop)
+    async def process_login(self, username, password):
+        try:
+            result = await self.database.verify_user(username)
+
+            if result and vp.reverse(password, result[5]):
+                Clock.schedule_once(lambda dt: self.switch_to_main(), 0)
+                Clock.schedule_once(lambda a: self.show_dialog("Succès", "Connexion réussie !"), 0)
+                Clock.schedule_once(lambda cl: self.clear_fields('login'), 0.5)
+                self.compte = result
+
+                if result[6] == 'Administrateur':
+                    self.admin = True
+
+            else:
+                Clock.schedule_once(
+                    lambda dt: self.show_dialog("Erreur", "Aucun compte trouvé dans la base de données"))
+        except Exception as e:
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", f"Erreur : {str(e)}"))
 
     def sign_up(self):
         """Gestion de l'action d'inscription."""
-        nom = self.root.get_screen('signup').ids.nom.text
-        prenom = self.root.get_screen('signup').ids.prenom.text
-        email = self.root.get_screen('signup').ids.Email.text
-        type_compte = self.root.get_screen('signup').ids.type.text
-        username = self.root.get_screen('signup').ids.signup_username.text
-        password = self.root.get_screen('signup').ids.signup_password.text
-        confirm_password = self.root.get_screen('signup').ids.confirm_password.text
+        screen = self.root.get_screen('signup')
+        nom = screen.ids.nom.text
+        prenom = screen.ids.prenom.text
+        email = screen.ids.Email.text
+        type_compte = screen.ids.type.text
+        username = screen.ids.signup_username.text
+        password = screen.ids.signup_password.text
+        confirm_password = screen.ids.confirm_password.text
 
-        valid_password = vp.get_valid_password(nom, prenom, password, confirm_password)
-
-        if not nom or not prenom or not email or not password or not username or not confirm_password:
-            Clock.schedule_once(lambda  dt: self.show_dialog("Erreur", "Veuillez completer tous les champs"))
+        # 1. Validation des champs vides
+        if not all([nom, prenom, email, username, password, confirm_password]):
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Veuillez compléter tous les champs"))
             return
 
-        elif not is_valid_email(email):
-            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Verifier votre adresse email'))
+        # 2. Validation de l'email
+        if not is_valid_email(email):
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez vérifier votre adresse email'))
+            return
 
-        elif 'Le' in str(valid_password):
-            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password))
+        # 3. Validation du mot de passe
+        is_password_valid, password_validation_message = vp.get_valid_password(nom, prenom, password, confirm_password)
+        if not is_password_valid:
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", password_validation_message))
+            return
 
-        else:
-            async def add_user_task():
-                try:
-                    await self.database.add_user(nom, prenom, email, username, valid_password, type_compte)
-                    Clock.schedule_once(lambda a: self.switch_to_login())
-                    Clock.schedule_once(lambda dt: self.show_dialog("Success", "Compte créé avec succès !"))
-                    Clock.schedule_once(lambda cl: self.clear_fields('signup'))
+        # Le mot de passe validé (potentiellement hashé)
+        validated_password = password_validation_message
+        asyncio.run_coroutine_threadsafe(
+            self._add_user_and_handle_feedback(nom, prenom, email, username, validated_password, type_compte),
+            self.loop
+        )
 
-                except OperationalError as error:
-                    print(error.args)
-                    error_code, error_message = error.args
-                    if error_code == 1644:
-                        Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Un compte administrateur existe déjà'))
+    async def _add_user_and_handle_feedback(self, nom, prenom, email, username, password, type_compte):
+        try:
+            await self.database.add_user(nom, prenom, email, username, password, type_compte)
+            Clock.schedule_once(lambda dt: self.switch_to_login())
+            Clock.schedule_once(lambda dt: self.show_dialog("Succès", "Compte créé avec succès !"))
+            Clock.schedule_once(lambda dt: self.clear_fields('signup'))
 
-            # Exécuter la tâche d'ajout d'utilisateur dans la boucle asyncio
-            asyncio.run_coroutine_threadsafe(add_user_task(), self.loop)
+        except OperationalError as error:
+            # Gérer les erreurs spécifiques de la base de données
+            if len(error.args) >= 1 and error.args[0] == 1644:
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Un compte administrateur existe déjà'))
+
+            else:
+                # Afficher le message d'erreur de la base de données si disponible
+                error_message = error.args[1] if len(error.args) >= 2 else str(error)
+                Clock.schedule_once(
+                    lambda dt: self.show_dialog('Erreur', f"Erreur de base de données: {error_message}"))
+            print(f"OperationalError: {error}")  # Pour le débogage
+
+        except Exception as e:
+            # Capturer toute autre erreur inattendue
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Une erreur inattendue est survenue.'))
+            print(f"Erreur inattendue: {e}")  # Pour le débogage
 
     def creer_contrat(self):
         ecran = self.contrat_manager.get_screen('ajout_info_client')
@@ -335,29 +362,61 @@ class Screen(MDApp):
             fin_contrat = 'Indéterminée'
             duree = 12
 
+        if date_fin == "Indéterminée":
+            duree = 12
+            fin_contrat = 'Indéterminée'
+        else:
+                # Assurez-vous que self.reverse_date gère bien les formats d'entrée
+                # et renvoie "YYYY-MM-DD"
+            fin_contrat_rev = self.reverse_date(date_fin)
+            debut_rev = self.reverse_date(date_debut)
+
+            fin_contrat = datetime.strptime(fin_contrat_rev, "%Y-%m-%d").date()
+            debut_date = datetime.strptime(debut_rev, "%Y-%m-%d").date()
+
+            diff = relativedelta(fin_contrat, debut_date)
+            duree = diff.years * 12 + diff.months
+
         def maj():
             self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text = axe
             self.contrat_manager.get_screen('ajout_planning').ids.axe_client.text = axe
 
         async def create():
-            self.traitement, self.categorie_trait = self.get_trait_from_form()
             self.id_traitement = []
             try:
-                client = await self.database.create_client(nom, prenom, email, telephone, adresse, self.reverse_date(date_ajout), categorie_client, axe)
-                contrat = await self.database.create_contrat(client, self.reverse_date(date_contrat), self.reverse_date(date_debut), fin_contrat, duree,duree_contrat, categorie_contrat)
+                self.traitement, self.categorie_trait = self.get_trait_from_form()
+                if not self.traitement or not self.categorie_trait:
+                    raise ValueError("Aucun traitement ou catégorie de traitement sélectionné.")
 
-                for indice in range(len(self.traitement)):
-                    type_traitement = await self.database.typetraitement(self.categorie_trait[indice], f'{self.traitement[indice]}')
+                client = await self.database.create_client(
+                    nom, prenom, email, telephone, adresse,
+                    self.reverse_date(date_ajout), categorie_client, axe
+                )
+
+                contrat = await self.database.create_contrat(
+                    client,
+                    self.reverse_date(date_contrat),
+                    self.reverse_date(date_debut),
+                    fin_contrat,
+                    duree,
+                    duree_contrat,
+                    categorie_contrat
+                )
+
+                for i in range(len(self.traitement)):
+                    type_traitement = await self.database.typetraitement(
+                        self.categorie_trait[i], self.traitement[i]
+                    )
                     traitement_id = await self.database.creation_traitement(contrat, type_traitement)
                     self.id_traitement.append(traitement_id)
 
-                Clock.schedule_once(lambda sc :self.dismiss_contrat())
-                Clock.schedule_once(lambda sc :self.fermer_ecran())
-                Clock.schedule_once(lambda sc :maj())
-                Clock.schedule_once(lambda sc :self.fenetre_contrat('Ajout du planning', 'ajout_planning'))
+                Clock.schedule_once(lambda dt: self.dismiss_contrat(), 0)
+                Clock.schedule_once(lambda dt: self.fermer_ecran(), 0)
+                Clock.schedule_once(lambda dt: maj(), 0)
+                Clock.schedule_once(lambda dt: self.fenetre_contrat('Ajout du planning', 'ajout_planning'), 0)
+
             except Exception as e:
-                error = e
-                Clock.schedule_once(self.show_dialog('Erreur', f'{error}'))
+                print(f"Une erreur inattendue est survenue lors de la création du contrat : {e}")
 
         asyncio.run_coroutine_threadsafe(create(), self.loop)
 
@@ -365,36 +424,38 @@ class Screen(MDApp):
         try:
             result = await self.database.get_client()
             if result:
-                if 'None' not in result[0]:
-                    place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-                    place.clear_widgets()
-                    self.update_contract_table(place, result)
+                place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
+                threading.Thread(target = partial(self.update_contract_table,place, result)).start()
 
         except Exception as e:
             print(f"Erreur lors de la récupération des clients: {e}")
             self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des clients.")
 
     def gestion_planning(self):
-        mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
-        date = self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text
-        redondance = self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text
+        ajout_planning_screen = self.contrat_manager.get_screen('ajout_planning')
+        mois_fin = ajout_planning_screen.ids.get('mois_fin')
+        mois_debut = ajout_planning_screen.ids.get('mois_date')
+        date_prevu = ajout_planning_screen.ids.get('date_prevu')
+        redondance = ajout_planning_screen.ids.get('red_trait')
 
         bouton = self.contrat_manager.get_screen('ajout_facture').ids.accept
 
         if self.contrat_manager.current == 'ajout_planning':
+            if self.verifier_mois(mois_debut.text) != 'Erreur':
+                self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
+                self.contrat_manager.get_screen('ajout_facture').ids.montant.text = ''
+                self.contrat_manager.get_screen('ajout_facture').ids.date_prevu.text = date_prevu
+                self.contrat_manager.get_screen('ajout_facture').ids.red_trait.text = redondance
+                self.contrat_manager.get_screen('ajout_facture').ids.traitement_c.text = self.traitement[0]
+                if len(self.traitement) == 1:
+                    bouton.text = 'Enregistrer'
 
-            self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
-            self.contrat_manager.get_screen('ajout_facture').ids.montant.text = ''
-            self.contrat_manager.get_screen('ajout_facture').ids.date_prevu.text = date
-            self.contrat_manager.get_screen('ajout_facture').ids.red_trait.text = redondance
-            self.contrat_manager.get_screen('ajout_facture').ids.traitement_c.text = self.traitement[0]
-            if len(self.traitement) == 1:
-                bouton.text = 'Enregistrer'
-
-            self.dismiss_contrat()
-            self.fermer_ecran()
-            self.fenetre_contrat('Ajout de la facture','ajout_facture')
-            self.traitement.pop(0)
+                self.dismiss_contrat()
+                self.fermer_ecran()
+                self.fenetre_contrat('Ajout de la facture','ajout_facture')
+                self.traitement.pop(0)
+            else:
+                self.show_dialog('Erreur', 'Mot non reconnu comme mois, veuillez verifier')
 
         elif not self.traitement:
             self.dismiss_contrat()
@@ -405,23 +466,23 @@ class Screen(MDApp):
 
         else:
 
-            self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text = ''
-            self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text = 'Indéterminée' if mois_fin == 'Indéterminée' else ''
-            self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text = ''
-            self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text = '1 mois'
-            self.contrat_manager.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
+            mois_debut.text = ''
+            ajout_planning_screen.ids.mois_fin.text = 'Indéterminée' if mois_fin == 'Indéterminée' else ''
+            ajout_planning_screen.ids.date_prevu.text = ''
+            ajout_planning_screen.ids.red_trait.text = '1 mois'
+            ajout_planning_screen.ids.type_traitement.text = self.traitement[0]
             self.dismiss_contrat()
             self.fermer_ecran()
             self.fenetre_contrat('Ajout du planning','ajout_planning')
 
-    def save_planning(self,):
+    def save_planning(self):
         mois_debut = self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text
         mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
         date_prevu = self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text
         redondance = self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text
         date_debut = self.contrat_manager.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
-        date_fin = datetime.strptime(f'{temp[0]}-{(int(temp[1])+11) % 12}-{temp[2]}',  "%d-%m-%Y").date()
+        date_fin = datetime.strptime(f'{temp[0]}-{(int(temp[1])+11) % 12}-{(int(temp[2]) + 1) if temp[1] != 1 else temp[2]}',  "%d-%m-%Y").date()
 
         montant = self.contrat_manager.get_screen('ajout_facture').ids.montant.text
         axe_client = self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text
@@ -429,11 +490,13 @@ class Screen(MDApp):
         int_red = redondance.split(" ")
 
         async def save():
+            debut = datetime.strptime(self.verifier_mois(mois_debut), "%B").month
+            fin = datetime.strptime(self.verifier_mois(mois_fin), "%B").month if mois_fin != 'Indéterminée' else 0
             try:
                 planning = await self.database.create_planning(self.id_traitement[0],
                                                                self.reverse_date(date_debut),
-                                                               datetime.strptime(self.verifier_mois(mois_debut), "%B").month,
-                                                               datetime.strptime(self.verifier_mois(mois_fin), "%B").month if mois_fin != 'Indéterminée' else 0,
+                                                               debut,
+                                                               fin,
                                                                int_red[0],
                                                                date_fin)
 
@@ -451,7 +514,8 @@ class Screen(MDApp):
                         print("enregistrement planning detail ", e)
 
                 self.id_traitement.pop(0)
-                asyncio.run_coroutine_threadsafe(self.populate_tables, self.loop)
+                await self.populate_tables
+
             except Exception as e:
                 print('eto', e)
 
@@ -494,44 +558,46 @@ class Screen(MDApp):
         #asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
 
     def update_account(self, nom, prenom, email, username, password, confirm):
-        valid_password = vp.get_valid_password(nom, prenom, password, confirm)
+        is_valid, valid_password = vp.get_valid_password(nom, prenom, password, confirm)
 
-        if not nom or not prenom or not email or not password or not username or not confirm:
-            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Veuillez completer tous les champs"))
+        if not all([nom, prenom, email, username, password, confirm]):
+            Clock.schedule_once(partial(self.show_dialog, "Erreur", "Veuillez compléter tous les champs."))
             return
 
-        elif not is_valid_email(email):
-            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Verifier votre adresse email'))
+        if not is_valid_email(email):
+            Clock.schedule_once(partial(self.show_dialog, 'Erreur', 'Veuillez vérifier votre adresse email.'))
+            return
 
-        elif 'Le' in str(valid_password):
+        if not is_valid:
             Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password))
+            return
 
-        else:
-            async def update_user_task():
-                try:
-                    await self.database.update_user(nom, prenom, email, username, valid_password, self.compte[0])
-                    Clock.schedule_once(lambda dt: self.show_dialog("Success", "Les modifications ont été enregistrées"))
-                    Clock.schedule_once(lambda cl: self.clear_fields('modif_info_compte'))
-                    Clock.schedule_once(lambda c: self.current_compte())
-                    Clock.schedule_once(lambda cl: self.dismiss_compte())
-                    Clock.schedule_once(lambda cl: self.fermer_ecran())
-                except Exception as error:
-                    print(error)
+        async def update_user_task():
+            try:
+                await self.database.update_user(nom, prenom, email, username, valid_password, self.compte[0])
 
-            asyncio.run_coroutine_threadsafe(update_user_task(), self.loop)
+                def _post_update_ui_actions():
+                    self.show_dialog("Succès", "Les modifications ont été enregistrées avec succès !")
+                    self.clear_fields('modif_info_compte')
+                    self.current_compte()
+                    self.dismiss_compte()
+                    self.fermer_ecran()
+
+                Clock.schedule_once(lambda dt: _post_update_ui_actions(), 0)
+            except Exception as error:
+                print(error)
+
+        asyncio.run_coroutine_threadsafe(update_user_task(), self.loop)
 
     def current_compte(self):
         ecran = 'compte' if self.admin else 'not_admin'
+        target_screen = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(ecran)
         async def current():
             compte = await self.database.get_current_user(self.compte[0])
-            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
-                ecran).ids.nom.text = f'Nom : {compte[1]}'
-            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
-                ecran).ids.prenom.text = f'Prénom : {compte[2]}'
-            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
-                ecran).ids.email.text = f'Email : {compte[3]}'
-            self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
-                ecran).ids.username.text = f"Nom d'utilisateur : {compte[4]}"
+            target_screen.ids.nom.text = f'Nom : {compte[1]}'
+            target_screen.ids.prenom.text = f'Prénom : {compte[2]}'
+            target_screen.ids.email.text = f'Email : {compte[3]}'
+            target_screen.ids.username.text = f"Nom d'utilisateur : {compte[4]}"
 
             self.compte = compte
 
@@ -540,7 +606,7 @@ class Screen(MDApp):
     async def supprimer_client(self):
         try:
             await self.database.delete_client(self.current_client[0])
-            await self.populate_tables()
+            await self.populate_tables
 
         except Exception as e:
             print('suppression', e)
@@ -618,16 +684,16 @@ class Screen(MDApp):
         if search:
             print(self.verifier_mois(text))
 
-    def verifier_mois(self, text):
+    def verifier_mois(self, text ):
         mois_valides = [
             "janvier", "février", "mars", "avril", "mai", "juin",
             "juillet", "août", "septembre", "octobre", "novembre", "décembre"
         ]
-        mot_corrige, score = process.extractOne(text.lower(), mois_valides)
+        mot_corigees, score = process.extractOne(text.lower(), mois_valides)
         if score >= 80:
-            return mot_corrige
+            return mot_corigees
         else:
-            return "Mot non reconnu comme mois"
+            return 'Erreur'
 
     def show_dialog(self, titre, texte):
         # Affiche une boîte de dialogue
@@ -730,7 +796,6 @@ class Screen(MDApp):
         place.clear_widgets()
         self.dialog = acceuil
         self.dialog.bind(on_dismiss=self.dismiss_home)
-        #Clock.schedule_once(lambda dt: self.afficher_tableau_facture(place), 0)
         self.home_manager.get_screen('facture').ids.titre.text = f'Les factures de {self.current_client[1]} pour {self.current_client[5]}'
 
         def recup():
@@ -847,6 +912,7 @@ class Screen(MDApp):
             size_hint=size_tableau[ecran],
             content_cls=self.planning_manager
         )
+
         self.planning_manager.height = height[ecran]
         self.planning_manager.width = width[ecran]
 
@@ -1087,13 +1153,8 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current ='choix_type'
 
     def switch_to_planning(self):
-        if self.liste_planning.parent :
-            self.liste_planning.parent.remove_widget(self.liste_planning)
-
         root = self.root.get_screen('Sidebar').ids['gestion_ecran']
         place = root.get_screen('planning').ids.tableau_planning
-        place.clear_widgets()
-
         root.current = 'planning'
 
         # Afficher le spinner de chargement
@@ -1117,9 +1178,6 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
         boutton = self.root.get_screen('Sidebar').ids.contrat
         self.choose_screen(boutton)
-
-        if self.liste_contrat.parent:
-            self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
         def chargement_contrat():
             asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
@@ -1179,7 +1237,7 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: self.fenetre_contrat('', 'all_treatment'), 0.5)
 
         def maj_ecran():
-            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, self.current_client[1]), self.loop)
+            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, self.current_client[0]), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner(self.contrat_manager, 'all_treatment'), 0)
         Clock.schedule_once(lambda dt: maj_ecran(), 0.8)
@@ -1376,6 +1434,7 @@ class Screen(MDApp):
             return
 
         row_data = []
+        client_id = []
         for item in contract_data:
             try:
                 # Vérifier que l'item contient au moins 4 éléments
@@ -1385,6 +1444,7 @@ class Screen(MDApp):
                     traitement = item[7] if item[7] is not None else "N/A"
                     duree = item[3] if item[3] is not None else 0
 
+                    client_id.append(item[8])
                     row_data.append((client, date, traitement, f'{duree} mois'))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -1393,12 +1453,33 @@ class Screen(MDApp):
                 print(f"Error processing planning item: {e}")
 
         try:
+            if self.liste_contrat.parent:
+                print('clear')
+                self.liste_contrat.parent.remove_widget(self.liste_contrat)
+
             self.liste_contrat.row_data = row_data
-            self.liste_contrat.bind(on_row_press=self.get_traitement_par_client)
+            self.liste_contrat.bind(on_row_press=partial(self.get_traitement_par_client, client_id))
             place.add_widget(self.liste_contrat)
 
         except Exception as e:
             print(f"Error creating contract table: {e}")
+
+    def get_traitement_par_client(self, id, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+        place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
+        place.clear_widgets()
+
+        self.fenetre_contrat('', 'all_treatment')
+
+        self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_data[0]}'
+        self.client_name = row_data[0]
+
+        def maj_ecran():
+            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, id[row_num]), self.loop)
+
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.contrat_manager,'all_treatment'),0.5)
+        Clock.schedule_once(lambda dt: maj_ecran(),0.5)
 
     async def liste_traitement_par_client(self, place, nom_client):
         try:
@@ -1408,22 +1489,6 @@ class Screen(MDApp):
 
         except Exception as e:
             print('erreur get traitement'+ str(e))
-
-    def get_traitement_par_client(self, table, row):
-        row_num = int(row.index / len(table.column_data))
-        row_data = table.row_data[row_num]
-        place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
-        place.clear_widgets()
-        self.fenetre_contrat('', 'all_treatment')
-
-        self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_data[0]}'
-        self.client_name = row_data[0]
-
-        def maj_ecran():
-            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, row_data[0]), self.loop)
-
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.contrat_manager,'all_treatment'),0.5)
-        Clock.schedule_once(lambda dt: maj_ecran(),0.5)
 
     def show_about_treatment(self, place, data):
         if not data:
@@ -1623,6 +1688,9 @@ class Screen(MDApp):
 
         try:
             # Créer le tableau avec toutes les données préparées
+            if self.liste_planning.parent:
+                self.liste_planning.parent.remove_widget(self.liste_planning)
+
             self.liste_planning.row_data = row_data
 
             # Utiliser le gestionnaire sécurisé
@@ -1968,8 +2036,8 @@ class Screen(MDApp):
         data_next = []
         home = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home')
         now = datetime.now()
-        data_en_cours = await self.database.traitement_en_cours(now.year, now.month)
-        data_prevision = await self.database.traitement_prevision(now.year, now.month)
+
+        data_en_cours, data_prevision = await asyncio.gather(self.database.traitement_en_cours(now.year, now.month),self.database.traitement_prevision(now.year, now.month))
 
         # Création de data_current
         data_current = []
@@ -1987,17 +2055,19 @@ class Screen(MDApp):
             if not traitement_existe:  # Ajouter seulement si le traitement n'existe pas déjà
                 row = (self.reverse_date(i["date"]), i["traitement"], i['etat'])
                 data_next.append(row)
+
         Clock.schedule_once(lambda dt: self.home_tables(data_current, data_next, home))
         print('current', data_current)
         print('next' ,data_next)
 
     def home_tables(self, current, next, home):
-        if home.ids.box_current.parent and home.ids.box_next.parent:
-            home.ids.box_current.parent.remove_widget(self.table_en_cours)
-            home.ids.box_next.parent.remove_widget(self.table_prevision)
 
         self.table_en_cours.row_data = current
         self.table_prevision.row_data = next
+
+        if self.table_en_cours.parent and self.table_prevision.parent:
+            self.table_en_cours.parent.remove_widget(self.table_en_cours)
+            self.table_prevision.parent.remove_widget(self.table_prevision)
 
         home.ids.box_current.add_widget(self.table_en_cours)
         home.ids.box_next.add_widget(self.table_prevision)
