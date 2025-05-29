@@ -47,9 +47,6 @@ from setting_bd import DatabaseManager
 from tester_date import ajuster_si_weekend, jours_feries
 import verif_password as vp
 
-import tracemalloc
-tracemalloc.start()
-
 locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
 class Screen(MDApp):
@@ -82,6 +79,7 @@ class Screen(MDApp):
         self.not_admin = None
         self.current_client = None
         self.card = None
+        self.dialog = None
 
         self.table_en_cours = MDDataTable(
             use_pagination=True,
@@ -151,19 +149,6 @@ class Screen(MDApp):
                 ("Type de traitement", dp(50)),
                 ("Durée du contrat", dp(30)),
                 ("Option", dp(45)),
-            ]
-        )
-
-        self.liste_select_planning = MDDataTable(
-            pos_hint={'center_x': .5, "center_y": .5},
-            size_hint=(.6, .85),
-            rows_num=5,
-            elevation=0,
-            use_pagination=True,
-            column_data=[
-                ("Date", dp(35)),
-                ("Statistique", dp(35)),
-                ("Etat du traitement", dp(40)),
             ]
         )
 
@@ -241,8 +226,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -353,21 +338,10 @@ class Screen(MDApp):
         date_debut = self.contrat_manager.get_screen('new_contrat').ids.debut_new_contrat.text
         date_fin = self.contrat_manager.get_screen('new_contrat').ids.date_new_contrat.text if duree_contrat == 'Déterminée' else 'Indéterminée'
 
-        if date_fin != "Indéterminée":
-            fin_contrat = datetime.strptime(self.reverse_date(date_fin), "%Y-%m-%d").date()
-            debut = datetime.strptime(self.reverse_date(date_debut), "%Y-%m-%d").date()
-            diff = relativedelta(fin_contrat, debut)
-            duree = diff.years * 12 + diff.months
-        else:
-            fin_contrat = 'Indéterminée'
-            duree = 12
-
         if date_fin == "Indéterminée":
             duree = 12
             fin_contrat = 'Indéterminée'
         else:
-                # Assurez-vous que self.reverse_date gère bien les formats d'entrée
-                # et renvoie "YYYY-MM-DD"
             fin_contrat_rev = self.reverse_date(date_fin)
             debut_rev = self.reverse_date(date_debut)
 
@@ -385,8 +359,6 @@ class Screen(MDApp):
             self.id_traitement = []
             try:
                 self.traitement, self.categorie_trait = self.get_trait_from_form()
-                if not self.traitement or not self.categorie_trait:
-                    raise ValueError("Aucun traitement ou catégorie de traitement sélectionné.")
 
                 client = await self.database.create_client(
                     nom, prenom, email, telephone, adresse,
@@ -433,15 +405,15 @@ class Screen(MDApp):
 
     def gestion_planning(self):
         ajout_planning_screen = self.contrat_manager.get_screen('ajout_planning')
-        mois_fin = ajout_planning_screen.ids.get('mois_fin')
-        mois_debut = ajout_planning_screen.ids.get('mois_date')
-        date_prevu = ajout_planning_screen.ids.get('date_prevu')
-        redondance = ajout_planning_screen.ids.get('red_trait')
+        mois_fin = ajout_planning_screen.ids.get('mois_fin').text
+        mois_debut = ajout_planning_screen.ids.get('mois_date').text
+        date_prevu = ajout_planning_screen.ids.get('date_prevu').text
+        redondance = ajout_planning_screen.ids.get('red_trait').text
 
         bouton = self.contrat_manager.get_screen('ajout_facture').ids.accept
 
         if self.contrat_manager.current == 'ajout_planning':
-            if self.verifier_mois(mois_debut.text) != 'Erreur':
+            if self.verifier_mois(mois_debut) != 'Erreur':
                 self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
                 self.contrat_manager.get_screen('ajout_facture').ids.montant.text = ''
                 self.contrat_manager.get_screen('ajout_facture').ids.date_prevu.text = date_prevu
@@ -466,10 +438,10 @@ class Screen(MDApp):
 
         else:
 
-            mois_debut.text = ''
-            ajout_planning_screen.ids.mois_fin.text = 'Indéterminée' if mois_fin == 'Indéterminée' else ''
-            ajout_planning_screen.ids.date_prevu.text = ''
-            ajout_planning_screen.ids.red_trait.text = '1 mois'
+            ajout_planning_screen.ids.get('mois_date').text = ''
+            ajout_planning_screen.ids.get('mois_fin').text= 'Indéterminée' if mois_fin == 'Indéterminée' else ''
+            ajout_planning_screen.ids.get('date_prevu').text
+            ajout_planning_screen.ids.get('red_trait').text = '1 mois'
             ajout_planning_screen.ids.type_traitement.text = self.traitement[0]
             self.dismiss_contrat()
             self.fermer_ecran()
@@ -514,7 +486,7 @@ class Screen(MDApp):
                         print("enregistrement planning detail ", e)
 
                 self.id_traitement.pop(0)
-                await self.populate_tables
+                asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
 
             except Exception as e:
                 print('eto', e)
@@ -606,7 +578,7 @@ class Screen(MDApp):
     async def supprimer_client(self):
         try:
             await self.database.delete_client(self.current_client[0])
-            await self.populate_tables
+            await self.populate_tables()
 
         except Exception as e:
             print('suppression', e)
@@ -760,6 +732,8 @@ class Screen(MDApp):
         self.dialog.dismiss()
 
     def fenetre_contrat(self, titre, ecran):
+        self.dismiss_contrat()
+
         self.contrat_manager.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
@@ -773,6 +747,27 @@ class Screen(MDApp):
         self.contrat_manager.width = '1000dp'
         self.dialog = contrat
         self.dialog.bind(on_dismiss=self.dismiss_contrat)
+
+        self.dialog.open()
+
+    def modifier_date(self, source=None):
+        if source == 'planning':
+            self.dismiss_planning()
+            self.fermer_ecran()
+
+        self.home_manager.current = 'modif_date'
+        acceuil = MDDialog(
+            md_bg_color='#56B5FB',
+            type='custom',
+            size_hint=(.5, .5),
+            content_cls=self.home_manager
+        )
+
+        self.home_manager.height = '300dp'
+        self.home_manager.width = '600dp'
+
+        self.dialog = acceuil
+        self.dialog.bind(on_dismiss=self.dismiss_home)
 
         self.dialog.open()
 
@@ -820,7 +815,7 @@ class Screen(MDApp):
             self.home_manager.get_screen('facture').ids.payé.text = f'Payé : {paye} AR'
             row_data = [(self.reverse_date(i[0]), f'{i[1]} Ar', i[2]) for i in result ]
 
-            self.liste_planning = MDDataTable(
+            self.facture = MDDataTable(
                 pos_hint={'center_x':.5, "center_y": .6},
                 size_hint=(.75,.9),
                 background_color_header = '#56B5FB',
@@ -837,7 +832,7 @@ class Screen(MDApp):
             )
 
             #self.liste_planning.bind(on_row_press=lambda instance, row:self.row_pressed_planning(liste_id, instance, row))
-            place.add_widget(self.liste_planning)
+            place.add_widget(self.facture)
 
     def fenetre_acceuil(self, titre, ecran, client, date,type_traitement, durée, debut_contrat, fin_prévu):
         self.home_manager.current = ecran
@@ -883,6 +878,9 @@ class Screen(MDApp):
         self.dialog.open()
 
     def fenetre_planning(self, titre, ecran):
+        self.dismiss_planning()
+        if self.dialog != None:
+            self.fermer_ecran()
         self.planning_manager.current = ecran
         height = {"option_decalage": '200dp',
                   "ecran_decalage": '360dp',
@@ -1106,7 +1104,6 @@ class Screen(MDApp):
         self.dismiss_planning()
         async def enregistrer_signalment():
             try:
-
                 if decaler.active:
                     date  = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
                     newdate = abs(relativedelta(self.planning_detail[9], date))
@@ -1728,9 +1725,49 @@ class Screen(MDApp):
                 # Continuer avec les autres éléments sans interrompre
 
         try:
+
+            self.liste_select_planning = MDDataTable(
+                pos_hint={'center_x': .5, "center_y": .5},
+                size_hint=(.6, .85),
+                elevation=0,
+                rows_num=5,
+                use_pagination=True,
+                column_data=[
+                    ("Date", dp(35)),
+                    ("Statistique", dp(35)),
+                    ("Etat du traitement", dp(40)),
+                ]
+            )
+
+
             self.liste_select_planning.row_data = row_data
+
+            pagination = self.liste_select_planning.pagination  # instance de TablePagination
+            # Boutons disponibles dans TablePagination (selon version) :
+            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_next = pagination.ids.button_forward
+
+            self.page = 1
+
+            def on_press_page( direction, instance=None):
+                print(direction)
+                max_page = (len(row_data) - 1) // 5 + 1
+                if direction == 'moins' and self.page > 1:
+                    self.page -= 1
+                elif direction == 'plus' and self.page < max_page:
+                    self.page += 1
+
+                print(self.page)
+
+            btn_prev.bind(on_press=partial(on_press_page,  'moins'))
+            btn_next.bind(on_press=partial(on_press_page,  'plus'))
+
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
+
+            if self.liste_select_planning.parent:
+                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
+
             place.add_widget(self.liste_select_planning)
 
         except Exception as e:
@@ -1769,26 +1806,34 @@ class Screen(MDApp):
 
         Clock.schedule_once(lambda ct: maj_ecran(), 0.5)
 
-    def row_pressed_tableau_planning(self,traitement,  table, row):
+    def row_pressed_tableau_planning(self, traitement,  table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
-        self.fermer_ecran()
+        index_global = (self.page - 1) * 5 + row_num
+
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
+
+        print(row_value)
+
         self.dismiss_planning()
+        self.fermer_ecran()
 
         async def get():
-            self.planning_detail = await self.database.get_info_planning(traitement, self.reverse_date(row_data[0]))
-
-        asyncio.run_coroutine_threadsafe(get(), self.loop)
+            self.planning_detail = await self.database.get_info_planning(traitement, self.reverse_date(row_value[0]))
+            print(self.planning_detail, type(self.planning_detail))
+            Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'))
+            Clock.schedule_once(lambda dt: maj_ui())
 
         if row.index % 3 == 0:
-            toast('Changement de la date')
+            self.modifier_date(source='planning')
         else:
-            Clock.schedule_once(lambda x: maj_ui())
-            Clock.schedule_once(lambda x: self.fenetre_planning('', 'selection_element_tableau'))
+            asyncio.run_coroutine_threadsafe(get(), self.loop)
 
         def maj_ui():
             try:
+                print('Maj ui', self.planning_detail)
                 titre = self.planning_detail[1].split(' ')
                 self.planning_manager.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
                 self.planning_manager.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
@@ -1796,16 +1841,16 @@ class Screen(MDApp):
 
                 self.planning_manager.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
 
-                self.planning_manager.get_screen('selection_element_tableau').ids['mois'].text = f'Date du traitement : {row_data[0]}'
-                self.planning_manager.get_screen('ajout_remarque').ids['date'].text = f'Date du traitement : {row_data[0]}'
+                self.planning_manager.get_screen('selection_element_tableau').ids['mois'].text = f'Date du traitement : {row_value[0]}'
+                self.planning_manager.get_screen('ajout_remarque').ids['date'].text = f'Date du traitement : {row_value[0]}'
 
-                self.planning_manager.get_screen('selection_element_tableau').ids['mois_trait'].text = f'Mois du traitement: {row_data[1]}'
-                self.planning_manager.get_screen('ajout_remarque').ids['mois_trait'].text = f'Mois du traitement: {row_data[1]}'
+                self.planning_manager.get_screen('selection_element_tableau').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
+                self.planning_manager.get_screen('ajout_remarque').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
 
                 self.planning_manager.get_screen('ajout_remarque').ids['duree'].text = f'Durée total du traitement : {self.planning_detail[2]}'
 
             except Exception as e:
-                print(e)
+                print( 'affichage detail ',e)
 
     def create_remarque(self):
         contenu = self.planning_manager.get_screen('ajout_remarque').ids.remarque.text
