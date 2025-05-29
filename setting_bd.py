@@ -1,3 +1,5 @@
+import asyncio
+
 import aiomysql
 
 class DatabaseManager:
@@ -5,6 +7,7 @@ class DatabaseManager:
     def __init__(self, loop):
         self.loop = loop
         self.pool = None
+        self.lock = asyncio.Lock()
 
     async def connect(self):
         try:
@@ -136,25 +139,27 @@ class DatabaseManager:
                 return current
     
     async def create_contrat(self, client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                try:
-                    await cur.execute(
-                        "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin, duree_contrat, duree, categorie) VALUES (%s, %s, %s,%s, %s, %s, %s)",
-                        (client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie))
-                    await conn.commit()
-                    return cur.lastrowid
-                except Exception as e:
-                    print('contrat', e)
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    try:
+                        await cur.execute(
+                            "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin, duree_contrat, duree, categorie) VALUES (%s, %s, %s,%s, %s, %s, %s)",
+                            (client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie))
+                        await conn.commit()
+                        return cur.lastrowid
+                    except Exception as e:
+                        print('contrat', e)
             
     async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "INSERT INTO Client (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                    (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe))
-                await conn.commit()
-                return cur.lastrowid
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        "INSERT INTO Client (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe))
+                    await conn.commit()
+                    return cur.lastrowid
             
     async def get_all_client(self):
         async with self.pool.acquire() as conn:
@@ -163,26 +168,28 @@ class DatabaseManager:
                 return await cur.fetchall()
                 
     async def typetraitement(self,categorie, type):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cursor:
-                try:
-                    await cursor.execute("INSERT INTO TypeTraitement (categorieTraitement, typeTraitement) VALUES (%s,%s)",
-                                            (categorie,type))
-                    await conn.commit()
-                    return cursor.lastrowid
-                except Exception as e:
-                    print(e)
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cursor:
+                    try:
+                        await cursor.execute("INSERT INTO TypeTraitement (categorieTraitement, typeTraitement) VALUES (%s,%s)",
+                                                (categorie,type))
+                        await conn.commit()
+                        return cursor.lastrowid
+                    except Exception as e:
+                        print(e)
     
     async def creation_traitement(self, contrat_id, id_type_traitement):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                try:
-                    await cur.execute("INSERT INTO Traitement (contrat_id, id_type_traitement) VALUES (%s, %s)",
-                                      (contrat_id, id_type_traitement))
-                    await conn.commit()
-                    return cur.lastrowid
-                except Exception as e:
-                    print('traitement', e)
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    try:
+                        await cur.execute("INSERT INTO Traitement (contrat_id, id_type_traitement) VALUES (%s, %s)",
+                                          (contrat_id, id_type_traitement))
+                        await conn.commit()
+                        return cur.lastrowid
+                    except Exception as e:
+                        print('traitement', e)
     
     async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin):
         """Crée un planning pour un traitement donné."""
@@ -200,100 +207,102 @@ class DatabaseManager:
                     print("planning",e)
 
     async def traitement_en_cours(self, year, month):
-        async with self.pool.acquire() as conn:
-            traitements = []
-            async with conn.cursor() as curseur:
-                try:
-                    await curseur.execute(
-                        """SELECT c.nom AS nom_client,
-                                  tt.typeTraitement AS type_traitement,
-                                  pdl.statut,
-                                  pdl.date_planification,
-                                  p.planning_id
-                               FROM
-                                  Client c
-                               JOIN
-                                  Contrat co ON c.client_id = co.client_id
-                               JOIN
-                                  Traitement t ON co.contrat_id = t.contrat_id
-                               JOIN
-                                  TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
-                               JOIN
-                                  Planning p ON t.traitement_id = p.traitement_id
-                               JOIN
-                                  PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                               WHERE
-                                  MONTH(pdl.date_planification) = %s
-                               AND
-                                  YEAR(pdl.date_planification) = %s
-                               ORDER BY
-                                  pdl.date_planification; """,
-                        (month,year)
-                    )
-                    rows = await curseur.fetchall()
-                    for nom, traitement, statut, date_str, idplanning in rows:
-                        traitements.append({
-                            "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
-                            "date": date_str,
-                            'etat': statut
-                        })
-                    return traitements
-                except Exception as e:
-                    print('en cours', e)
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                traitements = []
+                async with conn.cursor() as curseur:
+                    try:
+                        await curseur.execute(
+                            """SELECT c.nom AS nom_client,
+                                      tt.typeTraitement AS type_traitement,
+                                      pdl.statut,
+                                      pdl.date_planification,
+                                      p.planning_id
+                                   FROM
+                                      Client c
+                                   JOIN
+                                      Contrat co ON c.client_id = co.client_id
+                                   JOIN
+                                      Traitement t ON co.contrat_id = t.contrat_id
+                                   JOIN
+                                      TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                   JOIN
+                                      Planning p ON t.traitement_id = p.traitement_id
+                                   JOIN
+                                      PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                   WHERE
+                                      MONTH(pdl.date_planification) = %s
+                                   AND
+                                      YEAR(pdl.date_planification) = %s
+                                   ORDER BY
+                                      pdl.date_planification; """,
+                            (month,year)
+                        )
+                        rows = await curseur.fetchall()
+                        for nom, traitement, statut, date_str, idplanning in rows:
+                            traitements.append({
+                                "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
+                                "date": date_str,
+                                'etat': statut
+                            })
+                        return traitements
+                    except Exception as e:
+                        print('en cours', e)
 
     async def traitement_prevision(self, year, month):
-        async with self.pool.acquire() as conn:
-            traitements = []
-            async with conn.cursor() as curseur:
-                try:
-                    await curseur.execute(
-                        """SELECT c.nom AS nom_client,
-                                  tt.typeTraitement AS type_traitement,
-                                  pdl.statut,
-                                  MIN(pdl.date_planification),
-                                  p.planning_id
-                               FROM
-                                  Client c
-                               JOIN
-                                  Contrat co ON c.client_id = co.client_id
-                               JOIN
-                                  Traitement t ON co.contrat_id = t.contrat_id
-                               JOIN
-                                  TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
-                               JOIN
-                                  Planning p ON t.traitement_id = p.traitement_id
-                               JOIN
-                                  PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                               WHERE p.planning_id NOT IN (
-                                    SELECT DISTINCT 
-                                        p.planning_id
-                                    FROM 
-                                        Planning p
-                                    WHERE 
-                                        MONTH(pdl.date_planification) = %s
-                                    AND 
-                                        YEAR(pdl.date_planification) = %s
-                               )
-                               AND 
-                                  pdl.date_planification >= CURDATE()
-                               AND 
-                                  p.redondance != 1
-                               GROUP BY
-                                  p.planning_id, tt.typeTraitement
-                               ORDER BY
-                                  pdl.date_planification; """,
-                        (month,year)
-                    )
-                    rows = await curseur.fetchall()
-                    for nom, traitement, statut, date_str, idplanning in rows:
-                        traitements.append({
-                            "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
-                            "date": date_str,
-                            'etat': statut
-                        })
-                    return traitements
-                except Exception as e:
-                    print('Prevision', e)
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                traitements = []
+                async with conn.cursor() as curseur:
+                    try:
+                        await curseur.execute(
+                            """SELECT c.nom AS nom_client,
+                                      tt.typeTraitement AS type_traitement,
+                                      pdl.statut,
+                                      MIN(pdl.date_planification),
+                                      p.planning_id
+                                   FROM
+                                      Client c
+                                   JOIN
+                                      Contrat co ON c.client_id = co.client_id
+                                   JOIN
+                                      Traitement t ON co.contrat_id = t.contrat_id
+                                   JOIN
+                                      TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                   JOIN
+                                      Planning p ON t.traitement_id = p.traitement_id
+                                   JOIN
+                                      PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                   WHERE p.planning_id NOT IN (
+                                        SELECT DISTINCT 
+                                            p.planning_id
+                                        FROM 
+                                            Planning p
+                                        WHERE 
+                                            MONTH(pdl.date_planification) = %s
+                                        AND 
+                                            YEAR(pdl.date_planification) = %s
+                                   )
+                                   AND 
+                                      pdl.date_planification >= CURDATE()
+                                   AND 
+                                      p.redondance != 1
+                                   GROUP BY
+                                      p.planning_id, tt.typeTraitement
+                                   ORDER BY
+                                      pdl.date_planification; """,
+                            (month,year)
+                        )
+                        rows = await curseur.fetchall()
+                        for nom, traitement, statut, date_str, idplanning in rows:
+                            traitements.append({
+                                "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
+                                "date": date_str,
+                                'etat': statut
+                            })
+                        return traitements
+                    except Exception as e:
+                        print('Prevision', e)
 
     async def create_planning_details(self, planning_id, date,statut='À venir'):
         async with self.pool.acquire() as conn:
@@ -379,8 +388,8 @@ class DatabaseManager:
                                               Facture f ON pdl.planning_detail_id = f.planning_detail_id
                                            WHERE
                                               p.planning_id = %s AND pdl.date_planification = %s""", (planning_id,date))
-                    resulta = await cursor.fetchone()
-                    return resulta
+                    resultat = await cursor.fetchone()
+                    return resultat
                 except Exception as e:
                     print('get_info', e)
 
@@ -423,16 +432,17 @@ class DatabaseManager:
                 await conn.commit()
 
     async def create_facture(self, planning_id, montant, date, axe, etat = 'Non payé'):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                try:
-                    await cur.execute(
-                        "INSERT INTO Facture (planning_detail_id, montant,date_traitement, etat,  axe) VALUES (%s, %s, %s,%s, %s)",
-                        (planning_id, montant, date, etat, axe))
-                    await conn.commit()
-                    return cur.lastrowid
-                except Exception as e:
-                    print("facture",e)
+        async with self.lock:
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    try:
+                        await cur.execute(
+                            "INSERT INTO Facture (planning_detail_id, montant,date_traitement, etat,  axe) VALUES (%s, %s, %s,%s, %s)",
+                            (planning_id, montant, date, etat, axe))
+                        await conn.commit()
+                        return cur.lastrowid
+                    except Exception as e:
+                        print("facture",e)
     
     async def create_remarque(self,client, planning_details, facture, contenu):
         async with self.pool.acquire() as conn:
