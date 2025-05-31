@@ -726,7 +726,15 @@ class DatabaseManager:
                     "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
                     (nom, prenom, email, telephone, adresse, categorie, axe, client_id))
                 await conn.commit()
-                
+
+    async def un_jour(self, contrat_id):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE Contrat SET duree_contrat = 1 WHERE contrat_id = %s",
+                    (contrat_id, ))
+                await conn.commit()
+
     async def close(self):
         """Ferme le pool de connexions."""
         if self.pool:

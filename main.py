@@ -17,7 +17,6 @@ import locale
 import aiomysql
 from datetime import datetime, timedelta
 from aiomysql import OperationalError
-from asynckivy import start
 
 from dateutil.relativedelta import relativedelta
 from functools import partial
@@ -49,6 +48,10 @@ import verif_password as vp
 
 locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
+class MyDatatable(MDDataTable):
+    def set_default_first_row(self, *args):
+        pass
+
 class Screen(MDApp):
 
     copyright = '©Copyright @APEXNova Labs 2025'
@@ -66,7 +69,8 @@ class Screen(MDApp):
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
-        asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
+        connect = asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
+        connect.add_done_callback(self.connected)
 
         #Configuration de la fenêtre
         self.theme_cls.theme_style= 'Light'
@@ -226,11 +230,18 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
+
+    def connected(self, future):
+        try:
+            future.result()
+            print('Connexion etablie avec la base de données')
+        except Exception as e:
+            print('La connexion à echoué', e)
 
     def login(self):
         """Gestion de l'action de connexion."""
@@ -365,7 +376,7 @@ class Screen(MDApp):
                     self.reverse_date(date_ajout), categorie_client, axe
                 )
 
-                contrat = await self.database.create_contrat(
+                self.contrat = await self.database.create_contrat(
                     client,
                     self.reverse_date(date_contrat),
                     self.reverse_date(date_debut),
@@ -379,7 +390,7 @@ class Screen(MDApp):
                     type_traitement = await self.database.typetraitement(
                         self.categorie_trait[i], self.traitement[i]
                     )
-                    traitement_id = await self.database.creation_traitement(contrat, type_traitement)
+                    traitement_id = await self.database.creation_traitement(self.contrat, type_traitement)
                     self.id_traitement.append(traitement_id)
 
                 Clock.schedule_once(lambda dt: self.dismiss_contrat(), 0)
@@ -405,10 +416,10 @@ class Screen(MDApp):
 
     def gestion_planning(self):
         ajout_planning_screen = self.contrat_manager.get_screen('ajout_planning')
-        mois_fin = ajout_planning_screen.ids.get('mois_fin').text
-        mois_debut = ajout_planning_screen.ids.get('mois_date').text
-        date_prevu = ajout_planning_screen.ids.get('date_prevu').text
-        redondance = ajout_planning_screen.ids.get('red_trait').text
+        mois_fin = ajout_planning_screen.ids.mois_fin.text
+        mois_debut = ajout_planning_screen.ids.mois_date.text
+        date_prevu = ajout_planning_screen.ids.date_prevu.text
+        redondance = ajout_planning_screen.ids.red_trait.text
 
         bouton = self.contrat_manager.get_screen('ajout_facture').ids.accept
 
@@ -422,7 +433,6 @@ class Screen(MDApp):
                 if len(self.traitement) == 1:
                     bouton.text = 'Enregistrer'
 
-                self.dismiss_contrat()
                 self.fermer_ecran()
                 self.fenetre_contrat('Ajout de la facture','ajout_facture')
                 self.traitement.pop(0)
@@ -440,10 +450,9 @@ class Screen(MDApp):
 
             ajout_planning_screen.ids.get('mois_date').text = ''
             ajout_planning_screen.ids.get('mois_fin').text= 'Indéterminée' if mois_fin == 'Indéterminée' else ''
-            ajout_planning_screen.ids.get('date_prevu').text
+            ajout_planning_screen.ids.get('date_prevu').text = ''
             ajout_planning_screen.ids.get('red_trait').text = '1 mois'
             ajout_planning_screen.ids.type_traitement.text = self.traitement[0]
-            self.dismiss_contrat()
             self.fermer_ecran()
             self.fenetre_contrat('Ajout du planning','ajout_planning')
 
@@ -458,21 +467,26 @@ class Screen(MDApp):
 
         montant = self.contrat_manager.get_screen('ajout_facture').ids.montant.text
         axe_client = self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text
-
-        int_red = redondance.split(" ")
+        if redondance != 'une seule fois':
+            int_red = redondance.split(" ")[0]
+        else:
+            int_red = 12
 
         async def save():
             debut = datetime.strptime(self.verifier_mois(mois_debut), "%B").month
             fin = datetime.strptime(self.verifier_mois(mois_fin), "%B").month if mois_fin != 'Indéterminée' else 0
             try:
+                if int_red == 12:
+                    await self.database.un_jour(self.contrat)
+                    self.contrat = None
                 planning = await self.database.create_planning(self.id_traitement[0],
                                                                self.reverse_date(date_debut),
                                                                debut,
                                                                fin,
-                                                               int_red[0],
+                                                               int_red,
                                                                date_fin)
 
-                dates_planifiees = self.planning_per_year(date_prevu, redondance)
+                dates_planifiees = self.planning_per_year(date_prevu, int_red)
 
                 for date in dates_planifiees:
                     try:
@@ -495,8 +509,8 @@ class Screen(MDApp):
         self.gestion_planning()
 
     def planning_per_year(self, debut, redondance):
-        red = redondance.split(' ')
-        pas = int(red[0])
+        #red = redondance.split(' ')
+        pas = int(redondance)
         date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
 
         def ajouter_mois(date_depart, nombre_mois):
@@ -712,7 +726,7 @@ class Screen(MDApp):
         return date
 
     def calendrier(self, ecran, champ):
-        if ecran == 'ecran_decalage':
+        if ecran == 'ecran_decalage' or ecran == 'modif_date':
             calendrier = MDDatePicker(year = self.planning_detail[9].year,
                                       month = self.planning_detail[9].month,
                                       day = self.planning_detail[9].day,
@@ -724,7 +738,7 @@ class Screen(MDApp):
         calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
 
     def choix_date(self, ecran, champ, instance, value, date_range):
-        manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.client_manager
+        manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.home_manager if ecran == 'modif_date' else self.client_manager
         manager.get_screen(ecran).ids[champ].text = ''
         manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
 
@@ -732,8 +746,6 @@ class Screen(MDApp):
         self.dialog.dismiss()
 
     def fenetre_contrat(self, titre, ecran):
-        self.dismiss_contrat()
-
         self.contrat_manager.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
@@ -1068,8 +1080,11 @@ class Screen(MDApp):
 
         if not dératisation and not désinfection and not désinsectisation and not nettoyage and not fumigation and not ramassage and not anti_termite:
             self.show_dialog("Erreur", "Veuillez choisir au moins un traitement")
+            return
+
         if not date_contrat or not date_debut or not duree_contrat or not categorie_contrat:
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
+            return
         else:
             self.dismiss_contrat()
             self.fermer_ecran()
@@ -1318,7 +1333,7 @@ class Screen(MDApp):
         durée = ['Déterminée', 'Indéterminée']
         categorie = ['Nouveau ', 'Renouvellement']
         type_client = ['Société', 'Organisation', 'Particulier']
-        redondance = ['1 mois', '2 mois', '3 mois', '4 mois', '6 mois']
+        redondance = ['une seule fois', '1 mois', '2 mois', '3 mois', '4 mois', '6 mois']
 
         item_menu = axe if champ == 'axe_client' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else redondance if champ == 'red_trait' else type_client
         menu = [
@@ -1454,6 +1469,26 @@ class Screen(MDApp):
                 print('clear')
                 self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
+            pagination = self.liste_contrat.pagination  # instance de TablePagination
+
+            # Boutons disponibles dans TablePagination (selon version) :
+            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_next = pagination.ids.button_forward
+
+            self.page = 1
+
+            def on_press_page(direction, instance=None):
+                print(direction)
+                max_page = (len(row_data) - 1) // 5 + 1
+                if direction == 'moins' and self.page > 1:
+                    self.page -= 1
+                elif direction == 'plus' and self.page < max_page:
+                    self.page += 1
+                print(self.page)
+
+            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
+            btn_next.bind(on_press=partial(on_press_page, 'plus'))
+
             self.liste_contrat.row_data = row_data
             self.liste_contrat.bind(on_row_press=partial(self.get_traitement_par_client, client_id))
             place.add_widget(self.liste_contrat)
@@ -1466,11 +1501,15 @@ class Screen(MDApp):
         row_data = table.row_data[row_num]
         place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
+        index_global = (self.page - 1) * 8 + row_num
+
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
 
         self.fenetre_contrat('', 'all_treatment')
 
-        self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_data[0]}'
-        self.client_name = row_data[0]
+        self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_value[0]}'
+        self.client_name = row_value[0]
 
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, id[row_num]), self.loop)
@@ -1512,9 +1551,29 @@ class Screen(MDApp):
                 print(f"Error processing planning item: {e}")
 
             try:
-                self.all_treat.row_data = row_data
                 if self.all_treat.parent:
                     self.all_treat.parent.remove_widget(self.all_treat)
+                self.all_treat.row_data = row_data
+
+                pagination = self.all_treat.pagination  # instance de TablePagination
+
+                # Boutons disponibles dans TablePagination (selon version) :
+                btn_prev = pagination.ids.button_back  # bouton "page précédente"
+                btn_next = pagination.ids.button_forward
+
+                self.page = 1
+
+                def on_press_page(direction, instance=None):
+                    print(direction)
+                    max_page = (len(row_data) - 1) // 5 + 1
+                    if direction == 'moins' and self.page > 1:
+                        self.page -= 1
+                    elif direction == 'plus' and self.page < max_page:
+                        self.page += 1
+                    print(self.page)
+
+                btn_prev.bind(on_press=partial(on_press_page, 'moins'))
+                btn_next.bind(on_press=partial(on_press_page, 'plus'))
 
                 self.all_treat.bind(on_row_press=self.row_pressed_contrat)
                 place.add_widget(self.all_treat)
@@ -1529,10 +1588,14 @@ class Screen(MDApp):
         self.fermer_ecran()
         self.fenetre_contrat('', 'option_contrat')
 
+        index_global = (self.page - 1) * 8 + row_num
+
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
+
         async def maj_ecran():
             try:
-                self.current_client = await self.database.get_current_contrat(self.client_name,self.reverse_date(row_data[0]), row_data[1])
-                Clock.schedule_once(lambda x: maj_ecran())
+                self.current_client = await self.database.get_current_contrat(self.client_name,self.reverse_date(row_value[0]), row_value[1])
 
                 if self.current_client[3] == 'Particulier':
                     nom = self.current_client[1] + ' ' + self.current_client[2]
@@ -1569,6 +1632,29 @@ class Screen(MDApp):
     def update_client_table_and_switch(self, place, client_data):
         if client_data:
             row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
+            if self.liste_client.parent:
+                self.liste_client.parent.remove_widget(self.liste_client)
+
+            pagination = self.liste_client.pagination  # instance de TablePagination
+
+            # Boutons disponibles dans TablePagination (selon version) :
+            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_next = pagination.ids.button_forward
+
+            self.page = 1
+
+            def on_press_page(direction, instance=None):
+                print(direction)
+                max_page = (len(row_data) - 1) // 5 + 1
+                if direction == 'moins' and self.page > 1:
+                    self.page -= 1
+                elif direction == 'plus' and self.page < max_page:
+                    self.page += 1
+                print(self.page)
+
+            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
+            btn_next.bind(on_press=partial(on_press_page, 'plus'))
+
             self.liste_client.row_data = row_data
             self.liste_client.bind(on_row_press=self.row_pressed_client)
             place.clear_widgets()  # Supprimer l'ancien tableau si nécessaire
@@ -1618,8 +1704,12 @@ class Screen(MDApp):
     def row_pressed_client(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
+        index_global = (self.page - 1) * 8 + row_num
 
-        asyncio.run_coroutine_threadsafe(self.current_client_info(row_data[0], row_data[3]),self.loop)
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
+
+        asyncio.run_coroutine_threadsafe(self.current_client_info(row_value[0], row_value[3]),self.loop)
         def maj_ecran():
             if self.current_client[3] == 'Particulier':
                 nom = self.current_client[1] + ' ' + self.current_client[2]
@@ -1688,6 +1778,25 @@ class Screen(MDApp):
             if self.liste_planning.parent:
                 self.liste_planning.parent.remove_widget(self.liste_planning)
 
+            pagination = self.liste_planning.pagination  # instance de TablePagination
+
+            # Boutons disponibles dans TablePagination (selon version) :
+            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_next = pagination.ids.button_forward
+
+            self.page = 1
+
+            def on_press_page(direction, instance=None):
+                print(direction)
+                max_page = (len(row_data) - 1) // 5 + 1
+                if direction == 'moins' and self.page > 1:
+                    self.page -= 1
+                elif direction == 'plus' and self.page < max_page:
+                    self.page += 1
+                print(self.page)
+
+            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
+            btn_next.bind(on_press=partial(on_press_page, 'plus'))
             self.liste_planning.row_data = row_data
 
             # Utiliser le gestionnaire sécurisé
@@ -1709,6 +1818,10 @@ class Screen(MDApp):
             place.add_widget(label)
             return
 
+        if hasattr(self, 'liste_select_planning') and self.liste_select_planning:
+            if self.liste_select_planning.parent:
+                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
+
         row_data = []
         for mois, item in enumerate(data):
             try:
@@ -1717,7 +1830,7 @@ class Screen(MDApp):
                     date = self.reverse_date(item[0]) if item[0] is not None else "N/A"
                     etat = item[1] if item[1] is not None else "N/A"
 
-                    row_data.append((date, f'{mois + 1}e mois', etat))
+                    row_data.append((date, f'{mois + 1}e mois' , etat))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
@@ -1725,8 +1838,7 @@ class Screen(MDApp):
                 # Continuer avec les autres éléments sans interrompre
 
         try:
-
-            self.liste_select_planning = MDDataTable(
+            self.liste_select_planning = MyDatatable(
                 pos_hint={'center_x': .5, "center_y": .5},
                 size_hint=(.6, .85),
                 elevation=0,
@@ -1738,11 +1850,10 @@ class Screen(MDApp):
                     ("Etat du traitement", dp(40)),
                 ]
             )
-
-
+            print(type(self.liste_select_planning))
             self.liste_select_planning.row_data = row_data
-
             pagination = self.liste_select_planning.pagination  # instance de TablePagination
+
             # Boutons disponibles dans TablePagination (selon version) :
             btn_prev = pagination.ids.button_back  # bouton "page précédente"
             btn_next = pagination.ids.button_forward
@@ -1756,7 +1867,6 @@ class Screen(MDApp):
                     self.page -= 1
                 elif direction == 'plus' and self.page < max_page:
                     self.page += 1
-
                 print(self.page)
 
             btn_prev.bind(on_press=partial(on_press_page,  'moins'))
@@ -1765,11 +1875,7 @@ class Screen(MDApp):
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
 
-            if self.liste_select_planning.parent:
-                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
-
-            place.add_widget(self.liste_select_planning)
-
+            Clock.schedule_once(lambda dt: place.add_widget(self.liste_select_planning), 0.2)
         except Exception as e:
             print(f'Error creating planning_detail table: {e}')
 
@@ -1777,9 +1883,14 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
+        index_global = (self.page - 1) * 8 + row_num
+
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
+
         self.fenetre_planning('', 'selection_planning')
 
-        Clock.schedule_once(lambda dt: self.get_and_update(row_data[1], row_data[0], list_id[row_num]), 0.5)
+        Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0.5)
 
     def get_and_update(self, data1, data2, data3):
         asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
@@ -1823,13 +1934,15 @@ class Screen(MDApp):
         async def get():
             self.planning_detail = await self.database.get_info_planning(traitement, self.reverse_date(row_value[0]))
             print(self.planning_detail, type(self.planning_detail))
-            Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'))
-            Clock.schedule_once(lambda dt: maj_ui())
+
+        asyncio.run_coroutine_threadsafe(get(), self.loop)
 
         if row.index % 3 == 0:
+            self.home_manager.get_screen('modif_date').ids.date_prevu.text = row_value[0]
             self.modifier_date(source='planning')
         else:
-            asyncio.run_coroutine_threadsafe(get(), self.loop)
+            Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'))
+            Clock.schedule_once(lambda dt: maj_ui())
 
         def maj_ui():
             try:
@@ -1912,6 +2025,8 @@ class Screen(MDApp):
 
     def tableau_historic(self, place, data, planning_id):
         row_data = [(i[0], i[1], i[2], i[3] if i [3] != 'None' else 'pas de remarque') for i in data]
+        if self.historique.parent:
+            self.historique.parent.remove_widget(self.historique)
         self.historique.row_data = row_data
         self.historique.bind(on_row_press=lambda instance, row: self.row_pressed_histo(instance, row, planning_id))
         place.add_widget(self.historique)

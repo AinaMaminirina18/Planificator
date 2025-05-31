@@ -58,14 +58,14 @@ MDScreen:
             icon: 'Assets/calendar.png'
             pos_hint:{"center_x": .85, "center_y":.6}
             on_release:
-                app.calendrier('ecran_decalage', 'date_decalage')
+                app.calendrier('modif_date', 'date_decalage')
 
         MDRectangleFlatButton:
             text: 'Annuler'
             size_hint: .35, None
             font_name: 'poppins'
             md_bg_color: '#FF3333'
-            line_color: 'white'
+            line_color: '#FF3333'
             text_color: 'black'
             pos_hint: {'center_x':.27, 'center_y': .28}
             on_press:
