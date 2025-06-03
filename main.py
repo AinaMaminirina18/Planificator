@@ -230,8 +230,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -2207,6 +2207,7 @@ class Screen(MDApp):
         # Pour vérifier si un traitement spécifique existe dans data_current
         for i in data_prevision:
             traitement_a_verifier = i['traitement']
+            print('ato')
 
             # Vérifiez si ce traitement existe dans data_current (dans l'indice 1 de chaque tuple)
             traitement_existe = any(item[1] == traitement_a_verifier for item in data_current)
