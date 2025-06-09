@@ -1307,12 +1307,11 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: maj_ecran(), 0.8)
 
     def voir_planning_par_traitement(self):
-        Clock.schedule_once(lambda dt: self.dismiss_contrat(), 0)
-        Clock.schedule_once(lambda dt: self.fermer_ecran(), 0)
+        self.dismiss_contrat()
+        self.fermer_ecran()
         btn_planning = self.root.get_screen('Sidebar').ids.planning
         self.choose_screen(btn_planning)
         self.fenetre_planning('', 'selection_planning')
-        print(self.current_client)
         Clock.schedule_once(lambda dt: self.switch_to_planning(), 0)
         Clock.schedule_once(lambda dt: self.get_and_update(self.current_client[5], self.current_client[1],self.current_client[13]), 0)
 
@@ -1511,7 +1510,7 @@ class Screen(MDApp):
                     duree = item[3] if item[3] is not None else 0
 
                     client_id.append(item[8])
-                    row_data.append((client, date, traitement, f'{duree} mois'))
+                    row_data.append((client, date, traitement, f'{duree} mois' ))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
 
@@ -1605,7 +1604,7 @@ class Screen(MDApp):
                     traitement = item[2] if item[2] is not None else "N/A"
                     duree = item[3] if item[3] is not None else "N/A"
 
-                    row_data.append((date, traitement, duree))
+                    row_data.append((date, traitement, f'{duree} jours' if item[7] == 12 else f'{duree} mois'))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
