@@ -750,7 +750,9 @@ class Screen(MDApp):
         calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
 
     def choix_date(self, ecran, champ, instance, value, date_range):
-        manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.home_manager if ecran == 'modif_date' else self.client_manager
+        manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.client_manager
+        if ecran == 'modif_date' :
+            manager = self.home_manager 
         manager.get_screen(ecran).ids[champ].text = ''
         manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
 
@@ -798,6 +800,21 @@ class Screen(MDApp):
         self.dialog.bind(on_dismiss=self.dismiss_home)
 
         self.dialog.open()
+
+    def changer_date(self):
+        date = self.home_manager.get_scren('modif_date').ids.date_decalage.text
+
+        async def modifier(date):
+            await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date))
+            date = ''
+
+        self.dismiss_planning()
+        self.fermer_ecran()
+
+        if date:
+            asyncio.run_coroutine_threadsafe(modifier(date))
+        else:
+            self.show_dialog('Erreur', 'Aucune date est choisie')
 
     def afficher_facture(self, titre ,ecran, base):
         from kivymd.uix.dialog import MDDialog
@@ -1289,14 +1306,14 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: maj_ecran(), 0.8)
 
     def voir_planning_par_traitement(self):
-        self.dismiss_contrat()
-        self.fermer_ecran()
+        Clock.schedule_once(lambda dt: self.dismiss_contrat(), 0)
+        Clock.schedule_once(lambda dt: self.fermer_ecran(), 0)
         btn_planning = self.root.get_screen('Sidebar').ids.planning
         self.choose_screen(btn_planning)
         self.fenetre_planning('', 'selection_planning')
-
+        print(self.current_client)
         Clock.schedule_once(lambda dt: self.switch_to_planning(), 0)
-        Clock.schedule_once(lambda dt: self.get_and_update(self.current_client[5], self.current_client[1],self.current_client[13]), 0.5)
+        Clock.schedule_once(lambda dt: self.get_and_update(self.current_client[5], self.current_client[1],self.current_client[13]), 0)
 
     def voir_info_client(self,source, option):
         self.fermer_ecran()
@@ -1535,6 +1552,11 @@ class Screen(MDApp):
     def get_traitement_par_client(self, id, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
+
+        if self.contrat_manager.parent:
+            self.contrat_manager.parent.remove_widget(self.contrat_manager)
+            self.fermer_ecran()
+
         place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
         index_global = (self.page - 1) * 8 + row_num
@@ -1700,12 +1722,7 @@ class Screen(MDApp):
 
     def historique_par_client(self, source):
         self.fermer_ecran()
-        if source == 'home':
-            self.dismiss_home()
-        if source == 'client':
-            self.dismiss_client()
-        if source == 'contrat':
-            self.dismiss_contrat()
+        self.dismiss_client()
 
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'historique'
 
@@ -1718,13 +1735,12 @@ class Screen(MDApp):
             try:
                 print(self.current_client)
                 result = await self.database.get_historic_par_client(self.current_client[1])
-                self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids['spinner'].active = False
                 if result:
                     #Clock.schedule_once(lambda dt: self.tableau_historic(place, result), 0)
                     print("c'est bien")
 
             except Exception as e:
-                print('par cient',e)
+                print('par client',e)
 
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(get_histo(), self.loop)
@@ -1935,6 +1951,7 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0.5)
 
     def get_and_update(self, data1, data2, data3):
+        print('hello')
         asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
 
     async def planning_par_traitement(self, traitement, client, id_traitement):
