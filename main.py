@@ -1,40 +1,27 @@
 from kivy.config import Config
 Config.set('graphics', 'resizable', False)
 
-from kivy.uix.screenmanager import ScreenManager, SlideTransition
+from kivy.uix.screenmanager import ScreenManager
 from kivy.clock import Clock, mainthread
-from kivy.core.text import LabelBase
 from kivy.lang import Builder
 from kivy.core.window import Window
 
 Window.size = (1300, 680)
 
-import calendar
 import asyncio
 import threading
 import locale
+locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
-import aiomysql
-from datetime import datetime, timedelta
-from aiomysql import OperationalError
-
-from dateutil.relativedelta import relativedelta
+from datetime import datetime
 from functools import partial
-from fuzzywuzzy import process
 
 from kivy.metrics import dp
 from kivymd.app import MDApp
-from kivymd.toast import toast
 from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.dropdownitem import MDDropDownItem
 from kivymd.uix.spinner import MDSpinner
-from kivymd.uix.pickers import MDDatePicker
-from kivymd.uix.label import MDLabel
-from kivymd.uix.menu import MDDropdownMenu
-from kivymd.uix.button import MDFlatButton
-from kivymd.uix.dialog import MDDialog
 
-from email_verification import is_valid_email
 from gestion_ecran_acceuil import gestion_ecran_home
 from gestion_ecran_client import gestion_ecran_client
 from gestion_ecran_compte import gestion_ecran_compte
@@ -42,11 +29,7 @@ from gestion_ecran_contrat import gestion_ecran_contrat
 from gestion_ecran import gestion_ecran
 from gestion_ecran_planning import gestion_ecran_planning
 from gestion_ecran_histo import gestion_ecran_histo
-from setting_bd import DatabaseManager
-from tester_date import ajuster_si_weekend, jours_feries
-import verif_password as vp
 
-locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
 
 class MyDatatable(MDDataTable):
     def set_default_first_row(self, *args):
@@ -65,6 +48,7 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
 
     def build(self):
+        from setting_bd import DatabaseManager
         #Parametre de la base de données
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
@@ -230,8 +214,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -256,6 +240,8 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(self.process_login(username, password), self.loop)
 
     async def process_login(self, username, password):
+        import verif_password as vp
+
         try:
             result = await self.database.verify_user(username)
 
@@ -275,6 +261,9 @@ class Screen(MDApp):
             Clock.schedule_once(lambda dt: self.show_dialog("Erreur", f"Erreur : {str(e)}"))
 
     def sign_up(self):
+        import verif_password as vp
+        from email_verification import is_valid_email
+
         """Gestion de l'action d'inscription."""
         screen = self.root.get_screen('signup')
         nom = screen.ids.nom.text
@@ -309,6 +298,8 @@ class Screen(MDApp):
         )
 
     async def _add_user_and_handle_feedback(self, nom, prenom, email, username, password, type_compte):
+        from aiomysql import OperationalError
+
         try:
             await self.database.add_user(nom, prenom, email, username, password, type_compte)
             Clock.schedule_once(lambda dt: self.switch_to_login())
@@ -333,6 +324,8 @@ class Screen(MDApp):
             print(f"Erreur inattendue: {e}")  # Pour le débogage
 
     def creer_contrat(self):
+        from dateutil.relativedelta import relativedelta
+
         ecran = self.contrat_manager.get_screen('ajout_info_client')
         nom = ecran.ids.nom_client.text
         prenom = ecran.ids.responsable_client.text
@@ -509,11 +502,17 @@ class Screen(MDApp):
         self.gestion_planning()
 
     def planning_per_year(self, debut, redondance):
+        from datetime import timedelta
+        from tester_date import ajuster_si_weekend, jours_feries
+
+
         #red = redondance.split(' ')
         pas = int(redondance)
         date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
 
         def ajouter_mois(date_depart, nombre_mois):
+            import calendar
+
             """Ajoute un nombre de mois à une date."""
             mois = date_depart.month - 1 + nombre_mois
             annee = date_depart.year + mois // 12
@@ -544,6 +543,9 @@ class Screen(MDApp):
         #asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
 
     def update_account(self, nom, prenom, email, username, password, confirm):
+        import verif_password as vp
+        from email_verification import is_valid_email
+
         is_valid, valid_password = vp.get_valid_password(nom, prenom, password, confirm)
 
         if not all([nom, prenom, email, username, password, confirm]):
@@ -612,6 +614,8 @@ class Screen(MDApp):
 
 
     def delete_account(self, admin_password):
+        import verif_password as vp
+
         if vp.reverse(admin_password,self.compte[5]):
             async def suppression():
                 try:
@@ -671,6 +675,8 @@ class Screen(MDApp):
             print(self.verifier_mois(text))
 
     def verifier_mois(self, text ):
+        from fuzzywuzzy import process
+
         mois_valides = [
             "janvier", "février", "mars", "avril", "mai", "juin",
             "juillet", "août", "septembre", "octobre", "novembre", "décembre"
@@ -682,6 +688,10 @@ class Screen(MDApp):
             return 'Erreur'
 
     def show_dialog(self, titre, texte):
+        from kivymd.uix.dialog import MDDialog
+        from kivymd.uix.button import MDFlatButton
+
+
         # Affiche une boîte de dialogue
         if not hasattr(self, 'dialogue') or self.dialogue is None or titre != 'Déconnexion':
             self.dialogue = MDDialog(
@@ -726,6 +736,8 @@ class Screen(MDApp):
         return date
 
     def calendrier(self, ecran, champ):
+        from kivymd.uix.pickers import MDDatePicker
+
         if ecran == 'ecran_decalage' or ecran == 'modif_date':
             calendrier = MDDatePicker(year = self.planning_detail[9].year,
                                       month = self.planning_detail[9].month,
@@ -746,6 +758,8 @@ class Screen(MDApp):
         self.dialog.dismiss()
 
     def fenetre_contrat(self, titre, ecran):
+        from kivymd.uix.dialog import MDDialog
+
         self.contrat_manager.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
@@ -763,6 +777,8 @@ class Screen(MDApp):
         self.dialog.open()
 
     def modifier_date(self, source=None):
+        from kivymd.uix.dialog import MDDialog
+
         if source == 'planning':
             self.dismiss_planning()
             self.fermer_ecran()
@@ -784,6 +800,8 @@ class Screen(MDApp):
         self.dialog.open()
 
     def afficher_facture(self, titre ,ecran, base):
+        from kivymd.uix.dialog import MDDialog
+
         self.fermer_ecran()
         if base == 'contrat':
             self.dismiss_contrat()
@@ -847,6 +865,8 @@ class Screen(MDApp):
             place.add_widget(self.facture)
 
     def fenetre_acceuil(self, titre, ecran, client, date,type_traitement, durée, debut_contrat, fin_prévu):
+        from kivymd.uix.dialog import MDDialog
+
         self.home_manager.current = ecran
         acceuil = MDDialog(
             md_bg_color='#56B5FB',
@@ -873,6 +893,8 @@ class Screen(MDApp):
         self.dialog.open()
 
     def fenetre_client(self, titre, ecran):
+        from kivymd.uix.dialog import MDDialog
+
         self.client_manager.current = ecran
         client = MDDialog(
             md_bg_color='#56B5FB',
@@ -890,6 +912,8 @@ class Screen(MDApp):
         self.dialog.open()
 
     def fenetre_planning(self, titre, ecran):
+        from kivymd.uix.dialog import MDDialog
+
         self.dismiss_planning()
         if self.dialog != None:
             self.fermer_ecran()
@@ -932,6 +956,8 @@ class Screen(MDApp):
         self.dialog.open()
 
     def fenetre_histo(self, titre, ecran):
+        from kivymd.uix.dialog import MDDialog
+
         self.historic_manager.current = ecran
         histo = MDDialog(
             md_bg_color='#56B5FB',
@@ -949,6 +975,8 @@ class Screen(MDApp):
         self.dialog.open()
 
     def fenetre_account(self, titre, ecran):
+        from kivymd.uix.dialog import MDDialog
+
         self.account_manager.current = ecran
         compte = MDDialog(
             md_bg_color='#56B5FB',
@@ -992,6 +1020,8 @@ class Screen(MDApp):
             self.account_manager.parent.remove_widget(self.account_manager)
 
     def dropdown_menu(self, button, menu_items, color):
+        from kivymd.uix.menu import MDDropdownMenu
+
         self.menu = MDDropdownMenu(
             md_bg_color= color,
             items=menu_items,
@@ -1118,6 +1148,8 @@ class Screen(MDApp):
         self.fermer_ecran()
         self.dismiss_planning()
         async def enregistrer_signalment():
+            from dateutil.relativedelta import relativedelta
+
             try:
                 if decaler.active:
                     date  = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
@@ -1210,6 +1242,8 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: chargement_client(), 0.5)
 
     def afficher_historique(self, type_trait):
+        from kivy.uix.screenmanager import SlideTransition
+
         self.root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='left')
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current ='historique'
         self.root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='up')
@@ -1437,6 +1471,8 @@ class Screen(MDApp):
 
     @mainthread
     def update_contract_table(self, place, contract_data):
+        from kivymd.uix.label import MDLabel
+
         if not contract_data:
             label = MDLabel(
                 text="Aucune donnée de planning disponible",
@@ -1527,6 +1563,8 @@ class Screen(MDApp):
             print('erreur get traitement'+ str(e))
 
     def show_about_treatment(self, place, data):
+        from kivymd.uix.label import MDLabel
+
         if not data:
             label = MDLabel(
                 text="Aucune donnée de planning disponible",
@@ -1733,6 +1771,8 @@ class Screen(MDApp):
 
     @mainthread
     def tableau_planning(self, place, result, dt=None):
+        from kivymd.uix.label import MDLabel
+
         # Vérifier si result existe et contient des données
         if not result:
             label = MDLabel(
@@ -1810,6 +1850,8 @@ class Screen(MDApp):
 
     @mainthread
     def tableau_selection_planning(self, place, data, traitement):
+        from kivymd.uix.label import MDLabel
+
         if not data:
             label = MDLabel(
                 text="Aucune donnée de planning disponible",
@@ -2207,7 +2249,6 @@ class Screen(MDApp):
         # Pour vérifier si un traitement spécifique existe dans data_current
         for i in data_prevision:
             traitement_a_verifier = i['traitement']
-            print('ato')
 
             # Vérifiez si ce traitement existe dans data_current (dans l'indice 1 de chaque tuple)
             traitement_existe = any(item[1] == traitement_a_verifier for item in data_current)
@@ -2249,6 +2290,8 @@ class Screen(MDApp):
         self.loop.call_soon_threadsafe(self.loop.stop)
 
 if __name__ == "__main__":
+    from kivy.core.text import LabelBase
+
     LabelBase.register(name='poppins',
                        fn_regular='font/Poppins-Regular.ttf')
     LabelBase.register(name='poppins-bold',
