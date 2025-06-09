@@ -702,7 +702,8 @@ class DatabaseManager:
                                   co.duree_contrat AS duree_contrat,
                                   co.date_debut AS debut_contrat,
                                   co.date_fin AS fin_contrat,
-                                  c.categorie AS categorie
+                                  c.categorie AS categorie,
+                                  p.redondance
                            FROM
                               Client c
                            JOIN
@@ -711,6 +712,8 @@ class DatabaseManager:
                               Traitement t ON co.contrat_id = t.contrat_id
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           JOIN
+                              Planning p ON t.traitement_id = p.traitement_id
                            WHERE
                               c.client_id = %s;"""
                     , (idclient,))
