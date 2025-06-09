@@ -435,6 +435,8 @@ class Screen(MDApp):
         elif not self.traitement:
             self.dismiss_contrat()
             self.fermer_ecran()
+            asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
+
             self.clear_fields('new_contrat')
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
             self.remove_tables('contrat')
@@ -493,7 +495,6 @@ class Screen(MDApp):
                         print("enregistrement planning detail ", e)
 
                 self.id_traitement.pop(0)
-                asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
 
             except Exception as e:
                 print('eto', e)
