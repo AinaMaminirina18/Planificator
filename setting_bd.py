@@ -15,8 +15,8 @@ class DatabaseManager:
             self.pool = await aiomysql.create_pool(
                 host="localhost",
                 port=3306,
-                user="sudoted",
-                password="100805Josh",
+                user="root",
+                password="root",
                 db="Planificator",
                 loop=self.loop
             )
