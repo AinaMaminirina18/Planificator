@@ -523,7 +523,8 @@ class DatabaseManager:
                     await cursor.execute(""" SELECT c.nom,
                                                 co.duree,
                                                 tt.typeTraitement,
-                                                count(r.remarque_id)
+                                                count(r.remarque_id),
+                                                p.planning_id
                                              FROM
                                                 Client c
                                              JOIN

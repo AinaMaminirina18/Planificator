@@ -1735,9 +1735,17 @@ class Screen(MDApp):
             try:
                 print(self.current_client)
                 result = await self.database.get_historic_par_client(self.current_client[1])
+                data = []
+                id_planning = []
                 if result:
-                    #Clock.schedule_once(lambda dt: self.tableau_historic(place, result), 0)
-                    print("c'est bien")
+                    for i in result:
+                        data.append(i)
+                        id_planning.append(i[4])
+                else:
+                    data.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
+
+                Clock.schedule_once(lambda dt: self.tableau_historic(place, result, id_planning), 0)
+                print("c'est bien")
 
             except Exception as e:
                 print('par client',e)
@@ -2112,7 +2120,7 @@ class Screen(MDApp):
     def tableau_rem_histo(self, place, data):
         if data:
             row_data = [(self.reverse_date(i[0]), i[1], 'aucun', 'aucun', 'aucun') for i in data]
-            self.remarque_historique = MDDataTable(
+            self.remarque_historique = MyDatatable(
                 pos_hint={'center_x':.5, "center_y": .53},
                 size_hint=(1,1),
                 rows_num=5,
@@ -2126,6 +2134,10 @@ class Screen(MDApp):
                 ],
                 row_data=row_data
             )
+            
+            if self.remarque_historique.parent:
+                self.remarque_historique.parent(self.remarque_historique)
+
             #self.historique.bind(on_row_press=self.row_pressed_histo)
             place.add_widget(self.remarque_historique)
 
