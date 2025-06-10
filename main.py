@@ -1739,11 +1739,8 @@ class Screen(MDApp):
                 print(self.current_client)
                 result = await self.database.get_historic_par_client(self.current_client[1])
                 data = []
-<<<<<<< Updated upstream
                 id_planning = []
-=======
-                id_planning =[]
->>>>>>> Stashed changes
+
                 if result:
                     for i in result:
                         data.append(i)
@@ -1751,11 +1748,7 @@ class Screen(MDApp):
                 else:
                     data.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
 
-<<<<<<< Updated upstream
                 Clock.schedule_once(lambda dt: self.tableau_historic(place, result, id_planning), 0)
-=======
-                Clock.schedule_once(lambda dt: self.tableau_historic(place, data, id_planning), 0)
->>>>>>> Stashed changes
                 print("c'est bien")
 
             except Exception as e:
@@ -2174,15 +2167,9 @@ class Screen(MDApp):
                 ],
                 row_data=row_data
             )
-<<<<<<< Updated upstream
-            
-            if self.remarque_historique.parent:
-                self.remarque_historique.parent(self.remarque_historique)
-=======
 
             if self.remarque_historique.parent:
                 self.remarque_historique.parent.remove_widget(self.remarque_historique)
->>>>>>> Stashed changes
 
             #self.historique.bind(on_row_press=self.row_pressed_histo)
             place.add_widget(self.remarque_historique)
