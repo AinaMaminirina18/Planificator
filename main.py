@@ -44,20 +44,22 @@ class Screen(MDApp):
     description = 'Logiciel de suivi et gestion de contrat'
     CLM = 'Assets/CLM.JPG'
     CL = 'Assets/CL.JPG'
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
-    def on_start(self):
-        gestion_ecran(self.root)
-        asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
-
-    def build(self):
         from setting_bd import DatabaseManager
-        #Parametre de la base de données
+        # Parametre de la base de données
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
-        connect = asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
-        connect.add_done_callback(self.connected)
+        asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
 
+    def on_start(self):
+        gestion_ecran(self.root)
+
+        asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
+
+    def build(self):
         #Configuration de la fenêtre
         self.theme_cls.theme_style= 'Light'
         self.theme_cls.primary_palette = "BlueGray"
@@ -125,7 +127,6 @@ class Screen(MDApp):
                 ("Durée", dp(40)),
             ],
         )
-
         self.liste_planning = MDDataTable(
             pos_hint={'center_x': .5, "center_y": .5},
             size_hint=(1, 1),
@@ -221,13 +222,6 @@ class Screen(MDApp):
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
-
-    def connected(self, future):
-        try:
-            future.result()
-            print('Connexion etablie avec la base de données')
-        except Exception as e:
-            print('La connexion à echoué', e)
 
     def login(self):
         """Gestion de l'action de connexion."""
@@ -535,13 +529,12 @@ class Screen(MDApp):
 
         return dates
 
-    async def get_all_planning(self, place):
+    async def get_all_planning(self):
         try:
-            result = await self.database.get_all_planning()
-            if result:
-                threading.Thread(target= partial(self.tableau_planning, place, result)).start()
+            return await self.database.get_all_planning()
         except Exception as e:
-            print('func get planning', e)
+            print('func get_all_planning', e)
+            return []  # Retourne une liste vide en cas d'erreur
 
         #asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
 
@@ -979,6 +972,16 @@ class Screen(MDApp):
         from kivymd.uix.dialog import MDDialog
 
         self.historic_manager.current = ecran
+
+        if self.historic_manager.parent:
+            print(
+                f"DEBUG: Retrait de historic_manager ({self.historic_manager}) de son parent actuel : {self.historic_manager.parent}")
+            self.historic_manager.parent.remove_widget(self.historic_manager)
+            self.fermer_ecran()
+        else:
+            print(
+                f"DEBUG: historic_manager ({self.historic_manager}) n'avait pas de parent avant la création du dialogue.")
+
         histo = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
@@ -990,7 +993,6 @@ class Screen(MDApp):
         self.historic_manager.width = '1000dp'
 
         self.dialog = histo
-        self.dialog.bind(on_dismiss=self.dismiss_histo)
 
         self.dialog.open()
 
@@ -1011,7 +1013,7 @@ class Screen(MDApp):
         self.account_manager.width = width
 
         self.dialog = compte
-        self.dialog.bind(on_dismiss=self.dismiss_histo)
+        self.dialog.bind(on_dismiss=self.dismiss_compte)
 
         self.dialog.open()
 
@@ -1221,14 +1223,22 @@ class Screen(MDApp):
         place = root.get_screen('planning').ids.tableau_planning
         root.current = 'planning'
 
-        # Afficher le spinner de chargement
+        # Afficher le spinner de chargement immédiatement
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'planning'), 0)
 
-        # Programmer le chargement des données
-        def load_and_handle_completion(dt):
-            asyncio.run_coroutine_threadsafe(self.get_all_planning(place), self.loop)
+        # Charger les données en arrière-plan
+        future = asyncio.run_coroutine_threadsafe(self.get_all_planning(), self.loop)
 
-        Clock.schedule_once(load_and_handle_completion, 0.5)
+        # Une fois les données prêtes, injecter dans l'UI avec Clock
+        def handle_result(future):
+            try:
+                result = future.result()
+                Clock.schedule_once(lambda dt: self.tableau_planning(place, result), 0.5)
+            except Exception as e:
+                print("Erreur de chargement planning :", e)
+
+        # Lancer le traitement une fois les données reçues
+        threading.Thread(target=lambda: handle_result(future)).start()
 
     def switch_to_about(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'about'
@@ -1748,7 +1758,7 @@ class Screen(MDApp):
                 else:
                     data.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
 
-                Clock.schedule_once(lambda dt: self.tableau_historic(place, result, id_planning), 0)
+                Clock.schedule_once(lambda dt: self.tableau_historic(place, data, id_planning), 0)
                 print("c'est bien")
 
             except Exception as e:
@@ -1800,7 +1810,7 @@ class Screen(MDApp):
     @mainthread
     def tableau_planning(self, place, result, dt=None):
         from kivymd.uix.label import MDLabel
-
+        place.clear_widgets()
         # Vérifier si result existe et contient des données
         if not result:
             label = MDLabel(
@@ -1842,6 +1852,23 @@ class Screen(MDApp):
             return
 
         try:
+            if not hasattr(self, 'liste_planning'):
+                self.liste_planning = MDDataTable(
+                    pos_hint={'center_x': .5, "center_y": .5},
+                    size_hint=(1, 1),
+                    background_color_header='#56B5FB',
+                    background_color='#56B5FB',
+                    rows_num=8,
+                    use_pagination=True,
+                    elevation=0,
+                    column_data=[
+                        ("Client", dp(50)),
+                        ("Type de traitement", dp(50)),
+                        ("Durée du contrat", dp(30)),
+                        ("Option", dp(45)),
+                    ]
+                )
+
             # Créer le tableau avec toutes les données préparées
             if self.liste_planning.parent:
                 self.liste_planning.parent.remove_widget(self.liste_planning)
@@ -1872,13 +1899,19 @@ class Screen(MDApp):
 
             # Ajouter le tableau au conteneur
             place.add_widget(self.liste_planning)
-
+            del self.liste_planning
         except Exception as e:
             print(f"Error creating planning table: {e}")
 
     @mainthread
     def tableau_selection_planning(self, place, data, traitement):
         from kivymd.uix.label import MDLabel
+
+        if hasattr(self, 'liste_select_planning') and self.liste_select_planning is not None:
+            if self.liste_select_planning.parent:
+                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
+
+        place.clear_widgets()
 
         if not data:
             label = MDLabel(
@@ -1941,11 +1974,8 @@ class Screen(MDApp):
 
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
-
-            if self.liste_select_planning.parent:
-                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
-
-            Clock.schedule_once(lambda dt: place.add_widget(self.liste_select_planning), 0.2)
+            print(f"DEBUG: {self.liste_select_planning} parent before add: {self.liste_select_planning.parent}")
+            place.add_widget(self.liste_select_planning)
 
         except Exception as e:
             print(f'Error creating planning_detail table: {e}')
@@ -2144,35 +2174,76 @@ class Screen(MDApp):
         Clock.schedule_once(lambda c: self.loading_spinner(self.historic_manager, 'histo_remarque'), 0.5)
         Clock.schedule_once(lambda c: get_data(), 0.5)
 
+    async def historique_remarque(self, place, planning_id):
+        from kivymd.uix.label import MDLabel  # Assurez-vous que MDLabel est importé
 
-    async def historique_remarque(self,place, planning_id):
-        resultat = await self.database.get_historique_remarque(planning_id)
-        if resultat:
-            Clock.schedule_once(lambda dt: self.tableau_rem_histo(place, resultat))
+        try:
+            resultat = await self.database.get_historique_remarque(planning_id)
+            Clock.schedule_once(lambda dt: self.tableau_rem_histo(place, resultat if resultat else []), 0)
+        except Exception as e:
+            print('Erreur lors de la récupération des remarques :', e)
+            # En cas d'erreur de la base de données, videz 'place' et affichez un message d'erreur.
+            if place:
+                place.clear_widgets()
+                error_label = MDLabel(
+                    text=f"Erreur lors du chargement de l'historique des remarques : {e}",
+                    halign="center"
+                )
+                place.add_widget(error_label)
+            else:
+                print("Erreur: 'place' est None, impossible d'afficher le message d'erreur.")
 
     def tableau_rem_histo(self, place, data):
-        if data:
-            row_data = [(self.reverse_date(i[0]), i[1], 'aucun', 'aucun', 'aucun') for i in data]
-            self.remarque_historique = MyDatatable(
-                pos_hint={'center_x':.5, "center_y": .53},
-                size_hint=(1,1),
-                rows_num=5,
-                elevation=0,
-                column_data=[
-                    ("Date", dp(30)),
-                    ("Remarque", dp(60)),
-                    ("Avancement", dp(35)),
-                    ("Décalage", dp(35)),
-                    ("Motif", dp(40)),
-                ],
-                row_data=row_data
+        from kivy.metrics import dp
+        from kivymd.uix.label import MDLabel
+
+        place.clear_widgets()
+
+        row_data = []
+        for item in data:
+            try:
+                if len(item) >= 2:
+                    date = self.reverse_date(item[0]) if item[0] is not None else "N/A"
+                    remarque = item[1] if item[1] is not None else "N/A"
+                    row_data.append((date, remarque, 'Aucun', 'Aucun', 'Aucun'))
+                else:
+                    print(f"Warning: L'élément de remarque historique n'a pas assez d'éléments (attendu 2+): {item}")
+            except Exception as e:
+                print(f"Erreur lors du traitement de l'élément de remarque historique : {e}")
+
+        if not row_data:
+            label = MDLabel(
+                text="Aucune remarque d'historique disponible.",
+                halign="center"
             )
+            place.add_widget(label)
+            print("DEBUG: Affichage du message 'Aucune remarque disponible' car row_data est vide.")
+            return
 
-            if self.remarque_historique.parent:
-                self.remarque_historique.parent.remove_widget(self.remarque_historique)
+        try:
+            if not hasattr(self, 'remarque_historique'):
+                self.remarque_historique = MyDatatable(
+                    pos_hint={'center_x': .5, "center_y": .53},
+                    size_hint=(1, 1),
+                    rows_num=5,
+                    elevation=0,
+                    column_data=[
+                        ("Date", dp(30)),
+                        ("Remarque", dp(60)),
+                        ("Avancement", dp(35)),
+                        ("Décalage", dp(35)),
+                        ("Motif", dp(40)),
+                    ]
+                )
 
-            #self.historique.bind(on_row_press=self.row_pressed_histo)
+                self.remarque_historique.row_data = row_data
+
             place.add_widget(self.remarque_historique)
+            print(f"DEBUG: MyDatatable {self.remarque_historique} ajouté à {place}.")
+
+            del self.remarque_historique
+        except Exception as e:
+            print(f'Erreur lors de la création du tableau des remarques historiques : {e}')
 
     def all_users(self, place):
         async def data_account():
