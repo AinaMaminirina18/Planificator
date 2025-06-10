@@ -15,8 +15,8 @@ class DatabaseManager:
             self.pool = await aiomysql.create_pool(
                 host="localhost",
                 port=3306,
-                user="root",
-                password="root",
+                user="sudoted",
+                password="100805Josh",
                 db="Planificator",
                 loop=self.loop
             )
@@ -523,7 +523,8 @@ class DatabaseManager:
                     await cursor.execute(""" SELECT c.nom,
                                                 co.duree,
                                                 tt.typeTraitement,
-                                                count(r.remarque_id)
+                                                count(r.remarque_id),
+                                                p.planning_id
                                              FROM
                                                 Client c
                                              JOIN
@@ -643,7 +644,8 @@ class DatabaseManager:
                                   c.email,
                                   c.adresse,
                                   c.axe,
-                                  c.telephone
+                                  c.telephone,
+                                  p.planning_id
                            FROM
                               Client c
                            JOIN
@@ -652,6 +654,8 @@ class DatabaseManager:
                               Traitement t ON co.contrat_id = t.contrat_id
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           JOIN
+                              Planning p ON t.traitement_id = p.traitement_id
                            WHERE
                               c.nom = %s AND co.date_contrat = %s; """, (client, date))
                     resultat = await cursor.fetchone()

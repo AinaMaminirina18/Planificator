@@ -7,6 +7,8 @@ from kivy.lang import Builder
 from kivy.core.window import Window
 
 Window.size = (1300, 680)
+Window.left = 30
+Window.top = 80
 
 import asyncio
 import threading
@@ -214,8 +216,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -1692,6 +1694,7 @@ class Screen(MDApp):
     def update_client_table_and_switch(self, place, client_data):
         if client_data:
             row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
+
             if self.liste_client.parent:
                 self.liste_client.parent.remove_widget(self.liste_client)
 
@@ -1735,9 +1738,25 @@ class Screen(MDApp):
             try:
                 print(self.current_client)
                 result = await self.database.get_historic_par_client(self.current_client[1])
+                data = []
+<<<<<<< Updated upstream
+                id_planning = []
+=======
+                id_planning =[]
+>>>>>>> Stashed changes
                 if result:
-                    #Clock.schedule_once(lambda dt: self.tableau_historic(place, result), 0)
-                    print("c'est bien")
+                    for i in result:
+                        data.append(i)
+                        id_planning.append(i[4])
+                else:
+                    data.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
+
+<<<<<<< Updated upstream
+                Clock.schedule_once(lambda dt: self.tableau_historic(place, result, id_planning), 0)
+=======
+                Clock.schedule_once(lambda dt: self.tableau_historic(place, data, id_planning), 0)
+>>>>>>> Stashed changes
+                print("c'est bien")
 
             except Exception as e:
                 print('par client',e)
@@ -1876,10 +1895,6 @@ class Screen(MDApp):
             place.add_widget(label)
             return
 
-        if hasattr(self, 'liste_select_planning') and self.liste_select_planning:
-            if self.liste_select_planning.parent:
-                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
-
         row_data = []
         for mois, item in enumerate(data):
             try:
@@ -1908,6 +1923,7 @@ class Screen(MDApp):
                     ("Etat du traitement", dp(40)),
                 ]
             )
+
             print(type(self.liste_select_planning))
             self.liste_select_planning.row_data = row_data
             pagination = self.liste_select_planning.pagination  # instance de TablePagination
@@ -1933,7 +1949,11 @@ class Screen(MDApp):
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
 
+            if self.liste_select_planning.parent:
+                self.liste_select_planning.parent.remove_widget(self.liste_select_planning)
+
             Clock.schedule_once(lambda dt: place.add_widget(self.liste_select_planning), 0.2)
+
         except Exception as e:
             print(f'Error creating planning_detail table: {e}')
 
@@ -2086,6 +2106,27 @@ class Screen(MDApp):
         row_data = [(i[0], i[1], i[2], i[3] if i [3] != 'None' else 'pas de remarque') for i in data]
         if self.historique.parent:
             self.historique.parent.remove_widget(self.historique)
+
+        pagination = self.historique.pagination  # instance de TablePagination
+
+        # Boutons disponibles dans TablePagination (selon version) :
+        btn_prev = pagination.ids.button_back  # bouton "page précédente"
+        btn_next = pagination.ids.button_forward
+
+        self.page = 1
+
+        def on_press_page( direction, instance=None):
+            print(direction)
+            max_page = (len(row_data) - 1) // 5 + 1
+            if direction == 'moins' and self.page > 1:
+                self.page -= 1
+            elif direction == 'plus' and self.page < max_page:
+                self.page += 1
+            print(self.page)
+
+        btn_prev.bind(on_press=partial(on_press_page,  'moins'))
+        btn_next.bind(on_press=partial(on_press_page,  'plus'))
+
         self.historique.row_data = row_data
         self.historique.bind(on_row_press=lambda instance, row: self.row_pressed_histo(instance, row, planning_id))
         place.add_widget(self.historique)
@@ -2093,6 +2134,13 @@ class Screen(MDApp):
     def row_pressed_histo(self, table, row, planning_id):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data
+        index_global = (self.page - 1) * 5 + row_num
+
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
+
+        if row_value[0] == 'Aucun':
+            return
 
         place = self.historic_manager.get_screen('histo_remarque').ids.tableau_rem_histo
         place.clear_widgets()
@@ -2112,7 +2160,7 @@ class Screen(MDApp):
     def tableau_rem_histo(self, place, data):
         if data:
             row_data = [(self.reverse_date(i[0]), i[1], 'aucun', 'aucun', 'aucun') for i in data]
-            self.remarque_historique = MDDataTable(
+            self.remarque_historique = MyDatatable(
                 pos_hint={'center_x':.5, "center_y": .53},
                 size_hint=(1,1),
                 rows_num=5,
@@ -2126,6 +2174,16 @@ class Screen(MDApp):
                 ],
                 row_data=row_data
             )
+<<<<<<< Updated upstream
+            
+            if self.remarque_historique.parent:
+                self.remarque_historique.parent(self.remarque_historique)
+=======
+
+            if self.remarque_historique.parent:
+                self.remarque_historique.parent.remove_widget(self.remarque_historique)
+>>>>>>> Stashed changes
+
             #self.historique.bind(on_row_press=self.row_pressed_histo)
             place.add_widget(self.remarque_historique)
 

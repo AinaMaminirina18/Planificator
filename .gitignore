@@ -1,7 +1,6 @@
 
 /.idea
 /__pycache__
-/__pycache__
 /main.spec
 test.py
 main.bin
@@ -9,4 +8,5 @@ main.build
 main.dist
 main.onefile-build
 build
+build_nuitka
 dist
