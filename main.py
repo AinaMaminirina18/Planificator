@@ -783,10 +783,10 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint=(.8, .8) if ecran == 'ajout_info_client' else (.8, .65) ,
+            size_hint=(.8, .85) if ecran == 'ajout_info_client' else (.8,.4) if ecran == 'save_info_client' else (.8, .65) ,
             content_cls= self.contrat_manager
         )
-        hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '400dp'
+        hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '300dp' if ecran == 'save_info_client' else '400dp'
         self.contrat_manager.height = hauteur
         self.contrat_manager.width = '1000dp'
         self.dialog = contrat
@@ -1128,9 +1128,9 @@ class Screen(MDApp):
                 self.account_manager.get_screen('modif_info_compte').ids[id].text = ''
 
     def enregistrer_client(self,nom, prenom, email, telephone, adresse, date_ajout, categorie_client, axe , nif, stat):
-        if not nom or not prenom or not email or not telephone or not adresse or not date_ajout or not categorie_client or not axe:
+        if not nom or not prenom or not email or not telephone or not adresse or not date_ajout or not axe:
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
-        if categorie_client == 'Societé' and not nif or not stat:
+        if categorie_client == 'Société' and (not nif or not stat):
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
         else:
             self.contrat_manager.get_screen('save_info_client').ids.titre.text = f'Enregistrement des informations sur {nom.capitalize()}'
