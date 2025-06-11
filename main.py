@@ -57,6 +57,7 @@ class Screen(MDApp):
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
         asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
+        self.calendar = None
 
     def on_start(self):
         gestion_ecran(self.root)
@@ -131,6 +132,7 @@ class Screen(MDApp):
                 ("Durée", dp(40)),
             ],
         )
+
         self.liste_planning = MDDataTable(
             pos_hint={'center_x': .5, "center_y": .5},
             size_hint=(1, 1),
@@ -142,22 +144,7 @@ class Screen(MDApp):
             column_data=[
                 ("Client", dp(50)),
                 ("Type de traitement", dp(50)),
-                ("Durée du contrat", dp(30)),
-                ("Option", dp(45)),
-            ]
-        )
-        self.liste_planning = MDDataTable(
-            pos_hint={'center_x': .5, "center_y": .5},
-            size_hint=(1, 1),
-            background_color_header='#56B5FB',
-            background_color='#56B5FB',
-            rows_num=8,
-            use_pagination=True,
-            elevation=0,
-            column_data=[
-                ("Client", dp(50)),
-                ("Type de traitement", dp(50)),
-                ("Durée du contrat", dp(30)),
+                ("Redondance", dp(30)),
                 ("Option", dp(45)),
             ]
         )
@@ -235,8 +222,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -374,15 +361,17 @@ class Screen(MDApp):
         def maj():
             self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text = axe
             self.contrat_manager.get_screen('ajout_planning').ids.axe_client.text = axe
+            self.contrat_manager.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
 
         async def create():
             self.id_traitement = []
             try:
                 self.traitement, self.categorie_trait = self.get_trait_from_form()
+                print(self.traitement)
 
                 client = await self.database.create_client(
                     nom, prenom, email, telephone, adresse,
-                    self.reverse_date(date_ajout), categorie_client, axe, nif, stat
+                    self.reverse_date(date_ajout), categorie_client, axe, str(nif), str(stat)
                 )
 
                 self.contrat = await self.database.create_contrat(
@@ -396,6 +385,7 @@ class Screen(MDApp):
                 )
 
                 for i in range(len(self.traitement)):
+                    print(i, self.traitement[i])
                     type_traitement = await self.database.typetraitement(
                         self.categorie_trait[i], self.traitement[i]
                     )
@@ -464,6 +454,7 @@ class Screen(MDApp):
             ajout_planning_screen.ids.get('date_prevu').text = ''
             ajout_planning_screen.ids.get('red_trait').text = '1 mois'
             ajout_planning_screen.ids.type_traitement.text = self.traitement[0]
+            self.traitement[0]
             self.fermer_ecran()
             self.fenetre_contrat('Ajout du planning','ajout_planning')
 
@@ -554,9 +545,8 @@ class Screen(MDApp):
             return await self.database.get_all_planning()
         except Exception as e:
             print('func get_all_planning', e)
-            return []  # Retourne une liste vide en cas d'erreur
+            return []
 
-        #asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
 
     def update_account(self, nom, prenom, email, username, password, confirm):
         import verif_password as vp
@@ -683,7 +673,7 @@ class Screen(MDApp):
         if anti_termite:
             categorie.append('AT: Anti termites')
             traitement.append('Anti termites (AT)')
-
+        print(traitement)
         return traitement, categorie
 
     def search(self, text, search='False'):
@@ -719,6 +709,7 @@ class Screen(MDApp):
                         on_release=lambda x: self.close_dialog()
                     )
                 ],
+                auto_dismiss=False,
             )
         if titre == 'Déconnexion':
             self.dialogue = MDDialog(
@@ -733,7 +724,8 @@ class Screen(MDApp):
                         text= 'NON',
                         on_release= lambda x: self.close_dialog()
                     )
-                ]
+                ],
+                auto_dismiss=False,
             )
         self.dialogue.open()
 
@@ -753,17 +745,17 @@ class Screen(MDApp):
 
     def calendrier(self, ecran, champ):
         from kivymd.uix.pickers import MDDatePicker
+        if not self.calendar:
+            if ecran == 'ecran_decalage' or ecran == 'modif_date':
+                self.calendar = MDDatePicker(year = self.planning_detail[9].year,
+                                          month = self.planning_detail[9].month,
+                                          day = self.planning_detail[9].day,
+                                          primary_color= '#A5D8FD')
+            else:
+                self.calendar = MDDatePicker(primary_color= '#A5D8FD')
 
-        if ecran == 'ecran_decalage' or ecran == 'modif_date':
-            calendrier = MDDatePicker(year = self.planning_detail[9].year,
-                                      month = self.planning_detail[9].month,
-                                      day = self.planning_detail[9].day,
-                                      primary_color= '#A5D8FD')
-        else:
-            calendrier = MDDatePicker(primary_color= '#A5D8FD')
-
-        calendrier.open()
-        calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
+        self.calendar.open()
+        self.calendar.bind(on_save=partial(self.choix_date, ecran,champ))
 
     def choix_date(self, ecran, champ, instance, value, date_range):
         manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.client_manager
@@ -771,6 +763,7 @@ class Screen(MDApp):
             manager = self.home_manager 
         manager.get_screen(ecran).ids[champ].text = ''
         manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
+        self.calendar = None
 
     def fermer_ecran(self):
         self.dialog.dismiss()
@@ -784,7 +777,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.8, .85) if ecran == 'ajout_info_client' else (.8,.4) if ecran == 'save_info_client' else (.8, .65) ,
-            content_cls= self.contrat_manager
+            content_cls= self.contrat_manager,
+            auto_dismiss=False
+
         )
         hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '300dp' if ecran == 'save_info_client' else '400dp'
         self.contrat_manager.height = hauteur
@@ -806,7 +801,9 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             type='custom',
             size_hint=(.5, .5),
-            content_cls=self.home_manager
+            content_cls=self.home_manager,
+            auto_dismiss=False
+
         )
 
         self.home_manager.height = '300dp'
@@ -845,7 +842,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.7, .6),
-            content_cls=self.home_manager
+            content_cls=self.home_manager,
+            auto_dismiss=False
+
         )
         self.home_manager.height = '500dp'
         self.home_manager.width = '850dp'
@@ -906,7 +905,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.7, .6),
-            content_cls= self.home_manager
+            content_cls= self.home_manager,
+            auto_dismiss=False
+
         )
         self.home_manager.height = '400dp'
         self.home_manager.width = '850dp'
@@ -934,7 +935,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint= (.8, .65) if ecran == 'option_client' else (.8, .85),
-            content_cls= self.client_manager
+            content_cls= self.client_manager,
+            auto_dismiss=False
+
         )
         self.client_manager.height = '390dp' if ecran == 'option_client' else '550dp'
         self.client_manager.width = '1000dp'
@@ -977,7 +980,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=size_tableau[ecran],
-            content_cls=self.planning_manager
+            content_cls=self.planning_manager,
+            auto_dismiss=False
+
         )
 
         self.planning_manager.height = height[ecran]
@@ -1002,7 +1007,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.8, .65),
-            content_cls=self.historic_manager
+            content_cls=self.historic_manager,
+            auto_dismiss=False
+
         )
         self.historic_manager.height ='500dp'
         self.historic_manager.width = '1000dp'
@@ -1020,7 +1027,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.5, .35) if ecran != 'modif_info_compte' else (.8, .73),
-            content_cls=self.account_manager
+            content_cls=self.account_manager,
+            auto_dismiss=False
+
         )
         height = '300dp' if ecran == 'suppression_compte' else '450dp' if ecran == 'modif_info_compte' else'200dp'
         width = '630dp' if ecran == 'suppression_compte' else '1000dp' if ecran == 'modif_info_compte' else '600dp'
@@ -1409,7 +1418,7 @@ class Screen(MDApp):
         self.menu.dismiss()
 
     def dropdown_new_contrat(self,button,  champ, screen):
-        axe = ['Nord (N)', 'Sud (S)', 'Est (E)', 'Ouest (O)']
+        axe = ['Nord (N)', 'Centre (C)', 'Sud (S)', 'Est (E)', 'Ouest (O)']
         durée = ['Déterminée', 'Indéterminée']
         categorie = ['Nouveau ', 'Renouvellement']
         type_client = ['Société', 'Organisation', 'Particulier']
@@ -1567,7 +1576,7 @@ class Screen(MDApp):
                     client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[7] if item[7] is not None else "N/A"
-                    duree = item[3] if item[3] is not None else 0
+                    duree = item[3] if item[3] is not None else 12
 
                     client_id.append(item[8])
                     row_data.append((client, date, traitement, f'{duree} mois' ))
@@ -1661,7 +1670,7 @@ class Screen(MDApp):
                 if len(item) >= 3:
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[2] if item[2] is not None else "N/A"
-                    duree = item[3] if item[3] is not None else "N/A"
+                    duree = item[3] if item[3] is not None else 12
 
                     row_data.append((date, traitement, f'{duree} jours' if item[7] == 12 else f'{duree} mois'))
                 else:
@@ -1880,7 +1889,7 @@ class Screen(MDApp):
                     duree = item[2] if item[2] is not None else "N/A"
                     id_planning = item[3] if item[3] is not None else 0
 
-                    row_data.append((client, traitement, duree, 'Aucun decalage'))
+                    row_data.append((client, traitement, f'{duree} mois', 'Aucun decalage'))
                     liste_id.append(id_planning)
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -2394,9 +2403,10 @@ class Screen(MDApp):
 
         # Création de data_current
         data_current = []
+        check = []
         for i in data_en_cours:
             color = self.color_map.get(i['etat'], "000000")
-            colored = f"[color={color}]{i['etat']}[/color]"
+            check.append((self.reverse_date(i['date']), i['traitement'], i['etat']))
             data_current.append((f"[color={color}]{self.reverse_date(i['date'])}[/color]", f"[color={color}]{i['traitement']}[/color]", f"[color={color}]{i['etat']}[/color]"))
 
         # Pour vérifier si un traitement spécifique existe dans data_current
@@ -2404,7 +2414,7 @@ class Screen(MDApp):
             traitement_a_verifier = i['traitement']
 
             # Vérifiez si ce traitement existe dans data_current (dans l'indice 1 de chaque tuple)
-            traitement_existe = any(item[1] == traitement_a_verifier for item in data_current)
+            traitement_existe = any(item[1] == traitement_a_verifier for item in check)
 
             # Vous pouvez également utiliser cette vérification pour décider si ajouter à data_next
             if not traitement_existe:  # Ajouter seulement si le traitement n'existe pas déjà
