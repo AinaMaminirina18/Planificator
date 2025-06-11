@@ -162,6 +162,49 @@ MDScreen:
             size_hint: .45,None
             radius:[10]
 
+        MDLabel:
+            id: nif_label
+            text: "Nif "
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': .5, 'center_y': .23}
+
+        MDTextField:
+            id: nif
+            text_color_normal: 'black'
+            text:''
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.225,"center_y":.14}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+            readonly: True
+
+        MDLabel:
+            id: stat_label
+            text: "Stat"
+            font_size: 16
+            font_name: 'poppins'
+            pos_hint: {'center_x': 1.005, 'center_y': .23}
+
+        MDTextField:
+            id: stat
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.73,"center_y":.14}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .45,None
+            radius:[10]
+
+
         MDRectangleFlatButton:
             id: enregistrer
             text: 'Enregistrer'
