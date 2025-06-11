@@ -151,13 +151,13 @@ class DatabaseManager:
                     except Exception as e:
                         print('contrat', e)
             
-    async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe):
+    async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe, nif, stat):
         async with self.lock:
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(
-                        "INSERT INTO Client (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
-                        (nom, prenom, email, telephone, adresse, date_ajout, categorie, axe))
+                        "INSERT INTO Client (nom, prenom, email, telephone, adresse,nif, stat, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        (nom, prenom, email, telephone, adresse,nif,stat, date_ajout, categorie, axe))
                     await conn.commit()
                     return cur.lastrowid
             
