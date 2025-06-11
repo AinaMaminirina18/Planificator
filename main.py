@@ -142,7 +142,21 @@ class Screen(MDApp):
                 ("Option", dp(45)),
             ]
         )
-
+        self.liste_planning = MDDataTable(
+            pos_hint={'center_x': .5, "center_y": .5},
+            size_hint=(1, 1),
+            background_color_header='#56B5FB',
+            background_color='#56B5FB',
+            rows_num=8,
+            use_pagination=True,
+            elevation=0,
+            column_data=[
+                ("Client", dp(50)),
+                ("Type de traitement", dp(50)),
+                ("Durée du contrat", dp(30)),
+                ("Option", dp(45)),
+            ]
+        )
         self.liste_client = MDDataTable(
             pos_hint={'center_x': 0.5, "center_y": 0.53},
             size_hint=(1, 1),
@@ -974,13 +988,8 @@ class Screen(MDApp):
         self.historic_manager.current = ecran
 
         if self.historic_manager.parent:
-            print(
-                f"DEBUG: Retrait de historic_manager ({self.historic_manager}) de son parent actuel : {self.historic_manager.parent}")
             self.historic_manager.parent.remove_widget(self.historic_manager)
             self.fermer_ecran()
-        else:
-            print(
-                f"DEBUG: historic_manager ({self.historic_manager}) n'avait pas de parent avant la création du dialogue.")
 
         histo = MDDialog(
             md_bg_color='#56B5FB',
@@ -1408,10 +1417,30 @@ class Screen(MDApp):
         ]
         self.dropdown_menu(button, menu, 'white')
 
+    def render_excel(self):
+        self.fenetre_planning('', 'rendu_planning')
+        asyncio.run_coroutine_threadsafe(self.get_all_client(), self.loop)
+
+    async def get_all_client(self):
+        self.all_client = []
+
+        try:
+            client_data = await self.database.get_all_client_name()
+
+            if client_data:
+                for row in client_data:
+                    if isinstance(row, tuple) and len(row) > 0:
+                        self.all_client.append(row[0])
+                    else:
+                        self.all_client.append(row)
+
+        except Exception as e:
+            print(f"Une erreur est survenue lors de la récupération des clients: {e}")
+
     def dropdown_rendu_excel(self,button,  champ):
-        type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage']
+        type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage Industriel', 'Anti Termites', 'Fumigation']
         mois = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', "Décembre"]
-        client = ['DevCorps', 'ApexNovaLabs', 'Cleanliness Of Madagascar']
+        client = self.all_client
 
         item_menu = type if champ == 'type_traitement_planning' else mois if champ == 'mois_planning' else client
         menu = [
@@ -1531,7 +1560,6 @@ class Screen(MDApp):
 
         try:
             if self.liste_contrat.parent:
-                print('clear')
                 self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
             pagination = self.liste_contrat.pagination  # instance de TablePagination
@@ -1759,7 +1787,6 @@ class Screen(MDApp):
                     data.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
 
                 Clock.schedule_once(lambda dt: self.tableau_historic(place, data, id_planning), 0)
-                print("c'est bien")
 
             except Exception as e:
                 print('par client',e)
@@ -1852,31 +1879,12 @@ class Screen(MDApp):
             return
 
         try:
-            if not hasattr(self, 'liste_planning'):
-                self.liste_planning = MDDataTable(
-                    pos_hint={'center_x': .5, "center_y": .5},
-                    size_hint=(1, 1),
-                    background_color_header='#56B5FB',
-                    background_color='#56B5FB',
-                    rows_num=8,
-                    use_pagination=True,
-                    elevation=0,
-                    column_data=[
-                        ("Client", dp(50)),
-                        ("Type de traitement", dp(50)),
-                        ("Durée du contrat", dp(30)),
-                        ("Option", dp(45)),
-                    ]
-                )
-
-            # Créer le tableau avec toutes les données préparées
             if self.liste_planning.parent:
                 self.liste_planning.parent.remove_widget(self.liste_planning)
 
-            pagination = self.liste_planning.pagination  # instance de TablePagination
+            pagination = self.liste_planning.pagination
 
-            # Boutons disponibles dans TablePagination (selon version) :
-            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
             self.page = 1
@@ -1894,12 +1902,10 @@ class Screen(MDApp):
             btn_next.bind(on_press=partial(on_press_page, 'plus'))
             self.liste_planning.row_data = row_data
 
-            # Utiliser le gestionnaire sécurisé
             self.liste_planning.bind(on_row_press= partial(self.row_pressed_planning, liste_id))
 
-            # Ajouter le tableau au conteneur
             place.add_widget(self.liste_planning)
-            del self.liste_planning
+            #del self.liste_planning
         except Exception as e:
             print(f"Error creating planning table: {e}")
 
@@ -1934,7 +1940,6 @@ class Screen(MDApp):
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
                 print(f"Error processing planning item: {e}")
-                # Continuer avec les autres éléments sans interrompre
 
         try:
             self.liste_select_planning = MyDatatable(
@@ -1950,12 +1955,9 @@ class Screen(MDApp):
                 ]
             )
 
-            print(type(self.liste_select_planning))
             self.liste_select_planning.row_data = row_data
-            pagination = self.liste_select_planning.pagination  # instance de TablePagination
-
-            # Boutons disponibles dans TablePagination (selon version) :
-            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            pagination = self.liste_select_planning.pagination
+            btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
             self.page = 1
@@ -1974,7 +1976,6 @@ class Screen(MDApp):
 
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
-            print(f"DEBUG: {self.liste_select_planning} parent before add: {self.liste_select_planning.parent}")
             place.add_widget(self.liste_select_planning)
 
         except Exception as e:
@@ -1994,7 +1995,6 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0.5)
 
     def get_and_update(self, data1, data2, data3):
-        print('hello')
         asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
 
     async def planning_par_traitement(self, traitement, client, id_traitement):
@@ -2175,14 +2175,13 @@ class Screen(MDApp):
         Clock.schedule_once(lambda c: get_data(), 0.5)
 
     async def historique_remarque(self, place, planning_id):
-        from kivymd.uix.label import MDLabel  # Assurez-vous que MDLabel est importé
+        from kivymd.uix.label import MDLabel
 
         try:
             resultat = await self.database.get_historique_remarque(planning_id)
             Clock.schedule_once(lambda dt: self.tableau_rem_histo(place, resultat if resultat else []), 0)
         except Exception as e:
             print('Erreur lors de la récupération des remarques :', e)
-            # En cas d'erreur de la base de données, videz 'place' et affichez un message d'erreur.
             if place:
                 place.clear_widgets()
                 error_label = MDLabel(
@@ -2205,7 +2204,9 @@ class Screen(MDApp):
                 if len(item) >= 2:
                     date = self.reverse_date(item[0]) if item[0] is not None else "N/A"
                     remarque = item[1] if item[1] is not None else "N/A"
-                    row_data.append((date, remarque, 'Aucun', 'Aucun', 'Aucun'))
+                    avance = item[2] if item[2] is not None else 'Aucun'
+                    decale = item[3] if item[3] is not None else 'Aucun'
+                    row_data.append((date, remarque, avance, decale, item[4]))
                 else:
                     print(f"Warning: L'élément de remarque historique n'a pas assez d'éléments (attendu 2+): {item}")
             except Exception as e:
@@ -2217,7 +2218,6 @@ class Screen(MDApp):
                 halign="center"
             )
             place.add_widget(label)
-            print("DEBUG: Affichage du message 'Aucune remarque disponible' car row_data est vide.")
             return
 
         try:
@@ -2239,7 +2239,6 @@ class Screen(MDApp):
                 self.remarque_historique.row_data = row_data
 
             place.add_widget(self.remarque_historique)
-            print(f"DEBUG: MyDatatable {self.remarque_historique} ajouté à {place}.")
 
             del self.remarque_historique
         except Exception as e:
