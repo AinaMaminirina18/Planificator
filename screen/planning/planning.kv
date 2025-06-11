@@ -32,14 +32,14 @@ MDScreen:
                 padding:0,0,60,0
                 font_name: 'poppins'
                 on_release:
-                    app.fenetre_planning('', 'rendu_planning')
+                    app.render_excel()
 
             MDIconButton:
                 icon: 'Assets/render.png'
                 icon_size:20
                 pos_hint:{'center_x':.9, 'center_y': .5}
                 on_release:
-                    app.fenetre_planning('', 'rendu_planning')
+                    app.render_excel()
 
         MDBoxLayout:
             id: search_client
