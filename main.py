@@ -49,6 +49,10 @@ class Screen(MDApp):
 
         from setting_bd import DatabaseManager
         # Parametre de la base de données
+        self.color_map = {
+            "Effectué": '008000',
+            "À venir": 'ff0000'
+        }
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
@@ -231,8 +235,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -345,6 +349,8 @@ class Screen(MDApp):
         categorie_client = ecran.ids.cat_client.text
         axe = ecran.ids.axe_client.text
         date_ajout = ecran.ids.ajout_client.text
+        nif = ecran.ids.nif.text if categorie_client == 'Société' else 0
+        stat = ecran.ids.stat.text if categorie_client == 'Société' else 0
 
         duree_contrat = self.contrat_manager.get_screen('new_contrat').ids.duree_new_contrat.text
         categorie_contrat = self.contrat_manager.get_screen('new_contrat').ids.cat_contrat.text
@@ -376,7 +382,7 @@ class Screen(MDApp):
 
                 client = await self.database.create_client(
                     nom, prenom, email, telephone, adresse,
-                    self.reverse_date(date_ajout), categorie_client, axe
+                    self.reverse_date(date_ajout), categorie_client, axe, nif, stat
                 )
 
                 self.contrat = await self.database.create_contrat(
@@ -780,7 +786,7 @@ class Screen(MDApp):
             size_hint=(.8, .8) if ecran == 'ajout_info_client' else (.8, .65) ,
             content_cls= self.contrat_manager
         )
-        hauteur = '500dp' if ecran == 'option_contrat' else '500dp' if ecran == 'ajout_info_client' else '400dp'
+        hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '400dp'
         self.contrat_manager.height = hauteur
         self.contrat_manager.width = '1000dp'
         self.dialog = contrat
@@ -1075,7 +1081,7 @@ class Screen(MDApp):
         modif_compte = ['nom','prenom','email','username','password','confirm_password']
         login = ['login_username', 'login_password']
         new_contrat = ['date_new_contrat', 'debut_new_contrat', 'fin_new_contrat']
-        new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone']
+        new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone' ,'nif', 'stat']
         planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'date_prevu']
         facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'date_prevu', 'red_trait']
         signalement = ['motif', 'date_decalage', 'date_prevu']
@@ -1121,8 +1127,10 @@ class Screen(MDApp):
             for id in modif_compte:
                 self.account_manager.get_screen('modif_info_compte').ids[id].text = ''
 
-    def enregistrer_client(self,nom, prenom, email, telephone, adresse, date_ajout, categorie_client, axe ):
+    def enregistrer_client(self,nom, prenom, email, telephone, adresse, date_ajout, categorie_client, axe , nif, stat):
         if not nom or not prenom or not email or not telephone or not adresse or not date_ajout or not categorie_client or not axe:
+            self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
+        if categorie_client == 'Societé' and not nif or not stat:
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
         else:
             self.contrat_manager.get_screen('save_info_client').ids.titre.text = f'Enregistrement des informations sur {nom.capitalize()}'
@@ -1453,7 +1461,7 @@ class Screen(MDApp):
         self.dropdown_menu(button, menu, 'white')
 
     def retour_new(self,text,  champ, screen):
-        categ_client = ['Organisation', 'Entreprise', 'Particulier']
+        categ_client = ['Organisation', 'Société', 'Particulier']
         if text == 'Indéterminée':
             self.contrat_manager.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": 0, "center_y": -10}
             self.contrat_manager.get_screen(screen).ids.label_fin.text = ''
@@ -1489,6 +1497,17 @@ class Screen(MDApp):
                 self.contrat_manager.get_screen(screen).ids.label_resp.text = 'Prénom'
             else:
                 self.contrat_manager.get_screen(screen).ids.label_resp.text = 'Responsable'
+            if text != 'Société':
+                self.contrat_manager.get_screen(screen).ids.nif_label.text = ''
+                self.contrat_manager.get_screen(screen).ids.stat_label.text = ''
+                self.contrat_manager.get_screen(screen).ids.nif.pos_hint = {"center_x": 0, "center_y": -10}
+                self.contrat_manager.get_screen(screen).ids.stat.pos_hint = {"center_x": 0, "center_y": -10}
+            else:
+                self.contrat_manager.get_screen(screen).ids.nif_label.text = 'Nif'
+                self.contrat_manager.get_screen(screen).ids.stat_label.text = 'Stat'
+                self.contrat_manager.get_screen(screen).ids.nif.pos_hint = {"center_x": .225, "center_y": .14}
+                self.contrat_manager.get_screen(screen).ids.stat.pos_hint = {"center_x": .73, "center_y": .14}
+
         self.contrat_manager.get_screen(screen).ids[f'{champ}'].text = text
         self.menu.dismiss()
 
@@ -2376,7 +2395,9 @@ class Screen(MDApp):
         # Création de data_current
         data_current = []
         for i in data_en_cours:
-            data_current.append((self.reverse_date(i["date"]), i["traitement"], i['etat']))
+            color = self.color_map.get(i['etat'], "000000")
+            colored = f"[color={color}]{i['etat']}[/color]"
+            data_current.append((f"[color={color}]{self.reverse_date(i['date'])}[/color]", f"[color={color}]{i['traitement']}[/color]", f"[color={color}]{i['etat']}[/color]"))
 
         # Pour vérifier si un traitement spécifique existe dans data_current
         for i in data_prevision:
