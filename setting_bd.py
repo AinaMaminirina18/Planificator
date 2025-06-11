@@ -460,27 +460,32 @@ class DatabaseManager:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        """ SELECT  pdl.date_planification,
-                                    r.contenu,
-                                    co.duree,
-                                    tt.typeTraitement
-                                FROM
-                                    Client c
-                                JOIN
-                                    Contrat co ON c.client_id = co.client_id
-                                JOIN
-                                    Traitement t ON co.contrat_id = t.contrat_id
-                                JOIN
-                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
-                                JOIN
-                                    Planning p ON t.traitement_id = p.traitement_id
-                                JOIN
-                                    PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                                JOIN
-                                    Remarque r ON pdl.planning_detail_id = r.planning_detail_id
-                                WHERE
-                                    p.planning_id = %s """, (planning_id,)
-                    )
+                        """ SELECT
+                                pdl.date_planification AS Date, 
+                                r.contenu AS Remarque, 
+                                COALESCE(sa.motif, 'Aucun') AS Avancement, 
+                                COALESCE(sd.motif, 'Aucun') AS Décalage, 
+                                'Aucun' AS Motif
+                            FROM
+                                Client c
+                            JOIN
+                                Contrat co ON c.client_id = co.client_id
+                            JOIN
+                                Traitement t ON co.contrat_id = t.contrat_id
+                            JOIN
+                                TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                            JOIN
+                                Planning p ON t.traitement_id = p.traitement_id
+                            JOIN
+                                PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                            JOIN
+                                Remarque r ON pdl.planning_detail_id = r.planning_detail_id
+                            LEFT JOIN
+                                Signalement sa ON r.planning_detail_id = sa.planning_detail_id AND sa.type = 'Avancement'
+                            LEFT JOIN
+                                Signalement sd ON r.planning_detail_id = sd.planning_detail_id AND sd.type = 'Décalage'
+                            WHERE
+                                p.planning_id = %s;""", (planning_id,))
                     return await cur.fetchall()
 
                 except Exception as e:
@@ -741,6 +746,17 @@ class DatabaseManager:
                     "UPDATE Contrat SET duree_contrat = 1 WHERE contrat_id = %s",
                     (contrat_id, ))
                 await conn.commit()
+    async def get_all_client_name(self):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(
+                        """SELECT DISTINCT nom From Client """
+                    )
+                    result = await cur.fetchall()
+                    return result
+                except Exception as e:
+                    print('error get client ', e)
 
     async def close(self):
         """Ferme le pool de connexions."""
