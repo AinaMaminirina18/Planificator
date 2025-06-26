@@ -15,8 +15,8 @@ class DatabaseManager:
             self.pool = await aiomysql.create_pool(
                 host="localhost",
                 port=3306,
-                user="root",
-                password="root",
+                user="sudoted",
+                password="100805Josh",
                 db="Planificator",
                 loop=self.loop
             )
@@ -156,7 +156,7 @@ class DatabaseManager:
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(
-                        "INSERT INTO Client (nom, prenom, email, telephone, adresse,nif, stat, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                        "INSERT INTO Client (nom, prenom, email, telephone, adresse, nif, stat, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                         (nom, prenom, email, telephone, adresse,nif,stat, date_ajout, categorie, axe))
                     await conn.commit()
                     return cur.lastrowid
@@ -323,7 +323,7 @@ class DatabaseManager:
                     await cursor.execute(
                         """SELECT c.nom AS nom_client,
                                   tt.typeTraitement AS type_traitement,
-                                  co.duree AS duree_contrat,
+                                  p.redondance ,
                                   p.planning_id
                                   
                            FROM
