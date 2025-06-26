@@ -193,7 +193,7 @@ class Screen(MDApp):
             ]
         )
 
-        self.popup = ScreenManager(size_hint= None)
+        self.popup = ScreenManager(size_hint=( None, None))
         popup(self.popup)
 
         #Pour les dropdown
@@ -202,8 +202,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -743,6 +743,7 @@ class Screen(MDApp):
     def fenetre_contrat(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
+        self.popup.current = None
         self.popup.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
@@ -864,6 +865,7 @@ class Screen(MDApp):
     def fenetre_acceuil(self, titre, ecran, client, date,type_traitement, durée, debut_contrat, fin_prévu):
         from kivymd.uix.dialog import MDDialog
 
+        self.popup.current = None
         self.popup.current = ecran
         acceuil = MDDialog(
             md_bg_color='#56B5FB',
@@ -892,6 +894,7 @@ class Screen(MDApp):
     def fenetre_client(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
+        self.popup.current = None
         self.popup.current = ecran
         client = MDDialog(
             md_bg_color='#56B5FB',
@@ -911,6 +914,7 @@ class Screen(MDApp):
     def fenetre_planning(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
+        self.popup.current = None
         self.dismiss_popup()
         if self.dialog != None:
             self.fermer_ecran()
@@ -955,6 +959,7 @@ class Screen(MDApp):
     def fenetre_histo(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
+        self.popup.current = None
         self.popup.current = ecran
 
         if self.popup.parent:
@@ -978,6 +983,7 @@ class Screen(MDApp):
     def fenetre_account(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
+        self.popup.current = None
         self.popup.current = ecran
         compte = MDDialog(
             md_bg_color='#56B5FB',
