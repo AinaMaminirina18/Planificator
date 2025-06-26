@@ -28,7 +28,7 @@ from gestion_ecran_acceuil import gestion_ecran_home
 from gestion_ecran_client import gestion_ecran_client
 from gestion_ecran_compte import gestion_ecran_compte
 from gestion_ecran_contrat import gestion_ecran_contrat
-from gestion_ecran import gestion_ecran
+from gestion_ecran import gestion_ecran, popup
 from gestion_ecran_planning import gestion_ecran_planning
 from gestion_ecran_histo import gestion_ecran_histo
 
@@ -193,41 +193,8 @@ class Screen(MDApp):
             ]
         )
 
-        #Gestion des écrans dans contrat
-        self.contrat_manager = ScreenManager(size_hint=(None, None))
-
-        self.contrat_manager.transition.duration = 0.1
-        gestion_ecran_contrat(self.contrat_manager)
-
-        #Gestion des écrans dans client
-        self.client_manager = ScreenManager(size_hint=(None, None))
-
-        self.client_manager.transition.duration = 0.1
-        gestion_ecran_client(self.client_manager)
-
-        #Gestionde écrans dans planning
-        self.planning_manager = ScreenManager(size_hint=(None, None))
-
-        self.planning_manager.transition.duration = 0.1
-        gestion_ecran_planning(self.planning_manager)
-
-        #Gestion des écrans dans historique
-        self.historic_manager = ScreenManager(size_hint=(None, None))
-
-        self.historic_manager.transition.duration = 0.1
-        gestion_ecran_histo(self.historic_manager)
-
-        #Gestion des écrans dans compte
-        self.account_manager = ScreenManager(size_hint=(None, None))
-
-        self.account_manager.transition.duration = 0.1
-        gestion_ecran_compte(self.account_manager)
-
-        #Gestion des écrans dans acceuil
-        self.home_manager = ScreenManager(size_hint=(None, None))
-
-        self.home_manager.transition.duration = 0.1
-        gestion_ecran_home(self.home_manager)
+        self.popup = ScreenManager(size_hint= None)
+        popup(self.popup)
 
         #Pour les dropdown
         self.menu = None
@@ -340,7 +307,7 @@ class Screen(MDApp):
     def creer_contrat(self):
         from dateutil.relativedelta import relativedelta
 
-        ecran = self.contrat_manager.get_screen('ajout_info_client')
+        ecran = self.popup.get_screen('ajout_info_client')
         nom = ecran.ids.nom_client.text
         prenom = ecran.ids.responsable_client.text
         email = ecran.ids.email_client.text
@@ -352,11 +319,11 @@ class Screen(MDApp):
         nif = ecran.ids.nif.text if categorie_client == 'Société' else 0
         stat = ecran.ids.stat.text if categorie_client == 'Société' else 0
 
-        duree_contrat = self.contrat_manager.get_screen('new_contrat').ids.duree_new_contrat.text
-        categorie_contrat = self.contrat_manager.get_screen('new_contrat').ids.cat_contrat.text
-        date_contrat = self.contrat_manager.get_screen('new_contrat').ids.date_new_contrat.text
-        date_debut = self.contrat_manager.get_screen('new_contrat').ids.debut_new_contrat.text
-        date_fin = self.contrat_manager.get_screen('new_contrat').ids.date_new_contrat.text if duree_contrat == 'Déterminée' else 'Indéterminée'
+        duree_contrat = self.popup.get_screen('new_contrat').ids.duree_new_contrat.text
+        categorie_contrat = self.popup.get_screen('new_contrat').ids.cat_contrat.text
+        date_contrat = self.popup.get_screen('new_contrat').ids.date_new_contrat.text
+        date_debut = self.popup.get_screen('new_contrat').ids.debut_new_contrat.text
+        date_fin = self.popup.get_screen('new_contrat').ids.date_new_contrat.text if duree_contrat == 'Déterminée' else 'Indéterminée'
 
         if date_fin == "Indéterminée":
             duree = 12
@@ -372,8 +339,8 @@ class Screen(MDApp):
             duree = diff.years * 12 + diff.months
 
         def maj():
-            self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text = axe
-            self.contrat_manager.get_screen('ajout_planning').ids.axe_client.text = axe
+            self.popup.get_screen('ajout_facture').ids.axe_client.text = axe
+            self.popup.get_screen('ajout_planning').ids.axe_client.text = axe
 
         async def create():
             self.id_traitement = []
@@ -402,7 +369,7 @@ class Screen(MDApp):
                     traitement_id = await self.database.creation_traitement(self.contrat, type_traitement)
                     self.id_traitement.append(traitement_id)
 
-                Clock.schedule_once(lambda dt: self.dismiss_contrat(), 0)
+                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0)
                 Clock.schedule_once(lambda dt: self.fermer_ecran(), 0)
                 Clock.schedule_once(lambda dt: maj(), 0)
                 Clock.schedule_once(lambda dt: self.fenetre_contrat('Ajout du planning', 'ajout_planning'), 0)
@@ -424,21 +391,21 @@ class Screen(MDApp):
             self.show_dialog("Erreur", "Une erreur est survenue lors du chargement des clients.")
 
     def gestion_planning(self):
-        ajout_planning_screen = self.contrat_manager.get_screen('ajout_planning')
+        ajout_planning_screen = self.popup.get_screen('ajout_planning')
         mois_fin = ajout_planning_screen.ids.mois_fin.text
         mois_debut = ajout_planning_screen.ids.mois_date.text
         date_prevu = ajout_planning_screen.ids.date_prevu.text
         redondance = ajout_planning_screen.ids.red_trait.text
 
-        bouton = self.contrat_manager.get_screen('ajout_facture').ids.accept
+        bouton = self.popup.get_screen('ajout_facture').ids.accept
 
-        if self.contrat_manager.current == 'ajout_planning':
+        if self.popup.current == 'ajout_planning':
             if self.verifier_mois(mois_debut) != 'Erreur':
-                self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
-                self.contrat_manager.get_screen('ajout_facture').ids.montant.text = ''
-                self.contrat_manager.get_screen('ajout_facture').ids.date_prevu.text = date_prevu
-                self.contrat_manager.get_screen('ajout_facture').ids.red_trait.text = redondance
-                self.contrat_manager.get_screen('ajout_facture').ids.traitement_c.text = self.traitement[0]
+                self.popup.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
+                self.popup.get_screen('ajout_facture').ids.montant.text = ''
+                self.popup.get_screen('ajout_facture').ids.date_prevu.text = date_prevu
+                self.popup.get_screen('ajout_facture').ids.red_trait.text = redondance
+                self.popup.get_screen('ajout_facture').ids.traitement_c.text = self.traitement[0]
                 if len(self.traitement) == 1:
                     bouton.text = 'Enregistrer'
 
@@ -449,7 +416,7 @@ class Screen(MDApp):
                 self.show_dialog('Erreur', 'Mot non reconnu comme mois, veuillez verifier')
 
         elif not self.traitement:
-            self.dismiss_contrat()
+            self.dismiss_popup()
             self.fermer_ecran()
             asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
 
@@ -468,16 +435,16 @@ class Screen(MDApp):
             self.fenetre_contrat('Ajout du planning','ajout_planning')
 
     def save_planning(self):
-        mois_debut = self.contrat_manager.get_screen('ajout_planning').ids.mois_date.text
-        mois_fin = self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text
-        date_prevu = self.contrat_manager.get_screen('ajout_planning').ids.date_prevu.text
-        redondance = self.contrat_manager.get_screen('ajout_planning').ids.red_trait.text
-        date_debut = self.contrat_manager.get_screen('new_contrat').ids.debut_new_contrat.text
+        mois_debut = self.popup.get_screen('ajout_planning').ids.mois_date.text
+        mois_fin = self.popup.get_screen('ajout_planning').ids.mois_fin.text
+        date_prevu = self.popup.get_screen('ajout_planning').ids.date_prevu.text
+        redondance = self.popup.get_screen('ajout_planning').ids.red_trait.text
+        date_debut = self.popup.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
         date_fin = datetime.strptime(f'{temp[0]}-{(int(temp[1])+11) % 12}-{(int(temp[2]) + 1) if temp[1] != 1 else temp[2]}',  "%d-%m-%Y").date()
 
-        montant = self.contrat_manager.get_screen('ajout_facture').ids.montant.text
-        axe_client = self.contrat_manager.get_screen('ajout_facture').ids.axe_client.text
+        montant = self.popup.get_screen('ajout_facture').ids.montant.text
+        axe_client = self.popup.get_screen('ajout_facture').ids.axe_client.text
         if redondance != 'une seule fois':
             int_red = redondance.split(" ")[0]
         else:
@@ -584,7 +551,7 @@ class Screen(MDApp):
                     self.show_dialog("Succès", "Les modifications ont été enregistrées avec succès !")
                     self.clear_fields('modif_info_compte')
                     self.current_compte()
-                    self.dismiss_compte()
+                    self.dismiss_popup()
                     self.fermer_ecran()
 
                 Clock.schedule_once(lambda dt: _post_update_ui_actions(), 0)
@@ -617,7 +584,7 @@ class Screen(MDApp):
 
     def delete_client(self):
         self.fermer_ecran()
-        self.dismiss_contrat()
+        self.dismiss_popup()
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
         place.clear_widgets()
 
@@ -636,7 +603,7 @@ class Screen(MDApp):
             async def suppression():
                 try:
                     await self.database.delete_user(self.not_admin[3])
-                    Clock.schedule_once(lambda dt: self.dismiss_compte())
+                    Clock.schedule_once(lambda dt: self.dismiss_popup())
                     Clock.schedule_once(lambda dt: self.fermer_ecran())
                     Clock.schedule_once(lambda dt: self.show_dialog('', 'Suppression du compte réussie'))
                     Clock.schedule_once(lambda dt: self.remove_tables('compte'))
@@ -647,20 +614,20 @@ class Screen(MDApp):
 
             asyncio.run_coroutine_threadsafe(suppression(), self.loop)
         else:
-            self.account_manager.get_screen('suppression_compte').ids.admin_password.helper_text = 'Verifier le mot de passe'
+            self.popup.get_screen('suppression_compte').ids.admin_password.helper_text = 'Verifier le mot de passe'
             self.show_dialog('Erreur', f"Le mot de passe n'est pas correct")
 
     def get_trait_from_form(self):
 
         traitement = []
         categorie =[]
-        dératisation = self.contrat_manager.get_screen('new_contrat').ids.deratisation.active
-        désinfection = self.contrat_manager.get_screen('new_contrat').ids.desinfection.active
-        désinsectisation = self.contrat_manager.get_screen('new_contrat').ids.desinsectisation.active
-        nettoyage = self.contrat_manager.get_screen('new_contrat').ids.nettoyage.active
-        fumigation = self.contrat_manager.get_screen('new_contrat').ids.fumigation.active
-        ramassage = self.contrat_manager.get_screen('new_contrat').ids.ramassage.active
-        anti_termite = self.contrat_manager.get_screen('new_contrat').ids.anti_ter.active
+        dératisation = self.popup.get_screen('new_contrat').ids.deratisation.active
+        désinfection = self.popup.get_screen('new_contrat').ids.desinfection.active
+        désinsectisation = self.popup.get_screen('new_contrat').ids.desinsectisation.active
+        nettoyage = self.popup.get_screen('new_contrat').ids.nettoyage.active
+        fumigation = self.popup.get_screen('new_contrat').ids.fumigation.active
+        ramassage = self.popup.get_screen('new_contrat').ids.ramassage.active
+        anti_termite = self.popup.get_screen('new_contrat').ids.anti_ter.active
 
         if dératisation:
             traitement.append('Dératisation (PC)')
@@ -766,9 +733,7 @@ class Screen(MDApp):
         calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
 
     def choix_date(self, ecran, champ, instance, value, date_range):
-        manager = self.planning_manager if ecran == 'ecran_decalage' else self.contrat_manager if 'contrat' or 'planning' in ecran else self.client_manager
-        if ecran == 'modif_date' :
-            manager = self.home_manager 
+        manager = self.popup
         manager.get_screen(ecran).ids[champ].text = ''
         manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
 
@@ -778,53 +743,52 @@ class Screen(MDApp):
     def fenetre_contrat(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.contrat_manager.current = ecran
+        self.popup.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
             size_hint=(.8, .85) if ecran == 'ajout_info_client' else (.8,.4) if ecran == 'save_info_client' else (.8, .65) ,
-            content_cls= self.contrat_manager
+            content_cls= self.popup
         )
         hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '300dp' if ecran == 'save_info_client' else '400dp'
-        self.contrat_manager.height = hauteur
-        self.contrat_manager.width = '1000dp'
+        self.popup.height = hauteur
+        self.popup.width = '1000dp'
         self.dialog = contrat
-        self.dialog.bind(on_dismiss=self.dismiss_contrat)
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
 
         self.dialog.open()
 
     def modifier_date(self, source=None):
         from kivymd.uix.dialog import MDDialog
 
-        if source == 'planning':
-            self.dismiss_planning()
-            self.fermer_ecran()
+        self.dismiss_popup()
+        self.fermer_ecran()
 
-        self.home_manager.current = 'modif_date'
+        self.popup.current = 'modif_date'
         acceuil = MDDialog(
             md_bg_color='#56B5FB',
             type='custom',
             size_hint=(.5, .5),
-            content_cls=self.home_manager
+            content_cls=self.popup
         )
 
-        self.home_manager.height = '300dp'
-        self.home_manager.width = '600dp'
+        self.popup.height = '300dp'
+        self.popup.width = '600dp'
 
         self.dialog = acceuil
-        self.dialog.bind(on_dismiss=self.dismiss_home)
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
 
         self.dialog.open()
 
     def changer_date(self):
-        date = self.home_manager.get_scren('modif_date').ids.date_decalage.text
+        date = self.popup.get_scren('modif_date').ids.date_decalage.text
 
         async def modifier(date):
             await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date))
             date = ''
 
-        self.dismiss_planning()
+        self.dismiss_popup()
         self.fermer_ecran()
 
         if date:
@@ -837,30 +801,30 @@ class Screen(MDApp):
 
         self.fermer_ecran()
         if base == 'contrat':
-            self.dismiss_contrat()
+            self.dismiss_popup()
 
-        self.home_manager.current = ecran
+        self.popup.current = ecran
         acceuil = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
             size_hint=(.7, .6),
-            content_cls=self.home_manager
+            content_cls=self.popup
         )
-        self.home_manager.height = '500dp'
-        self.home_manager.width = '850dp'
+        self.popup.height = '500dp'
+        self.popup.width = '850dp'
 
-        place = self.home_manager.get_screen('facture').ids.tableau_facture
+        place = self.popup.get_screen('facture').ids.tableau_facture
         place.clear_widgets()
         self.dialog = acceuil
-        self.dialog.bind(on_dismiss=self.dismiss_home)
-        self.home_manager.get_screen('facture').ids.titre.text = f'Les factures de {self.current_client[1]} pour {self.current_client[5]}'
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
+        self.popup.get_screen('facture').ids.titre.text = f'Les factures de {self.current_client[1]} pour {self.current_client[5]}'
 
         def recup():
             asyncio.run_coroutine_threadsafe(self.recuperer_donnée(place), self.loop)
 
         Clock.schedule_once(lambda dt: recup(), 0.5)
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.home_manager, 'facture'), 0)
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'facture'), 0)
 
         self.dialog.open()
 
@@ -874,8 +838,8 @@ class Screen(MDApp):
 
     def afficher_tableau_facture(self, place, result, paye, non_paye):
         if result:
-            self.home_manager.get_screen('facture').ids.non_payé.text = f'Non payé :  {non_paye} AR'
-            self.home_manager.get_screen('facture').ids.payé.text = f'Payé : {paye} AR'
+            self.popup.get_screen('facture').ids.non_payé.text = f'Non payé :  {non_paye} AR'
+            self.popup.get_screen('facture').ids.payé.text = f'Payé : {paye} AR'
             row_data = [(self.reverse_date(i[0]), f'{i[1]} Ar', i[2]) for i in result ]
 
             self.facture = MDDataTable(
@@ -900,57 +864,57 @@ class Screen(MDApp):
     def fenetre_acceuil(self, titre, ecran, client, date,type_traitement, durée, debut_contrat, fin_prévu):
         from kivymd.uix.dialog import MDDialog
 
-        self.home_manager.current = ecran
+        self.popup.current = ecran
         acceuil = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
             size_hint=(.7, .6),
-            content_cls= self.home_manager
+            content_cls= self.popup
         )
-        self.home_manager.height = '400dp'
-        self.home_manager.width = '850dp'
+        self.popup.height = '400dp'
+        self.popup.width = '850dp'
 
         self.client_name = client
         asyncio.run_coroutine_threadsafe(self.current_client_info(client, date), self.loop)
 
-        self.home_manager.get_screen('about_contrat').ids.titre.text =f" A propos du contrat de {client}"
-        self.home_manager.get_screen('about_contrat').ids.date_contrat.text =f"Début du contrat : {date}"
-        self.home_manager.get_screen('about_contrat').ids.debut_contrat.text =f"Début du contrat : {debut_contrat}"
-        self.home_manager.get_screen('about_contrat').ids.fin_contrat.text =f"Fin du contrat : {fin_prévu}"
-        self.home_manager.get_screen('about_contrat').ids.type_traitement.text =f"Type de traitement : {type_traitement}"
-        self.home_manager.get_screen('about_contrat').ids.duree.text =f"Durée du contrat : {durée} mois"
+        self.popup.get_screen('about_contrat').ids.titre.text =f" A propos du contrat de {client}"
+        self.popup.get_screen('about_contrat').ids.date_contrat.text =f"Début du contrat : {date}"
+        self.popup.get_screen('about_contrat').ids.debut_contrat.text =f"Début du contrat : {debut_contrat}"
+        self.popup.get_screen('about_contrat').ids.fin_contrat.text =f"Fin du contrat : {fin_prévu}"
+        self.popup.get_screen('about_contrat').ids.type_traitement.text =f"Type de traitement : {type_traitement}"
+        self.popup.get_screen('about_contrat').ids.duree.text =f"Durée du contrat : {durée} mois"
         self.dialog = acceuil
-        self.dialog.bind(on_dismiss=self.dismiss_home)
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
 
         self.dialog.open()
 
     def fenetre_client(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.client_manager.current = ecran
+        self.popup.current = ecran
         client = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
             size_hint= (.8, .65) if ecran == 'option_client' else (.8, .85),
-            content_cls= self.client_manager
+            content_cls= self.popup
         )
-        self.client_manager.height = '390dp' if ecran == 'option_client' else '550dp'
-        self.client_manager.width = '1000dp'
+        self.popup.height = '390dp' if ecran == 'option_client' else '550dp'
+        self.popup.width = '1000dp'
 
         self.dialog = client
-        self.dialog.bind(on_dismiss=self.dismiss_client)
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
 
         self.dialog.open()
 
     def fenetre_planning(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.dismiss_planning()
+        self.dismiss_popup()
         if self.dialog != None:
             self.fermer_ecran()
-        self.planning_manager.current = ecran
+        self.popup.current = ecran
         height = {"option_decalage": '200dp',
                   "ecran_decalage": '360dp',
                   "selection_planning": '500dp',
@@ -977,24 +941,24 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=size_tableau[ecran],
-            content_cls=self.planning_manager
+            content_cls=self.popup
         )
 
-        self.planning_manager.height = height[ecran]
-        self.planning_manager.width = width[ecran]
+        self.popup.height = height[ecran]
+        self.popup.width = width[ecran]
 
         self.dialog = planning
-        self.dialog.bind(on_dismiss=self.dismiss_planning)
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
 
         self.dialog.open()
 
     def fenetre_histo(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.historic_manager.current = ecran
+        self.popup.current = ecran
 
-        if self.historic_manager.parent:
-            self.historic_manager.parent.remove_widget(self.historic_manager)
+        if self.popup.parent:
+            self.popup.parent.remove_widget(self.popup)
             self.fermer_ecran()
 
         histo = MDDialog(
@@ -1002,10 +966,10 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.8, .65),
-            content_cls=self.historic_manager
+            content_cls=self.popup
         )
-        self.historic_manager.height ='500dp'
-        self.historic_manager.width = '1000dp'
+        self.popup.height ='500dp'
+        self.popup.width = '1000dp'
 
         self.dialog = histo
 
@@ -1014,47 +978,27 @@ class Screen(MDApp):
     def fenetre_account(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.account_manager.current = ecran
+        self.popup.current = ecran
         compte = MDDialog(
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
             size_hint=(.5, .35) if ecran != 'modif_info_compte' else (.8, .73),
-            content_cls=self.account_manager
+            content_cls=self.popup
         )
         height = '300dp' if ecran == 'suppression_compte' else '450dp' if ecran == 'modif_info_compte' else'200dp'
         width = '630dp' if ecran == 'suppression_compte' else '1000dp' if ecran == 'modif_info_compte' else '600dp'
-        self.account_manager.height = height
-        self.account_manager.width = width
+        self.popup.height = height
+        self.popup.width = width
 
         self.dialog = compte
-        self.dialog.bind(on_dismiss=self.dismiss_compte)
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
 
         self.dialog.open()
 
-    def dismiss_contrat(self, *args):
-        if self.contrat_manager.parent:
-            self.contrat_manager.parent.remove_widget(self.contrat_manager)
-
-    def dismiss_home(self, *args):
-        if self.home_manager.parent:
-            self.home_manager.parent.remove_widget(self.home_manager)
-
-    def dismiss_client(self, *args):
-        if self.client_manager.parent:
-            self.client_manager.parent.remove_widget(self.client_manager)
-
-    def dismiss_planning(self, *args):
-        if self.planning_manager.parent:
-            self.planning_manager.parent.remove_widget(self.planning_manager)
-
-    def dismiss_histo(self, *args):
-        if self.historic_manager.parent:
-            self.historic_manager.parent.remove_widget(self.historic_manager)
-
-    def dismiss_compte(self, *args):
-        if self.account_manager.parent:
-            self.account_manager.parent.remove_widget(self.account_manager)
+    def dismiss_popup(self, *args):
+        if self.popup.parent:
+            self.popup.parent.remove_widget(self.popup)
 
     def dropdown_menu(self, button, menu_items, color):
         from kivymd.uix.menu import MDDropdownMenu
@@ -1088,44 +1032,44 @@ class Screen(MDApp):
 
         if screen == 'new_contrat':
             #pour l'ecran new_contrat
-            self.contrat_manager.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
-            self.contrat_manager.get_screen('new_contrat').ids['cat_contrat'].text = 'Nouveau'
+            self.popup.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
+            self.popup.get_screen('new_contrat').ids['cat_contrat'].text = 'Nouveau'
 
             #pour l'ecran ajout_client
-            self.contrat_manager.get_screen('ajout_info_client').ids['axe_client'].text = 'Nord (N)'
+            self.popup.get_screen('ajout_info_client').ids['axe_client'].text = 'Nord (N)'
 
             #pour l'ajout du planning
-            self.contrat_manager.get_screen('ajout_planning').ids['red_trait'].text = '1 mois'
+            self.popup.get_screen('ajout_planning').ids['red_trait'].text = '1 mois'
 
             for id in new_contrat:
-                self.contrat_manager.get_screen('new_contrat').ids[id].text = ''
+                self.popup.get_screen('new_contrat').ids[id].text = ''
             for id in new_client:
-                self.contrat_manager.get_screen('ajout_info_client').ids[id].text = ''
+                self.popup.get_screen('ajout_info_client').ids[id].text = ''
             for id in planning:
-                self.contrat_manager.get_screen('ajout_planning').ids[id].text = ''
+                self.popup.get_screen('ajout_planning').ids[id].text = ''
             for id in facture:
-                self.contrat_manager.get_screen('ajout_facture').ids[id].text = ''
+                self.popup.get_screen('ajout_facture').ids[id].text = ''
 
-            self.contrat_manager.get_screen('new_contrat').ids.deratisation.active = False
-            self.contrat_manager.get_screen('new_contrat').ids.desinfection.active = False
-            self.contrat_manager.get_screen('new_contrat').ids.desinsectisation.active = False
-            self.contrat_manager.get_screen('new_contrat').ids.nettoyage.active = False
-            self.contrat_manager.get_screen('new_contrat').ids.fumigation.active = False
-            self.contrat_manager.get_screen('new_contrat').ids.ramassage.active = False
-            self.contrat_manager.get_screen('new_contrat').ids.anti_ter.active = False
+            self.popup.get_screen('new_contrat').ids.deratisation.active = False
+            self.popup.get_screen('new_contrat').ids.desinfection.active = False
+            self.popup.get_screen('new_contrat').ids.desinsectisation.active = False
+            self.popup.get_screen('new_contrat').ids.nettoyage.active = False
+            self.popup.get_screen('new_contrat').ids.fumigation.active = False
+            self.popup.get_screen('new_contrat').ids.ramassage.active = False
+            self.popup.get_screen('new_contrat').ids.anti_ter.active = False
 
         if screen == 'signup':
             for id in sign_up:
                 self.root.get_screen('signup').ids[id].text = ''
         if screen == 'signalement':
             for id in signalement:
-                self.planning_manager.get_screen('ecran_decalage').ids[id].text = ''
+                self.popup.get_screen('ecran_decalage').ids[id].text = ''
         if screen == 'login':
             for id in login:
                 self.root.get_screen('login').ids[id].text = ''
         if screen == 'modif_info_compte':
             for id in modif_compte:
-                self.account_manager.get_screen('modif_info_compte').ids[id].text = ''
+                self.popup.get_screen('modif_info_compte').ids[id].text = ''
 
     def enregistrer_client(self,nom, prenom, email, telephone, adresse, date_ajout, categorie_client, axe , nif, stat):
         if not nom or not prenom or not email or not telephone or not adresse or not date_ajout or not axe:
@@ -1133,19 +1077,19 @@ class Screen(MDApp):
         if categorie_client == 'Société' and (not nif or not stat):
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
         else:
-            self.contrat_manager.get_screen('save_info_client').ids.titre.text = f'Enregistrement des informations sur {nom.capitalize()}'
-            self.dismiss_contrat()
+            self.popup.get_screen('save_info_client').ids.titre.text = f'Enregistrement des informations sur {nom.capitalize()}'
+            self.dismiss_popup()
             self.fermer_ecran()
             self.fenetre_contrat('', 'save_info_client')
 
     def enregistrer_contrat(self, date_contrat, date_debut, date_fin, duree_contrat, categorie_contrat):
-        dératisation = self.contrat_manager.get_screen('new_contrat').ids.deratisation.active
-        désinfection = self.contrat_manager.get_screen('new_contrat').ids.desinfection.active
-        désinsectisation = self.contrat_manager.get_screen('new_contrat').ids.desinsectisation.active
-        nettoyage = self.contrat_manager.get_screen('new_contrat').ids.nettoyage.active
-        fumigation = self.contrat_manager.get_screen('new_contrat').ids.fumigation.active
-        ramassage = self.contrat_manager.get_screen('new_contrat').ids.ramassage.active
-        anti_termite = self.contrat_manager.get_screen('new_contrat').ids.anti_ter.active
+        dératisation = self.popup.get_screen('new_contrat').ids.deratisation.active
+        désinfection = self.popup.get_screen('new_contrat').ids.desinfection.active
+        désinsectisation = self.popup.get_screen('new_contrat').ids.desinsectisation.active
+        nettoyage = self.popup.get_screen('new_contrat').ids.nettoyage.active
+        fumigation = self.popup.get_screen('new_contrat').ids.fumigation.active
+        ramassage = self.popup.get_screen('new_contrat').ids.ramassage.active
+        anti_termite = self.popup.get_screen('new_contrat').ids.anti_ter.active
 
         if not dératisation and not désinfection and not désinsectisation and not nettoyage and not fumigation and not ramassage and not anti_termite:
             self.show_dialog("Erreur", "Veuillez choisir au moins un traitement")
@@ -1155,14 +1099,14 @@ class Screen(MDApp):
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
             return
         else:
-            self.dismiss_contrat()
+            self.dismiss_popup()
             self.fermer_ecran()
-            self.contrat_manager.get_screen('ajout_info_client').ids.ajout_client.text = date_contrat
-            self.contrat_manager.get_screen('ajout_info_client').ids.date_contrat_client.text = date_contrat
+            self.popup.get_screen('ajout_info_client').ids.ajout_client.text = date_contrat
+            self.popup.get_screen('ajout_info_client').ids.date_contrat_client.text = date_contrat
 
-            self.contrat_manager.get_screen('save_info_client').ids.date_contrat.text = f'Date du contrat : {date_contrat}'
-            self.contrat_manager.get_screen('save_info_client').ids.debut_contrat.text = f'Début du contrat : {date_debut}'
-            self.contrat_manager.get_screen('save_info_client').ids.fin_contrat.text = 'Fin du contrat : Indéterminée'  if date_fin == '' else f'Fin du contrat : {date_fin}'
+            self.popup.get_screen('save_info_client').ids.date_contrat.text = f'Date du contrat : {date_contrat}'
+            self.popup.get_screen('save_info_client').ids.debut_contrat.text = f'Début du contrat : {date_debut}'
+            self.popup.get_screen('save_info_client').ids.fin_contrat.text = 'Fin du contrat : Indéterminée'  if date_fin == '' else f'Fin du contrat : {date_fin}'
 
             self.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
 
@@ -1179,13 +1123,13 @@ class Screen(MDApp):
             self.show_dialog('Erreur', 'Une erreur est survenue lors du chargement des clients.')
 
     def signaler(self):
-        motif = self.planning_manager.get_screen('ecran_decalage').ids.motif.text
-        date_decalage = self.planning_manager.get_screen('ecran_decalage').ids.date_decalage.text
-        decaler = self.planning_manager.get_screen('ecran_decalage').ids.changer
-        garder = self.planning_manager.get_screen('ecran_decalage').ids.garder
+        motif = self.popup.get_screen('ecran_decalage').ids.motif.text
+        date_decalage = self.popup.get_screen('ecran_decalage').ids.date_decalage.text
+        decaler = self.popup.get_screen('ecran_decalage').ids.changer
+        garder = self.popup.get_screen('ecran_decalage').ids.garder
 
         self.fermer_ecran()
-        self.dismiss_planning()
+        self.dismiss_popup()
         async def enregistrer_signalment():
             from dateutil.relativedelta import relativedelta
 
@@ -1207,10 +1151,10 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(enregistrer_signalment(), self.loop)
 
     def option_decalage(self, titre):
-        self.planning_manager.get_screen('ecran_decalage').ids.titre.text= f'Signalement d\'un {titre} pour {self.planning_detail[0]}'
+        self.popup.get_screen('ecran_decalage').ids.titre.text= f'Signalement d\'un {titre} pour {self.planning_detail[0]}'
         label = "l'avancement" if titre == 'avancement' else 'le décalage'
-        self.planning_manager.get_screen('ecran_decalage').ids.date_prevu.text = self.reverse_date(self.planning_detail[9])
-        self.planning_manager.get_screen('ecran_decalage').ids.label_decalage.text = f'Date pour {label}'
+        self.popup.get_screen('ecran_decalage').ids.date_prevu.text = self.reverse_date(self.planning_detail[9])
+        self.popup.get_screen('ecran_decalage').ids.label_decalage.text = f'Date pour {label}'
         self.option = titre
         self.fenetre_planning('', 'ecran_decalage')
 
@@ -1310,21 +1254,18 @@ class Screen(MDApp):
         if manager == 'Sidebar':
             gestion = self.root.get_screen('Sidebar').ids['gestion_ecran']
         else:
-            gestion = manager
+            gestion = self.popup
 
         gestion.get_screen(ecran).ids.spinner.active = show
         gestion.get_screen(ecran).ids.spinner.opacity = 1 if show else 0
 
     def traitement_par_client(self, source):
         self.fermer_ecran()
-        self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {self.current_client[1]}'
-        place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
+        self.popup.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {self.current_client[1]}'
+        place = self.popup.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
 
-        if source == 'home':
-            self.dismiss_home()
-        if source == 'client':
-            self.dismiss_client()
+        self.dismiss_popup()
 
         Clock.schedule_once(lambda dt: self.switch_to_contrat(),0)
         Clock.schedule_once(lambda dt: self.fenetre_contrat('', 'all_treatment'), 0.5)
@@ -1332,11 +1273,11 @@ class Screen(MDApp):
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, self.current_client[0]), self.loop)
 
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.contrat_manager, 'all_treatment'), 0)
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'all_treatment'), 0)
         Clock.schedule_once(lambda dt: maj_ecran(), 0.8)
 
     def voir_planning_par_traitement(self):
-        self.dismiss_contrat()
+        self.dismiss_popup()
         self.fermer_ecran()
         btn_planning = self.root.get_screen('Sidebar').ids.planning
         self.choose_screen(btn_planning)
@@ -1346,10 +1287,7 @@ class Screen(MDApp):
 
     def voir_info_client(self,source, option):
         self.fermer_ecran()
-        if source == 'home':
-            self.dismiss_home()
-        if source == 'contrat':
-            self.dismiss_contrat()
+        self.dismiss_popup()
 
         Clock.schedule_once(lambda dt: self.modification_client(self.current_client[1], option), 0.5)
         Clock.schedule_once(lambda dt: self.switch_to_client(),0)
@@ -1463,56 +1401,56 @@ class Screen(MDApp):
     def retour_new(self,text,  champ, screen):
         categ_client = ['Organisation', 'Société', 'Particulier']
         if text == 'Indéterminée':
-            self.contrat_manager.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": 0, "center_y": -10}
-            self.contrat_manager.get_screen(screen).ids.label_fin.text = ''
-            self.contrat_manager.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": 0, "center_y": -10}
+            self.popup.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": 0, "center_y": -10}
+            self.popup.get_screen(screen).ids.label_fin.text = ''
+            self.popup.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": 0, "center_y": -10}
 
             #Ecran ajout planning
-            self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.pos_hint = {"center_x": 0, "center_y": -10}
-            self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.text = 'Indéterminée'
-            self.contrat_manager.get_screen('ajout_planning').ids.label_fin_planning.text = ''
+            self.popup.get_screen('ajout_planning').ids.mois_fin.pos_hint = {"center_x": 0, "center_y": -10}
+            self.popup.get_screen('ajout_planning').ids.mois_fin.text = 'Indéterminée'
+            self.popup.get_screen('ajout_planning').ids.label_fin_planning.text = ''
 
             #Ecran ajout facture
-            self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.pos_hint = {"center_x": 0, "center_y": -10}
-            self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = 'Indéterminée'
-            self.contrat_manager.get_screen('ajout_facture').ids.label_fin_facture.text = ''
+            self.popup.get_screen('ajout_facture').ids.mois_fin.pos_hint = {"center_x": 0, "center_y": -10}
+            self.popup.get_screen('ajout_facture').ids.mois_fin.text = 'Indéterminée'
+            self.popup.get_screen('ajout_facture').ids.label_fin_facture.text = ''
 
         elif text == 'Déterminée':
-            self.contrat_manager.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": .83, "center_y": .8}
-            self.contrat_manager.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": .93, "center_y":.8}
-            self.contrat_manager.get_screen(screen).ids.label_fin.text = 'Fin du contrat'
+            self.popup.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": .83, "center_y": .8}
+            self.popup.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": .93, "center_y":.8}
+            self.popup.get_screen(screen).ids.label_fin.text = 'Fin du contrat'
 
             #Ecran ajout planning
-            self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = ''
-            self.contrat_manager.get_screen('ajout_planning').ids.mois_fin.pos_hint = {"center_x": .5, "center_y": .8}
-            self.contrat_manager.get_screen('ajout_planning').ids.label_fin_planning.text = 'Mois de fin du traitement :'
+            self.popup.get_screen('ajout_facture').ids.mois_fin.text = ''
+            self.popup.get_screen('ajout_planning').ids.mois_fin.pos_hint = {"center_x": .5, "center_y": .8}
+            self.popup.get_screen('ajout_planning').ids.label_fin_planning.text = 'Mois de fin du traitement :'
 
             #Ecran ajout facture
-            self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.text = ''
-            self.contrat_manager.get_screen('ajout_facture').ids.mois_fin.pos_hint = {"center_x": .5, "center_y": .8}
-            self.contrat_manager.get_screen('ajout_facture').ids.label_fin_facture.text = 'Mois de fin du traitement :'
+            self.popup.get_screen('ajout_facture').ids.mois_fin.text = ''
+            self.popup.get_screen('ajout_facture').ids.mois_fin.pos_hint = {"center_x": .5, "center_y": .8}
+            self.popup.get_screen('ajout_facture').ids.label_fin_facture.text = 'Mois de fin du traitement :'
 
         elif text in categ_client:
             if text == 'Particulier':
-                self.contrat_manager.get_screen(screen).ids.label_resp.text = 'Prénom'
+                self.popup.get_screen(screen).ids.label_resp.text = 'Prénom'
             else:
-                self.contrat_manager.get_screen(screen).ids.label_resp.text = 'Responsable'
+                self.popup.get_screen(screen).ids.label_resp.text = 'Responsable'
             if text != 'Société':
-                self.contrat_manager.get_screen(screen).ids.nif_label.text = ''
-                self.contrat_manager.get_screen(screen).ids.stat_label.text = ''
-                self.contrat_manager.get_screen(screen).ids.nif.pos_hint = {"center_x": 0, "center_y": -10}
-                self.contrat_manager.get_screen(screen).ids.stat.pos_hint = {"center_x": 0, "center_y": -10}
+                self.popup.get_screen(screen).ids.nif_label.text = ''
+                self.popup.get_screen(screen).ids.stat_label.text = ''
+                self.popup.get_screen(screen).ids.nif.pos_hint = {"center_x": 0, "center_y": -10}
+                self.popup.get_screen(screen).ids.stat.pos_hint = {"center_x": 0, "center_y": -10}
             else:
-                self.contrat_manager.get_screen(screen).ids.nif_label.text = 'Nif'
-                self.contrat_manager.get_screen(screen).ids.stat_label.text = 'Stat'
-                self.contrat_manager.get_screen(screen).ids.nif.pos_hint = {"center_x": .225, "center_y": .14}
-                self.contrat_manager.get_screen(screen).ids.stat.pos_hint = {"center_x": .73, "center_y": .14}
+                self.popup.get_screen(screen).ids.nif_label.text = 'Nif'
+                self.popup.get_screen(screen).ids.stat_label.text = 'Stat'
+                self.popup.get_screen(screen).ids.nif.pos_hint = {"center_x": .225, "center_y": .14}
+                self.popup.get_screen(screen).ids.stat.pos_hint = {"center_x": .73, "center_y": .14}
 
-        self.contrat_manager.get_screen(screen).ids[f'{champ}'].text = text
+        self.popup.get_screen(screen).ids[f'{champ}'].text = text
         self.menu.dismiss()
 
     def retour_planning(self,text,  champ):
-        self.planning_manager.get_screen('rendu_planning').ids[f'{champ}'].text = text
+        self.popup.get_screen('rendu_planning').ids[f'{champ}'].text = text
         self.menu.dismiss()
 
     def choose_screen(self, instance):
@@ -1612,11 +1550,11 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
-        if self.contrat_manager.parent:
-            self.contrat_manager.parent.remove_widget(self.contrat_manager)
+        if self.popup.parent:
+            self.popup.parent.remove_widget(self.popup)
             self.fermer_ecran()
 
-        place = self.contrat_manager.get_screen('all_treatment').ids.tableau_treat
+        place = self.popup.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
         index_global = (self.page - 1) * 8 + row_num
 
@@ -1625,13 +1563,13 @@ class Screen(MDApp):
 
         self.fenetre_contrat('', 'all_treatment')
 
-        self.contrat_manager.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_value[0]}'
+        self.popup.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_value[0]}'
         self.client_name = row_value[0]
 
         def maj_ecran():
             asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, id[row_num]), self.loop)
 
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.contrat_manager,'all_treatment'),0.5)
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'),0.5)
         Clock.schedule_once(lambda dt: maj_ecran(),0.5)
 
     async def liste_traitement_par_client(self, place, nom_client):
@@ -1703,7 +1641,7 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
-        self.dismiss_contrat()
+        self.dismiss_popup()
         self.fermer_ecran()
         self.fenetre_contrat('', 'option_contrat')
 
@@ -1726,18 +1664,18 @@ class Screen(MDApp):
                 else :
                     fin = self.current_client[8]
 
-                self.contrat_manager.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
-                self.contrat_manager.get_screen(
+                self.popup.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
+                self.popup.get_screen(
                     'option_contrat').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
-                self.contrat_manager.get_screen(
+                self.popup.get_screen(
                     'option_contrat').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
-                self.contrat_manager.get_screen(
+                self.popup.get_screen(
                     'option_contrat').ids.fin_contrat.text = f'Fin du contrat : {fin}'
-                self.contrat_manager.get_screen(
+                self.popup.get_screen(
                     'option_contrat').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
-                self.contrat_manager.get_screen(
+                self.popup.get_screen(
                     'option_contrat').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
-                self.contrat_manager.get_screen(
+                self.popup.get_screen(
                     'option_contrat').ids.axe.text = f'Axe du client: {self.current_client[11]}'
 
             except Exception as e:
@@ -1782,7 +1720,7 @@ class Screen(MDApp):
 
     def historique_par_client(self, source):
         self.fermer_ecran()
-        self.dismiss_client()
+        self.dismiss_popup()
 
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'historique'
 
@@ -1843,12 +1781,12 @@ class Screen(MDApp):
             else :
                 fin = self.current_client[8]
 
-            self.client_manager.get_screen('option_client').ids.titre.text = f'A propos de {nom}'
-            self.client_manager.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
-            self.client_manager.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
-            self.client_manager.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {fin}'
-            self.client_manager.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[4]}'
-            self.client_manager.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
+            self.popup.get_screen('option_client').ids.titre.text = f'A propos de {nom}'
+            self.popup.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
+            self.popup.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
+            self.popup.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {fin}'
+            self.popup.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[4]}'
+            self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
 
         Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'))
         Clock.schedule_once(lambda x: maj_ecran())
@@ -2018,7 +1956,7 @@ class Screen(MDApp):
 
     async def planning_par_traitement(self, traitement, client, id_traitement):
         titre = traitement.partition('(')[0].strip()
-        screen = self.planning_manager.get_screen('selection_planning')
+        screen = self.popup.get_screen('selection_planning')
         screen.ids.titre.text = f'Planning de {titre} pour {client}'
 
         place = screen.ids.tableau_select_planning
@@ -2029,7 +1967,7 @@ class Screen(MDApp):
                 result = await self.database.get_details(id_traitement)
                 if result:
                     threading.Thread(target=self.tableau_selection_planning(place, result, id_traitement)).start()
-                    Clock.schedule_once(lambda dt :self.loading_spinner(self.planning_manager, 'selection_planning', show=True))
+                    Clock.schedule_once(lambda dt :self.loading_spinner(self.popup, 'selection_planning', show=True))
             except Exception as e:
                 print('misy erreur :', e)
 
@@ -2049,7 +1987,7 @@ class Screen(MDApp):
 
         print(row_value)
 
-        self.dismiss_planning()
+        self.dismiss_popup()
         self.fermer_ecran()
 
         async def get():
@@ -2059,8 +1997,8 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(get(), self.loop)
 
         if row.index % 3 == 0:
-            self.home_manager.get_screen('modif_date').ids.date_prevu.text = row_value[0]
-            self.modifier_date(source='planning')
+            self.popup.get_screen('modif_date').ids.date_prevu.text = row_value[0]
+            self.modifier_date()
         else:
             Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'))
             Clock.schedule_once(lambda dt: maj_ui())
@@ -2069,26 +2007,26 @@ class Screen(MDApp):
             try:
                 print('Maj ui', self.planning_detail)
                 titre = self.planning_detail[1].split(' ')
-                self.planning_manager.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
-                self.planning_manager.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
-                self.planning_manager.get_screen('option_decalage').ids.client.text = f'Client: {self.planning_detail[0]}'
+                self.popup.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+                self.popup.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+                self.popup.get_screen('option_decalage').ids.client.text = f'Client: {self.planning_detail[0]}'
 
-                self.planning_manager.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
+                self.popup.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
 
-                self.planning_manager.get_screen('selection_element_tableau').ids['mois'].text = f'Date du traitement : {row_value[0]}'
-                self.planning_manager.get_screen('ajout_remarque').ids['date'].text = f'Date du traitement : {row_value[0]}'
+                self.popup.get_screen('selection_element_tableau').ids['mois'].text = f'Date du traitement : {row_value[0]}'
+                self.popup.get_screen('ajout_remarque').ids['date'].text = f'Date du traitement : {row_value[0]}'
 
-                self.planning_manager.get_screen('selection_element_tableau').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
-                self.planning_manager.get_screen('ajout_remarque').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
+                self.popup.get_screen('selection_element_tableau').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
+                self.popup.get_screen('ajout_remarque').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
 
-                self.planning_manager.get_screen('ajout_remarque').ids['duree'].text = f'Durée total du traitement : {self.planning_detail[2]}'
+                self.popup.get_screen('ajout_remarque').ids['duree'].text = f'Durée total du traitement : {self.planning_detail[2]}'
 
             except Exception as e:
                 print( 'affichage detail ',e)
 
     def create_remarque(self):
-        contenu = self.planning_manager.get_screen('ajout_remarque').ids.remarque.text
-        paye = bool(self.planning_manager.get_screen('ajout_remarque').ids.paye_facture.active)
+        contenu = self.popup.get_screen('ajout_remarque').ids.remarque.text
+        paye = bool(self.popup.get_screen('ajout_remarque').ids.paye_facture.active)
 
         if contenu:
             async def remarque(etat_paye):
@@ -2104,14 +2042,14 @@ class Screen(MDApp):
                     Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
 
                     Clock.schedule_once(lambda dt: self.fermer_ecran())
-                    Clock.schedule_once(lambda dt: self.dismiss_planning())
+                    Clock.schedule_once(lambda dt: self.dismiss_popup())
 
 
                 except Exception as e:
                     print('remarque tsy db',e)
 
             asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
-            self.planning_manager.get_screen('ajout_remarque').ids.remarque.text = ''
+            self.popup.get_screen('ajout_remarque').ids.remarque.text = ''
             paye = False
 
         else:
@@ -2184,13 +2122,13 @@ class Screen(MDApp):
         if row_value[0] == 'Aucun':
             return
 
-        place = self.historic_manager.get_screen('histo_remarque').ids.tableau_rem_histo
+        place = self.popup.get_screen('histo_remarque').ids.tableau_rem_histo
         place.clear_widgets()
         self.fenetre_histo('', 'histo_remarque')
         def get_data():
             asyncio.run_coroutine_threadsafe(self.historique_remarque(place, planning_id[row_num]), self.loop)
 
-        Clock.schedule_once(lambda c: self.loading_spinner(self.historic_manager, 'histo_remarque'), 0.5)
+        Clock.schedule_once(lambda c: self.loading_spinner(self.popup, 'histo_remarque'), 0.5)
         Clock.schedule_once(lambda c: get_data(), 0.5)
 
     async def historique_remarque(self, place, planning_id):
@@ -2291,10 +2229,10 @@ class Screen(MDApp):
         place.add_widget(self.account)
 
     def maj_compte(self, compte):
-        self.account_manager.get_screen('compte_abt').ids['titre'].text = f'A propos de {compte[4]}'
-        self.account_manager.get_screen('compte_abt').ids['nom'].text = f'Nom : {compte[1]}'
-        self.account_manager.get_screen('compte_abt').ids['prenom'].text = f'Prénom : {compte[2]}'
-        self.account_manager.get_screen('compte_abt').ids['email'].text = f'Email : {compte[3]}'
+        self.popup.get_screen('compte_abt').ids['titre'].text = f'A propos de {compte[4]}'
+        self.popup.get_screen('compte_abt').ids['nom'].text = f'Nom : {compte[1]}'
+        self.popup.get_screen('compte_abt').ids['prenom'].text = f'Prénom : {compte[2]}'
+        self.popup.get_screen('compte_abt').ids['email'].text = f'Email : {compte[3]}'
 
     def row_pressed_compte(self, table, row):
         row_num = int(row.index / len(table.column_data))
@@ -2302,7 +2240,7 @@ class Screen(MDApp):
 
         async def about():
             self.not_admin = await self.database.get_user(row_data[0])
-            Clock.schedule_once(lambda dt: self.dismiss_compte())
+            Clock.schedule_once(lambda dt: self.dismiss_popup())
             Clock.schedule_once(lambda dt: self.maj_compte(self.not_admin))
             Clock.schedule_once(lambda dt: self.fenetre_account('', 'compte_abt'))
 
@@ -2310,28 +2248,28 @@ class Screen(MDApp):
 
     def suppression_compte(self, username):
         nom = username.split(' ')
-        self.account_manager.get_screen('suppression_compte').ids['titre'].text = f'Suppression du compte de {nom[3]}'
-        self.dismiss_compte()
+        self.popup.get_screen('suppression_compte').ids['titre'].text = f'Suppression du compte de {nom[3]}'
+        self.dismiss_popup()
         self.fermer_ecran()
         self.fenetre_account('', 'suppression_compte')
 
     def modification_compte(self):
-        self.dismiss_compte()
+        self.dismiss_popup()
 
         titre = "Modification des informations de l'administrateur"  if self.compte[6] == 'Administrateur' else f"Modification des informations de {self.compte[4]}"
-        self.account_manager.get_screen('modif_info_compte').ids.nom.text = self.compte[1]
-        self.account_manager.get_screen('modif_info_compte').ids.prenom.text = self.compte[2]
-        self.account_manager.get_screen('modif_info_compte').ids.email.text = self.compte[3]
-        self.account_manager.get_screen('modif_info_compte').ids.username.text = self.compte[4]
-        self.account_manager.get_screen('modif_info_compte').ids.titre_info.text = titre
+        self.popup.get_screen('modif_info_compte').ids.nom.text = self.compte[1]
+        self.popup.get_screen('modif_info_compte').ids.prenom.text = self.compte[2]
+        self.popup.get_screen('modif_info_compte').ids.email.text = self.compte[3]
+        self.popup.get_screen('modif_info_compte').ids.username.text = self.compte[4]
+        self.popup.get_screen('modif_info_compte').ids.titre_info.text = titre
         self.fenetre_account('', 'modif_info_compte')
 
     def modification_client(self ,nom,option ):
-        self.dismiss_client()
+        self.dismiss_popup()
         self.fermer_ecran()
 
-        btn_enregistrer = self.client_manager.get_screen('modif_client').ids.enregistrer
-        btn_annuler = self.client_manager.get_screen('modif_client').ids.annuler
+        btn_enregistrer = self.popup.get_screen('modif_client').ids.enregistrer
+        btn_annuler = self.popup.get_screen('modif_client').ids.annuler
 
         if option == 'voir':
             btn_annuler.text = 'Fermer'
@@ -2341,20 +2279,20 @@ class Screen(MDApp):
             btn_enregistrer.opacity = 1
 
         if self.current_client[3] == 'Particulier':
-            self.client_manager.get_screen('modif_client').ids.label_resp.text = 'Prenom'
+            self.popup.get_screen('modif_client').ids.label_resp.text = 'Prenom'
             nom = self.current_client[1] + ' ' + self.current_client[2]
         else:
-            self.client_manager.get_screen('modif_client').ids.label_resp.text = 'Responsable'
+            self.popup.get_screen('modif_client').ids.label_resp.text = 'Responsable'
             nom = self.current_client[1]
 
-        self.client_manager.get_screen('modif_client').ids.date_contrat_client.text = self.reverse_date(self.current_client[4])
-        self.client_manager.get_screen('modif_client').ids.cat_client.text = self.current_client[3]
-        self.client_manager.get_screen('modif_client').ids.nom_client.text = self.current_client[1]
-        self.client_manager.get_screen('modif_client').ids.email_client.text = self.current_client[9]
-        self.client_manager.get_screen('modif_client').ids.adresse_client.text = self.current_client[10]
-        self.client_manager.get_screen('modif_client').ids.axe_client.text = self.current_client[11]
-        self.client_manager.get_screen('modif_client').ids.resp_client.text = self.current_client[2]
-        self.client_manager.get_screen('modif_client').ids.telephone.text = self.current_client[12]
+        self.popup.get_screen('modif_client').ids.date_contrat_client.text = self.reverse_date(self.current_client[4])
+        self.popup.get_screen('modif_client').ids.cat_client.text = self.current_client[3]
+        self.popup.get_screen('modif_client').ids.nom_client.text = self.current_client[1]
+        self.popup.get_screen('modif_client').ids.email_client.text = self.current_client[9]
+        self.popup.get_screen('modif_client').ids.adresse_client.text = self.current_client[10]
+        self.popup.get_screen('modif_client').ids.axe_client.text = self.current_client[11]
+        self.popup.get_screen('modif_client').ids.resp_client.text = self.current_client[2]
+        self.popup.get_screen('modif_client').ids.telephone.text = self.current_client[12]
         self.fenetre_client(f'Modifications des informartion sur {nom}', 'modif_client')
 
     def enregistrer_modif_client(self,btn, nom, prenom, email, telephone, adresse, categorie, axe):
@@ -2362,7 +2300,7 @@ class Screen(MDApp):
             async def save():
                 try:
                     Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
-                    Clock.schedule_once(lambda x: self.dismiss_client())
+                    Clock.schedule_once(lambda x: self.dismiss_popup())
                     Clock.schedule_once(lambda x: self.fermer_ecran())
                     await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, categorie, axe)
                     Clock.schedule_once(lambda c: self.remove_tables('contrat'))
@@ -2375,12 +2313,12 @@ class Screen(MDApp):
     def suppression_contrat(self):
 
         fin = self.reverse_date(self.current_client[8]) if self.current_client[8] != 'Indéterminée' else 'Indéterminée'
-        self.contrat_manager.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {self.current_client[1]}'
-        self.contrat_manager.get_screen('suppression_contrat').ids.date_contrat.text = f'Date du contrat: {self.reverse_date(self.current_client[4])}'
-        self.contrat_manager.get_screen('suppression_contrat').ids.debut_contrat.text = f'Début du contrat: {self.reverse_date(self.current_client[7])}'
-        self.contrat_manager.get_screen('suppression_contrat').ids.fin_contrat.text = f'Fin du contrat: {fin}'
+        self.popup.get_screen('suppression_contrat').ids.titre.text = f'Suppression du contrat de {self.current_client[1]}'
+        self.popup.get_screen('suppression_contrat').ids.date_contrat.text = f'Date du contrat: {self.reverse_date(self.current_client[4])}'
+        self.popup.get_screen('suppression_contrat').ids.debut_contrat.text = f'Début du contrat: {self.reverse_date(self.current_client[7])}'
+        self.popup.get_screen('suppression_contrat').ids.fin_contrat.text = f'Fin du contrat: {fin}'
 
-        self.dismiss_contrat()
+        self.dismiss_popup()
         self.fermer_ecran()
         self.fenetre_contrat('', 'suppression_contrat')
 
