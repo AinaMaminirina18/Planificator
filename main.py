@@ -743,7 +743,7 @@ class Screen(MDApp):
     def fenetre_contrat(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.popup.current = None
+        self.popup.current = 'vide'
         self.popup.current = ecran
         contrat = MDDialog(
             md_bg_color='#56B5FB',
@@ -865,7 +865,7 @@ class Screen(MDApp):
     def fenetre_acceuil(self, titre, ecran, client, date,type_traitement, durée, debut_contrat, fin_prévu):
         from kivymd.uix.dialog import MDDialog
 
-        self.popup.current = None
+        self.popup.current = 'vide'
         self.popup.current = ecran
         acceuil = MDDialog(
             md_bg_color='#56B5FB',
@@ -894,7 +894,7 @@ class Screen(MDApp):
     def fenetre_client(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.popup.current = None
+        self.popup.current = 'vide'
         self.popup.current = ecran
         client = MDDialog(
             md_bg_color='#56B5FB',
@@ -914,7 +914,7 @@ class Screen(MDApp):
     def fenetre_planning(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.popup.current = None
+        self.popup.current = 'vide'
         self.dismiss_popup()
         if self.dialog != None:
             self.fermer_ecran()

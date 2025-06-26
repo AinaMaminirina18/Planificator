@@ -16,6 +16,12 @@ def gestion_ecran(root):
     root.get_screen('Sidebar').ids['gestion_ecran'].transition = SlideTransition(direction='up')
 
 def popup(manager):
+    vide = """
+MDScreen:
+    name: 'vide'
+    pos_hint: {'center_x':.5, 'center_y':.5}
+    """
+    manager.add_widget(Builder.load_string(vide))
     manager.add_widget(Builder.load_file('screen/modif_date.kv'))
     manager.add_widget(Builder.load_file('screen/Facture.kv'))
     manager.add_widget(Builder.load_file(f'screen/client/option_client.kv'))
@@ -39,3 +45,4 @@ def popup(manager):
     manager.add_widget(Builder.load_file(f'screen/planning/selection_planning.kv'))
     manager.add_widget(Builder.load_file(f'screen/planning/selection_tableau.kv'))
     manager.add_widget(Builder.load_file(f'screen/planning/ajout_remarque.kv'))
+    manager.transition = SlideTransition(direction='left')
