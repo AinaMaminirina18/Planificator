@@ -8,6 +8,8 @@ MDScreen:
             icon: 'arrow-left'
             pos_hint:{"center_x":.02, "center_y":.97}
             on_release:
+                app.dismiss_popup()
+                app.fermer_ecran()
 
         MDLabel:
             id: titre
@@ -76,7 +78,7 @@ MDScreen:
             pos_hint: {'center_x': .3, 'center_y': .1}
             on_release:
                 app.fermer_ecran()
-                app.dismiss_planning()
+                app.dismiss_popup()
 
         MDRectangleFlatButton
             text: 'Enregistrer'
