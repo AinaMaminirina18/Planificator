@@ -44,6 +44,7 @@ class Screen(MDApp):
     description = 'Logiciel de suivi et gestion de contrat'
     CLM = 'Assets/CLM.JPG'
     CL = 'Assets/CL.JPG'
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -57,6 +58,8 @@ class Screen(MDApp):
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
         asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
+        self.calendar = None
+
 
     def on_start(self):
         gestion_ecran(self.root)
@@ -83,9 +86,10 @@ class Screen(MDApp):
             elevation=0,
             background_color_header='#56B5FB',
             column_data=[
-                ("Date", dp(30)),
+                ("Date", dp(20)),
                 ("Nom", dp(30)),
-                ("État", dp(25)),
+                ("État", dp(20)),
+                ('Axe', dp(24)),
             ]
         )
 
@@ -95,9 +99,10 @@ class Screen(MDApp):
             elevation=0,
             background_color_header='#56B5FB',
             column_data=[
-                ("Date", dp(30)),
+                ("Date", dp(20)),
                 ("Nom", dp(30)),
-                ("État", dp(25)),
+                ("État", dp(20)),
+                ('Axe', dp(24)),
             ]
         )
 
@@ -113,7 +118,7 @@ class Screen(MDApp):
                     ("Client concerné", dp(60)),
                     ("Date du contrat", dp(35)),
                     ("Type de traitement", dp(40)),
-                    ("Durée", dp(40)),
+                    ("Redondance", dp(40)),
                 ],
             )
 
@@ -143,24 +148,11 @@ class Screen(MDApp):
                 ("Client", dp(50)),
                 ("Type de traitement", dp(50)),
                 ("Durée du contrat", dp(30)),
+                ("Redondance", dp(30)),
                 ("Option", dp(45)),
             ]
         )
-        self.liste_planning = MDDataTable(
-            pos_hint={'center_x': .5, "center_y": .5},
-            size_hint=(1, 1),
-            background_color_header='#56B5FB',
-            background_color='#56B5FB',
-            rows_num=8,
-            use_pagination=True,
-            elevation=0,
-            column_data=[
-                ("Client", dp(50)),
-                ("Type de traitement", dp(50)),
-                ("Durée du contrat", dp(30)),
-                ("Option", dp(45)),
-            ]
-        )
+
         self.liste_client = MDDataTable(
             pos_hint={'center_x': 0.5, "center_y": 0.53},
             size_hint=(1, 1),
@@ -341,6 +333,7 @@ class Screen(MDApp):
         def maj():
             self.popup.get_screen('ajout_facture').ids.axe_client.text = axe
             self.popup.get_screen('ajout_planning').ids.axe_client.text = axe
+            self.contrat_manager.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
 
         async def create():
             self.id_traitement = []
@@ -721,21 +714,23 @@ class Screen(MDApp):
     def calendrier(self, ecran, champ):
         from kivymd.uix.pickers import MDDatePicker
 
-        if ecran == 'ecran_decalage' or ecran == 'modif_date':
-            calendrier = MDDatePicker(year = self.planning_detail[9].year,
-                                      month = self.planning_detail[9].month,
-                                      day = self.planning_detail[9].day,
-                                      primary_color= '#A5D8FD')
-        else:
-            calendrier = MDDatePicker(primary_color= '#A5D8FD')
+        if not self.calendar:
+            if ecran == 'ecran_decalage' or ecran == 'modif_date':
+                self.calendar = MDDatePicker(year=self.planning_detail[9].year,
+                                             month=self.planning_detail[9].month,
+                                             day=self.planning_detail[9].day,
+                                             primary_color='#A5D8FD')
+            else:
+                self.calendar = MDDatePicker(primary_color='#A5D8FD')
 
-        calendrier.open()
-        calendrier.bind(on_save=partial(self.choix_date, ecran,champ))
+        self.calendar.open()
+        self.calendar.bind(on_save=partial(self.choix_date, ecran, champ))
 
     def choix_date(self, ecran, champ, instance, value, date_range):
         manager = self.popup
         manager.get_screen(ecran).ids[champ].text = ''
         manager.get_screen(ecran).ids[champ].text = str(self.reverse_date(value))
+        self.calendar = None
 
     def fermer_ecran(self):
         self.dialog.dismiss()
@@ -750,7 +745,8 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.8, .85) if ecran == 'ajout_info_client' else (.8,.4) if ecran == 'save_info_client' else (.8, .65) ,
-            content_cls= self.popup
+            content_cls= self.popup,
+            auto_dismiss=False
         )
         hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '300dp' if ecran == 'save_info_client' else '400dp'
         self.popup.height = hauteur
@@ -771,7 +767,8 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             type='custom',
             size_hint=(.5, .5),
-            content_cls=self.popup
+            content_cls=self.popup,
+            auto_dismiss=False
         )
 
         self.popup.height = '300dp'
@@ -810,7 +807,8 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.7, .6),
-            content_cls=self.popup
+            content_cls=self.popup,
+            auto_dismiss=False
         )
         self.popup.height = '500dp'
         self.popup.width = '850dp'
@@ -872,7 +870,8 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.7, .6),
-            content_cls= self.popup
+            content_cls= self.popup,
+            auto_dismiss=False
         )
         self.popup.height = '400dp'
         self.popup.width = '850dp'
@@ -900,8 +899,9 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint= (.8, .65) if ecran == 'option_client' else (.8, .85),
-            content_cls= self.popup
+            size_hint=(.8, .65) if ecran == 'option_client' else (.8, .85),
+            content_cls=self.popup,
+            auto_dismiss=False
         )
         self.popup.height = '390dp' if ecran == 'option_client' else '550dp'
         self.popup.width = '1000dp'
@@ -945,7 +945,8 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=size_tableau[ecran],
-            content_cls=self.popup
+            content_cls=self.popup,
+            auto_dismiss=False
         )
 
         self.popup.height = height[ecran]
@@ -971,7 +972,9 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.8, .65),
-            content_cls=self.popup
+            content_cls=self.popup,
+            auto_dismiss=False
+
         )
         self.popup.height ='500dp'
         self.popup.width = '1000dp'
@@ -990,7 +993,8 @@ class Screen(MDApp):
             title=titre,
             type='custom',
             size_hint=(.5, .35) if ecran != 'modif_info_compte' else (.8, .73),
-            content_cls=self.popup
+            content_cls=self.popup,
+            auto_dismiss=False
         )
         height = '300dp' if ecran == 'suppression_compte' else '450dp' if ecran == 'modif_info_compte' else'200dp'
         width = '630dp' if ecran == 'suppression_compte' else '1000dp' if ecran == 'modif_info_compte' else '600dp'
@@ -1353,7 +1357,7 @@ class Screen(MDApp):
         self.menu.dismiss()
 
     def dropdown_new_contrat(self,button,  champ, screen):
-        axe = ['Nord (N)', 'Sud (S)', 'Est (E)', 'Ouest (O)']
+        axe = ['Nord (N)','Centre (C)', 'Sud (S)', 'Est (E)', 'Ouest (O)']
         durée = ['Déterminée', 'Indéterminée']
         categorie = ['Nouveau ', 'Renouvellement']
         type_client = ['Société', 'Organisation', 'Particulier']
@@ -1511,10 +1515,10 @@ class Screen(MDApp):
                     client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[7] if item[7] is not None else "N/A"
-                    duree = item[3] if item[3] is not None else 0
+                    redondance = item[3] if item[3] is not None else 0
 
                     client_id.append(item[8])
-                    row_data.append((client, date, traitement, f'{duree} mois' ))
+                    row_data.append((client, date, traitement, redondance ))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
 
@@ -1824,7 +1828,7 @@ class Screen(MDApp):
                     duree = item[2] if item[2] is not None else "N/A"
                     id_planning = item[3] if item[3] is not None else 0
 
-                    row_data.append((client, traitement, duree, 'Aucun decalage'))
+                    row_data.append((client, traitement, f'{duree} mois', 'Aucun decalage'))
                     liste_id.append(id_planning)
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -2338,21 +2342,22 @@ class Screen(MDApp):
 
         # Création de data_current
         data_current = []
+        check = []
         for i in data_en_cours:
             color = self.color_map.get(i['etat'], "000000")
-            colored = f"[color={color}]{i['etat']}[/color]"
-            data_current.append((f"[color={color}]{self.reverse_date(i['date'])}[/color]", f"[color={color}]{i['traitement']}[/color]", f"[color={color}]{i['etat']}[/color]"))
+            check.append((self.reverse_date(i['date']), i['traitement'], i['etat'], i['axe']))
+            data_current.append((f"[color={color}]{self.reverse_date(i['date'])}[/color]", f"[color={color}]{i['traitement']}[/color]", f"[color={color}]{i['etat']}[/color]",  f"[color={color}]{i['axe']}[/color]"))
 
         # Pour vérifier si un traitement spécifique existe dans data_current
         for i in data_prevision:
             traitement_a_verifier = i['traitement']
 
             # Vérifiez si ce traitement existe dans data_current (dans l'indice 1 de chaque tuple)
-            traitement_existe = any(item[1] == traitement_a_verifier for item in data_current)
+            traitement_existe = any(item[1] == traitement_a_verifier for item in check)
 
             # Vous pouvez également utiliser cette vérification pour décider si ajouter à data_next
             if not traitement_existe:  # Ajouter seulement si le traitement n'existe pas déjà
-                row = (self.reverse_date(i["date"]), i["traitement"], i['etat'])
+                row = (self.reverse_date(i["date"]), i["traitement"], i['etat'], i['axe'])
                 data_next.append(row)
 
         Clock.schedule_once(lambda dt: self.home_tables(data_current, data_next, home))
