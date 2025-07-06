@@ -217,7 +217,8 @@ class DatabaseManager:
                                       tt.typeTraitement AS type_traitement,
                                       pdl.statut,
                                       pdl.date_planification,
-                                      p.planning_id
+                                      p.planning_id,
+                                      c.axe
                                    FROM
                                       Client c
                                    JOIN
@@ -239,11 +240,12 @@ class DatabaseManager:
                             (month,year)
                         )
                         rows = await curseur.fetchall()
-                        for nom, traitement, statut, date_str, idplanning in rows:
+                        for nom, traitement, statut, date_str, idplanning, axe in rows:
                             traitements.append({
                                 "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
                                 "date": date_str,
-                                'etat': statut
+                                'etat': statut,
+                                'axe': axe
                             })
                         return traitements
                     except Exception as e:
@@ -260,7 +262,8 @@ class DatabaseManager:
                                       tt.typeTraitement AS type_traitement,
                                       pdl.statut,
                                       MIN(pdl.date_planification),
-                                      p.planning_id
+                                      p.planning_id,
+                                      c.axe
                                    FROM
                                       Client c
                                    JOIN
@@ -294,11 +297,12 @@ class DatabaseManager:
                             (month,year)
                         )
                         rows = await curseur.fetchall()
-                        for nom, traitement, statut, date_str, idplanning in rows:
+                        for nom, traitement, statut, date_str, idplanning, axe in rows:
                             traitements.append({
                                 "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
                                 "date": date_str,
-                                'etat': statut
+                                'etat': statut,
+                                'axe': axe
                             })
                         return traitements
                     except Exception as e:
@@ -676,7 +680,7 @@ class DatabaseManager:
                         """SELECT DISTINCT c.nom ,
                                   co.date_contrat,
                                   tt.typeTraitement,
-                                  co.duree_contrat ,
+                                  p.redondace,
                                   co.date_debut ,
                                   co.date_fin ,
                                   c.categorie ,
@@ -690,6 +694,8 @@ class DatabaseManager:
                               Traitement t ON co.contrat_id = t.contrat_id
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                           JOIN
+                              Planning p ON t.traitement_id = p.traitement_id
                            GROUP BY
                               c.client_id
                            ORDER BY
