@@ -61,7 +61,7 @@ MDScreen:
             size_hint: .3, None
             pos_hint: {'center_x': .3, 'center_y': .2}
             on_release:
-                app.dismiss_planning()
+                app.dismiss_popup()
                 app.fermer_ecran()
                 app.fenetre_planning('', 'option_decalage')
 
@@ -75,6 +75,6 @@ MDScreen:
             size_hint: .3, None
             pos_hint: {'center_x': .7, 'center_y': .2}
             on_release:
-                app.dismiss_planning()
+                app.dismiss_popup()
                 app.fermer_ecran()
                 app.fenetre_planning('', 'ajout_remarque')
