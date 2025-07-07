@@ -6,6 +6,13 @@ MDScreen:
         pos_hint: {'center_x':.5, 'center_y': .5}
         size_hint_x : 1
 
+        MDIconButton:
+            icon: 'arrow-left'
+            pos_hint:{"center_x":.02, "center_y":.97}
+            on_release:
+                app.fermer_ecran()
+                app.dismiss_popup()
+
         MDLabel:
             id: titre
             text:''
