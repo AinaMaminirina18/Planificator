@@ -133,7 +133,7 @@ class Screen(MDApp):
             column_data=[
                 ("Date du contrat", dp(40)),
                 ("Type de traitement", dp(50)),
-                ("Durée", dp(40)),
+                ("Redondance", dp(40)),
             ],
         )
         self.liste_planning = MDDataTable(
@@ -208,7 +208,6 @@ class Screen(MDApp):
             Clock.schedule_once(lambda s: self.show_dialog('Erreur', 'Veuillez compléter tous les champs'), 0)
             return
 
-        # Appel sécurisé de la coroutine
         asyncio.run_coroutine_threadsafe(self.process_login(username, password), self.loop)
 
     async def process_login(self, username, password):
@@ -246,23 +245,19 @@ class Screen(MDApp):
         password = screen.ids.signup_password.text
         confirm_password = screen.ids.confirm_password.text
 
-        # 1. Validation des champs vides
         if not all([nom, prenom, email, username, password, confirm_password]):
             Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Veuillez compléter tous les champs"))
             return
 
-        # 2. Validation de l'email
         if not is_valid_email(email):
             Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez vérifier votre adresse email'))
             return
 
-        # 3. Validation du mot de passe
         is_password_valid, password_validation_message = vp.get_valid_password(nom, prenom, password, confirm_password)
         if not is_password_valid:
             Clock.schedule_once(lambda dt: self.show_dialog("Erreur", password_validation_message))
             return
 
-        # Le mot de passe validé (potentiellement hashé)
         validated_password = password_validation_message
         asyncio.run_coroutine_threadsafe(
             self._add_user_and_handle_feedback(nom, prenom, email, username, validated_password, type_compte),
@@ -279,22 +274,18 @@ class Screen(MDApp):
             Clock.schedule_once(lambda dt: self.clear_fields('signup'))
 
         except OperationalError as error:
-            # Gérer les erreurs spécifiques de la base de données
             if len(error.args) >= 1 and error.args[0] == 1644:
                 Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Un compte administrateur existe déjà'))
 
             else:
-                # Afficher le message d'erreur de la base de données si disponible
                 error_message = error.args[1] if len(error.args) >= 2 else str(error)
                 Clock.schedule_once(
                     lambda dt: self.show_dialog('Erreur', f"Erreur de base de données: {error_message}"))
             print(f"OperationalError: {error}")  # Pour le débogage
 
         except Exception as e:
-            # Capturer toute autre erreur inattendue
             Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Une erreur inattendue est survenue.'))
-            print(f"Erreur inattendue: {e}")  # Pour le débogage
-
+            print(f"Erreur inattendue: {e}")
     def creer_contrat(self):
         from dateutil.relativedelta import relativedelta
 
@@ -410,7 +401,7 @@ class Screen(MDApp):
         elif not self.traitement:
             self.dismiss_popup()
             self.fermer_ecran()
-            Clock.schedule_once(asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
+            Clock.schedule_once(lambda dt:asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
 
             self.clear_fields('new_contrat')
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
@@ -513,9 +504,8 @@ class Screen(MDApp):
             return await self.database.get_all_planning()
         except Exception as e:
             print('func get_all_planning', e)
-            return []  # Retourne une liste vide en cas d'erreur
+            return []
 
-        #asyncio.run_coroutine_threadsafe(all_planning(), self.loop)
 
     def update_account(self, nom, prenom, email, username, password, confirm):
         import verif_password as vp
@@ -666,8 +656,6 @@ class Screen(MDApp):
         from kivymd.uix.dialog import MDDialog
         from kivymd.uix.button import MDFlatButton
 
-
-        # Affiche une boîte de dialogue
         if not hasattr(self, 'dialogue') or self.dialogue is None or titre != 'Déconnexion':
             self.dialogue = MDDialog(
                 title=titre,
@@ -1194,13 +1182,10 @@ class Screen(MDApp):
         place = root.get_screen('planning').ids.tableau_planning
         root.current = 'planning'
 
-        # Afficher le spinner de chargement immédiatement
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'planning'), 0)
 
-        # Charger les données en arrière-plan
         future = asyncio.run_coroutine_threadsafe(self.get_all_planning(), self.loop)
 
-        # Une fois les données prêtes, injecter dans l'UI avec Clock
         def handle_result(future):
             try:
                 result = future.result()
@@ -1208,7 +1193,6 @@ class Screen(MDApp):
             except Exception as e:
                 print("Erreur de chargement planning :", e)
 
-        # Lancer le traitement une fois les données reçues
         threading.Thread(target=lambda: handle_result(future)).start()
 
     def switch_to_about(self):
@@ -1510,12 +1494,11 @@ class Screen(MDApp):
         client_id = []
         for item in contract_data:
             try:
-                # Vérifier que l'item contient au moins 4 éléments
                 if len(item) >= 4:
                     client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[7] if item[7] is not None else "N/A"
-                    redondance = item[3] if item[3] is not None else 0
+                    redondance = ', '.join(f'{val} mois' if val != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
 
                     client_id.append(item[8])
                     row_data.append((client, date, traitement, redondance ))
@@ -1529,10 +1512,9 @@ class Screen(MDApp):
             if self.liste_contrat.parent:
                 self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
-            pagination = self.liste_contrat.pagination  # instance de TablePagination
+            pagination = self.liste_contrat.pagination
 
-            # Boutons disponibles dans TablePagination (selon version) :
-            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
             self.page = 1
@@ -1605,13 +1587,12 @@ class Screen(MDApp):
         row_data = []
         for item in data:
             try:
-                # Vérifier que l'item contient au moins 4 éléments
                 if len(item) >= 3:
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[2] if item[2] is not None else "N/A"
-                    duree = item[3] if item[3] is not None else "N/A"
+                    redondance = item[7] if item[7] is not None else "N/A"
 
-                    row_data.append((date, traitement, f'{duree} jours' if item[7] == 12 else f'{duree} mois'))
+                    row_data.append((date, traitement, '1 jours' if item[7] == 12 else f'{redondance} mois'))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
@@ -1622,10 +1603,9 @@ class Screen(MDApp):
                     self.all_treat.parent.remove_widget(self.all_treat)
                 self.all_treat.row_data = row_data
 
-                pagination = self.all_treat.pagination  # instance de TablePagination
+                pagination = self.all_treat.pagination
 
-                # Boutons disponibles dans TablePagination (selon version) :
-                btn_prev = pagination.ids.button_back  # bouton "page précédente"
+                btn_prev = pagination.ids.button_back
                 btn_next = pagination.ids.button_forward
 
                 self.page = 1
@@ -1703,10 +1683,9 @@ class Screen(MDApp):
             if self.liste_client.parent:
                 self.liste_client.parent.remove_widget(self.liste_client)
 
-            pagination = self.liste_client.pagination  # instance de TablePagination
+            pagination = self.liste_client.pagination
 
-            # Boutons disponibles dans TablePagination (selon version) :
-            btn_prev = pagination.ids.button_back  # bouton "page précédente"
+            btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
             self.page = 1
@@ -1725,7 +1704,7 @@ class Screen(MDApp):
 
             self.liste_client.row_data = row_data
             self.liste_client.bind(on_row_press=self.row_pressed_client)
-            place.clear_widgets()  # Supprimer l'ancien tableau si nécessaire
+            place.clear_widgets()
             place.add_widget(self.liste_client)
 
     def historique_par_client(self, source):
@@ -1805,7 +1784,7 @@ class Screen(MDApp):
     def tableau_planning(self, place, result, dt=None):
         from kivymd.uix.label import MDLabel
         place.clear_widgets()
-        # Vérifier si result existe et contient des données
+
         if not result:
             label = MDLabel(
                 text="Aucune donnée de planning disponible",
@@ -1814,7 +1793,6 @@ class Screen(MDApp):
             place.add_widget(label)
             return
 
-        # Initialiser les listes pour les données
         row_data = []
         liste_id = []
 
@@ -1832,9 +1810,7 @@ class Screen(MDApp):
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
                 print(f"Error processing planning item: {e}")
-                # Continuer avec les autres éléments sans interrompre
 
-        # Vérifier si des données valides ont été trouvées
         if not row_data:
             label = MDLabel(
                 text="Données de planning invalides ou mal formatées",
@@ -1895,7 +1871,6 @@ class Screen(MDApp):
         row_data = []
         for mois, item in enumerate(data):
             try:
-                # Vérifier que l'item contient au moins 4 éléments
                 if len(item) >= 2:
                     date = self.reverse_date(item[0]) if item[0] is not None else "N/A"
                     etat = item[1] if item[1] is not None else "N/A"
@@ -2096,10 +2071,9 @@ class Screen(MDApp):
         if self.historique.parent:
             self.historique.parent.remove_widget(self.historique)
 
-        pagination = self.historique.pagination  # instance de TablePagination
+        pagination = self.historique.pagination
 
-        # Boutons disponibles dans TablePagination (selon version) :
-        btn_prev = pagination.ids.button_back  # bouton "page précédente"
+        btn_prev = pagination.ids.button_back
         btn_next = pagination.ids.button_forward
 
         self.page = 1
@@ -2339,7 +2313,6 @@ class Screen(MDApp):
 
         data_en_cours, data_prevision = await asyncio.gather(self.database.traitement_en_cours(now.year, now.month),self.database.traitement_prevision(now.year, now.month))
 
-        # Création de data_current
         data_current = []
         check = []
         for i in data_en_cours:
@@ -2347,20 +2320,17 @@ class Screen(MDApp):
             check.append((self.reverse_date(i['date']), i['traitement'], i['etat'], i['axe']))
             data_current.append((f"[color={color}]{self.reverse_date(i['date'])}[/color]", f"[color={color}]{i['traitement']}[/color]", f"[color={color}]{i['etat']}[/color]",  f"[color={color}]{i['axe']}[/color]"))
 
-        # Pour vérifier si un traitement spécifique existe dans data_current
         for i in data_prevision:
             traitement_a_verifier = i['traitement']
 
-            # Vérifiez si ce traitement existe dans data_current (dans l'indice 1 de chaque tuple)
             traitement_existe = any(item[1] == traitement_a_verifier for item in check)
 
-            # Vous pouvez également utiliser cette vérification pour décider si ajouter à data_next
-            if not traitement_existe:  # Ajouter seulement si le traitement n'existe pas déjà
+            if not traitement_existe:
                 row = (self.reverse_date(i["date"]), i["traitement"], i['etat'], i['axe'])
                 data_next.append(row)
 
         Clock.schedule_once(lambda dt: self.home_tables(data_current, data_next, home))
-        print('current', data_current)
+        print('current', check)
         print('next' ,data_next)
 
     def home_tables(self, current, next, home):
