@@ -329,7 +329,6 @@ class DatabaseManager:
                                   tt.typeTraitement AS type_traitement,
                                   p.redondance ,
                                   p.planning_id
-                                  
                            FROM
                               Client c
                            JOIN
@@ -680,7 +679,7 @@ class DatabaseManager:
                         """SELECT DISTINCT c.nom ,
                                   co.date_contrat,
                                   tt.typeTraitement,
-                                  p.redondace,
+                                  p.redondance,
                                   co.date_debut ,
                                   co.date_fin ,
                                   c.categorie ,
