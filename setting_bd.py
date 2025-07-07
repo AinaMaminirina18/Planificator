@@ -679,7 +679,7 @@ class DatabaseManager:
                         """SELECT DISTINCT c.nom ,
                                   co.date_contrat,
                                   tt.typeTraitement,
-                                  p.redondance,
+                                  GROUP_CONCAT(DISTINCT p.redondance),
                                   co.date_debut ,
                                   co.date_fin ,
                                   c.categorie ,
