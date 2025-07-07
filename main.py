@@ -147,7 +147,6 @@ class Screen(MDApp):
             column_data=[
                 ("Client", dp(50)),
                 ("Type de traitement", dp(50)),
-                ("Durée du contrat", dp(30)),
                 ("Redondance", dp(30)),
                 ("Option", dp(45)),
             ]
@@ -333,7 +332,7 @@ class Screen(MDApp):
         def maj():
             self.popup.get_screen('ajout_facture').ids.axe_client.text = axe
             self.popup.get_screen('ajout_planning').ids.axe_client.text = axe
-            self.contrat_manager.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
+            self.popup.get_screen('ajout_planning').ids.type_traitement.text = self.traitement[0]
 
         async def create():
             self.id_traitement = []
@@ -411,7 +410,7 @@ class Screen(MDApp):
         elif not self.traitement:
             self.dismiss_popup()
             self.fermer_ecran()
-            asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
+            Clock.schedule_once(asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
 
             self.clear_fields('new_contrat')
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
@@ -570,7 +569,7 @@ class Screen(MDApp):
     async def supprimer_client(self):
         try:
             await self.database.delete_client(self.current_client[0])
-            await self.populate_tables()
+            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 0.5)
 
         except Exception as e:
             print('suppression', e)
@@ -780,7 +779,7 @@ class Screen(MDApp):
         self.dialog.open()
 
     def changer_date(self):
-        date = self.popup.get_scren('modif_date').ids.date_decalage.text
+        date = self.popup.get_screen('modif_date').ids.date_decalage.text
 
         async def modifier(date):
             await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date))
@@ -790,7 +789,8 @@ class Screen(MDApp):
         self.fermer_ecran()
 
         if date:
-            asyncio.run_coroutine_threadsafe(modifier(date))
+            asyncio.run_coroutine_threadsafe(modifier(date), self.loop)
+            asyncio.run_coroutine_threadsafe(self.populates_tables(), self.loop)
         else:
             self.show_dialog('Erreur', 'Aucune date est choisie')
 
@@ -1818,17 +1818,15 @@ class Screen(MDApp):
         row_data = []
         liste_id = []
 
-        # Traiter les données avec vérification des indices
         for item in result:
             try:
-                # Vérifier que l'item contient au moins 4 éléments
                 if len(item) >= 4:
                     client = item[0] if item[0] is not None else "N/A"
                     traitement = item[1] if item[1] is not None else "N/A"
-                    duree = item[2] if item[2] is not None else "N/A"
+                    red = item[2] if item[2] is not None else "N/A"
                     id_planning = item[3] if item[3] is not None else 0
 
-                    row_data.append((client, traitement, f'{duree} mois', 'Aucun decalage'))
+                    row_data.append((client, traitement, f'{red} mois', 'Aucun decalage'))
                     liste_id.append(id_planning)
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -2059,6 +2057,7 @@ class Screen(MDApp):
                     print('remarque tsy db',e)
 
             asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
+            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
             self.popup.get_screen('ajout_remarque').ids.remarque.text = ''
             paye = False
 
