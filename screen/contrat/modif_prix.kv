@@ -1,0 +1,77 @@
+MDScreen:
+    name: 'modif_prix'
+    pos_hint: {'center_x': .5, 'center_y': .5}
+
+    MDFloatLayout:
+        pos_hint: {'center_x': .5, 'center_y': .5}
+
+        MDLabel:
+            id: titre
+            text: 'Changement de prix'
+            font_size: 18
+            font_name: 'poppins'
+            halign: 'center'
+            pos_hint: {'center_x':.5, 'center_y': .95}
+
+        MDLabel:
+            text: 'Prix initiale'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .58,'center_y':.75}
+
+        MDTextField:
+            id: prix_init
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.6}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .35,None
+            radius:[10]
+            readonly: True
+
+        MDLabel:
+            id: label_decalage
+            text: "Nouveau prix"
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": 1.05,'center_y':.75}
+
+        MDTextField:
+            id: new_price
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.72,"center_y":.6}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .35,None
+            radius:[10]
+
+        MDRectangleFlatButton:
+            text: 'Annuler'
+            size_hint: .35, None
+            font_name: 'poppins'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
+            text_color: 'black'
+            pos_hint: {'center_x':.29, 'center_y': .28}
+            on_press:
+                app.dismiss_popup()
+                app.fermer_ecran()
+
+        MDRectangleFlatButton:
+            text: "Enregister"
+            size_hint: .35, None
+            font_name: 'poppins'
+            md_bg_color: '#B3F844'
+            line_color: '#B3F844'
+            text_color: 'black'
+            pos_hint: {'center_x':.7, 'center_y': .28}
+            on_release:
+                app.changer_prix()
