@@ -2448,8 +2448,8 @@ class Screen(MDApp):
             else:
                 generate_facture_excel()
         if categorie == 'Traitment':
-            if traitement == 'Tous' and cleint == 'Tous':
-                generate_traitements_excel(r)
+            if traitement == 'Tous' and client == 'Tous':
+                generate_traitements_excel()
     def open_compte(self, dev):
         import webbrowser
         if dev == 'Mamy':
