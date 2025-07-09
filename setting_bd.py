@@ -1,4 +1,5 @@
 import asyncio
+import datetime
 
 import aiomysql
 
@@ -607,7 +608,8 @@ class DatabaseManager:
                                   c.adresse,
                                   c.axe,
                                   c.telephone,
-                                  p.planning_id
+                                  p.planning_id,
+                                  f.facture_id
                            FROM
                               Client c
                            JOIN
@@ -618,6 +620,10 @@ class DatabaseManager:
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            JOIN
                                Planning p ON t.traitement_id = p.traitement_id
+                           JOIN
+                               PlanningDetails pld ON p.planning_id = pld.planning_id
+                           JOIN
+                               Facture f ON pld.planning_detail_id = f.planning_detail_id
                            WHERE
                               c.nom = %s AND co.date_contrat = %s AND tt.TypeTraitement = %s; """, (client, date, traitement))
                     resultat = await cursor.fetchone()
@@ -756,12 +762,50 @@ class DatabaseManager:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                        """SELECT DISTINCT nom From Client """
+                        """SELECT DISTINCT CONCAT(nom , ' ', prenom) From Client """
                     )
                     result = await cur.fetchall()
                     return result
                 except Exception as e:
                     print('error get client ', e)
+
+    async def majMontantEtHistorique(self, facture_id: int, old_amount: float, new_amount: float,
+                                     changed_by: str = 'System'):
+        """
+        Met à jour le montant d'une facture et enregistre l'ancien/nouveau montant
+        dans la table d'historique.
+        """
+
+        print("ato")
+        async with self.pool.acquire() as conn:
+            try:
+                # Assurez-vous que les opérations sont atomiques (tout ou rien)
+                async with conn.cursor() as cursor:
+                    # 1. Mettre à jour le montant dans la table Facture
+                    update_query = "UPDATE Facture SET montant = %s WHERE facture_id = %s;"
+                    await cursor.execute(update_query, (new_amount, facture_id))
+                    print('fini')
+                    # 2. Insérer l'entrée d'historique
+                    insert_history_query = """
+                                           INSERT INTO Historique_prix
+                                           (facture_id, old_amount, new_amount, change_date, changed_by)
+                                           VALUES (%s, %s, %s, %s, %s);
+                                           """
+                    await cursor.execute(insert_history_query,
+                                         (facture_id, old_amount, new_amount, datetime.datetime.now(), changed_by))
+                    print('fini 2')
+
+                    await conn.commit()  # Valider la transaction si autocommit n'est pas activé ou pour plus de clarté
+
+                    return True
+            except Exception as e:
+                if conn:
+                    await conn.rollback()  # Annuler la transaction en cas d'erreur
+                print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
+                return False
+            finally:
+                if conn:
+                    self.pool.release(conn)
 
     async def close(self):
         """Ferme le pool de connexions."""
