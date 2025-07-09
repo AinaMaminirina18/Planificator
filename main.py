@@ -1,4 +1,5 @@
 from kivy.config import Config
+
 Config.set('graphics', 'resizable', False)
 
 from kivy.uix.screenmanager import ScreenManager
@@ -24,13 +25,8 @@ from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.dropdownitem import MDDropDownItem
 from kivymd.uix.spinner import MDSpinner
 
-from gestion_ecran_acceuil import gestion_ecran_home
-from gestion_ecran_client import gestion_ecran_client
-from gestion_ecran_compte import gestion_ecran_compte
-from gestion_ecran_contrat import gestion_ecran_contrat
 from gestion_ecran import gestion_ecran, popup
-from gestion_ecran_planning import gestion_ecran_planning
-from gestion_ecran_histo import gestion_ecran_histo
+from excel import generate_comprehensive_facture_excel, generate_facture_excel, generate_traitements_excel
 
 
 class MyDatatable(MDDataTable):
@@ -773,21 +769,95 @@ class Screen(MDApp):
             await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date))
             date = ''
 
-        self.dismiss_popup()
-        self.fermer_ecran()
 
         if date:
+            self.dismiss_popup()
+            self.fermer_ecran()
+
             asyncio.run_coroutine_threadsafe(modifier(date), self.loop)
-            asyncio.run_coroutine_threadsafe(self.populates_tables(), self.loop)
+            asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
         else:
             self.show_dialog('Erreur', 'Aucune date est choisie')
 
-    def afficher_facture(self, titre ,ecran, base):
+    def changer_prix(self):
+        old_price = self.popup.get_screen('modif_prix').ids.prix_init.text
+        new_price = self.popup.get_screen('modif_prix').ids.new_price.text
+
+        async def changer(old, new):
+            print(self.current_client)
+
+            try:
+                await self.database.majMontantEtHistorique(self.current_client[14], old, new)
+            except Exception as e:
+                print('Maj prix',e)
+            Clock.schedule_once(lambda dt: self.show_dialog('Avertissement', 'Changement réussie'), .1)
+
+        if not new_price:
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Champ vide'))
+        else:
+            Clock.schedule_once(lambda dt :self.dismiss_popup())
+            Clock.schedule_once(lambda dt :self.fermer_ecran())
+            asyncio.run_coroutine_threadsafe(changer(old_price.rstrip('Ar'), new_price.rstrip('Ar') if 'Ar' in new_price else new_price), self.loop)
+
+
+    def screen_modifier_prix(self, table, row):
+        row_num = int(row.index / len(table.column_data))
+        row_data = table.row_data[row_num]
+
+        pagination = self.facture.pagination
+
+        btn_prev = pagination.ids.button_back
+        btn_next = pagination.ids.button_forward
+
+        self.page = 1
+        index_global = (self.page - 1) * 8 + row_num
+        row_value = None
+
+        if 0 <= index_global < len(table.row_data):
+            row_value = table.row_data[index_global]
+
+        def on_press_page(direction, instance=None):
+            print(direction)
+            max_page = (len(row_data) - 1) // 5 + 1
+            if direction == 'moins' and self.page > 1:
+                self.page -= 1
+            elif direction == 'plus' and self.page < max_page:
+                self.page += 1
+            print(self.page)
+
+        btn_prev.bind(on_press=partial(on_press_page, 'moins'))
+        btn_next.bind(on_press=partial(on_press_page, 'plus'))
+
+        self.popup.get_screen('modif_prix').ids.prix_init.text = row_value[1]
+
         from kivymd.uix.dialog import MDDialog
 
         self.fermer_ecran()
-        if base == 'contrat':
-            self.dismiss_popup()
+        self.dismiss_popup()
+
+        self.popup.current = 'modif_prix'
+        acceuil = MDDialog(
+            md_bg_color='#56B5FB',
+            type='custom',
+            size_hint=(.5, .5),
+            content_cls=self.popup,
+            auto_dismiss=False
+        )
+
+        self.popup.height = '300dp'
+        self.popup.width = '600dp'
+
+        self.dialog = acceuil
+        self.dialog.bind(on_dismiss=self.dismiss_popup)
+
+        self.dialog.open()
+        self.popup.get_screen('modif_prix').ids.new_price.text = ''
+
+    def afficher_facture(self, titre ,ecran):
+        from kivymd.uix.dialog import MDDialog
+
+        self.fermer_ecran()
+        self.dismiss_popup()
 
         self.popup.current = ecran
         acceuil = MDDialog(
@@ -818,7 +888,7 @@ class Screen(MDApp):
     async def recuperer_donnée(self, place):
         try:
             facture, paye, non_paye = await self.database.get_facture(self.current_client[0], self.current_client[5])
-            Clock.schedule_once(lambda dt: self.afficher_tableau_facture(place, facture, paye, non_paye), 0)
+            Clock.schedule_once(lambda dt: self.afficher_tableau_facture(place, facture, paye, non_paye), 0.5)
 
         except Exception as e:
             print('recup don', e)
@@ -841,11 +911,13 @@ class Screen(MDApp):
                     ("Date", dp(50)),
                     ("Montant", dp(40)),
                     ("Etat", dp(30)),
-                ],
-                row_data=row_data
+                ]
             )
 
-            #self.liste_planning.bind(on_row_press=lambda instance, row:self.row_pressed_planning(liste_id, instance, row))
+            def _():
+                self.facture.row_data = row_data
+            self.facture.bind(on_row_press=lambda instance, row: self.screen_modifier_prix(instance, row))
+            Clock.schedule_once(lambda dt: _(), 0)
             place.add_widget(self.facture)
 
     def fenetre_acceuil(self, titre, ecran, client, date,type_traitement, durée, debut_contrat, fin_prévu):
@@ -910,7 +982,7 @@ class Screen(MDApp):
         height = {"option_decalage": '200dp',
                   "ecran_decalage": '360dp',
                   "selection_planning": '500dp',
-                  "rendu_planning": '350dp',
+                  "rendu_planning": '450dp',
                   "selection_element_tableau": "300dp",
                   "ajout_remarque": "350dp"}
 
@@ -1378,11 +1450,12 @@ class Screen(MDApp):
             print(f"Une erreur est survenue lors de la récupération des clients: {e}")
 
     def dropdown_rendu_excel(self,button,  champ):
-        type = ['Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage Industriel', 'Anti Termites', 'Fumigation']
-        mois = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', "Décembre"]
+        type = ['Tous', 'Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage Industriel', 'Anti Termites', 'Fumigation']
+        mois = ['Tous', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', "Décembre"]
         client = self.all_client
+        categorie = ['Facture', 'Traitement']
 
-        item_menu = type if champ == 'type_traitement_planning' else mois if champ == 'mois_planning' else client
+        item_menu = type if champ == 'type_traitement_planning' else mois if champ == 'mois_planning' else categorie if champ == 'categ_planning' else client
         menu = [
             {
                 "text": i,
@@ -1445,6 +1518,16 @@ class Screen(MDApp):
 
     def retour_planning(self,text,  champ):
         self.popup.get_screen('rendu_planning').ids[f'{champ}'].text = text
+        if text == 'Traitement':
+            self.popup.get_screen('rendu_planning').ids.label_trait.pos_hint = {"center_x": .55,'center_y':.55}
+            self.popup.get_screen('rendu_planning').ids.type_traitement_planning.pos_hint = {"center_x":.17,"center_y":.43}
+            self.popup.get_screen('rendu_planning').ids.drop_trait.pos_hint = {"center_x": .27, "center_y":.42}
+        if text == 'Facture':
+            self.popup.get_screen('rendu_planning').ids.label_trait.pos_hint = {"center_x": -1,'center_y':-1}
+            self.popup.get_screen('rendu_planning').ids.type_traitement_planning.pos_hint = {"center_x":-1,"center_y":-1}
+            self.popup.get_screen('rendu_planning').ids.drop_trait.pos_hint = {"center_x": -1, "center_y":-1}
+            self.popup.get_screen('rendu_planning').ids.type_traitement_planning.text = 'Tous'
+
         self.menu.dismiss()
 
     def choose_screen(self, instance):
@@ -1894,8 +1977,9 @@ class Screen(MDApp):
                     ("Etat du traitement", dp(40)),
                 ]
             )
+            def _():
+                self.liste_select_planning.row_data = row_data
 
-            self.liste_select_planning.row_data = row_data
             pagination = self.liste_select_planning.pagination
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
@@ -1917,6 +2001,8 @@ class Screen(MDApp):
             self.liste_select_planning.bind(
                 on_row_press=lambda instance, row: self.row_pressed_tableau_planning(traitement, instance, row))
             place.add_widget(self.liste_select_planning)
+            Clock.schedule_once(lambda dt :_(),0)
+
 
         except Exception as e:
             print(f'Error creating planning_detail table: {e}')
@@ -1925,14 +2011,15 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
+        row_value = None
         index_global = (self.page - 1) * 8 + row_num
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
 
         self.fenetre_planning('', 'selection_planning')
-
-        Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0.5)
+        print(row_value)
+        Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0)
 
     def get_and_update(self, data1, data2, data3):
         asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
@@ -2335,8 +2422,9 @@ class Screen(MDApp):
 
     def home_tables(self, current, next, home):
 
-        self.table_en_cours.row_data = current
-        self.table_prevision.row_data = next
+        def _():
+            self.table_en_cours.row_data = current
+            self.table_prevision.row_data = next
 
         if self.table_en_cours.parent and self.table_prevision.parent:
             self.table_en_cours.parent.remove_widget(self.table_en_cours)
@@ -2345,6 +2433,23 @@ class Screen(MDApp):
         home.ids.box_current.add_widget(self.table_en_cours)
         home.ids.box_next.add_widget(self.table_prevision)
 
+        Clock.schedule_once(lambda dt :_(),.2)
+
+    def generer_excel(self):
+        screen = self.popup.get_screen('rendu_planning')
+        categorie = screen.ids.categ_planning.text
+        traitement = screen.ids.type_traitement_planning.text
+        mois = screen.ids.mois_planning.text
+        client = screen.ids.client.text
+
+        if categorie == 'Facture':
+            if mois == 'Tous':
+                generate_comprehensive_facture_excel()
+            else:
+                generate_facture_excel()
+        if categorie == 'Traitment':
+            if traitement == 'Tous' and cleint == 'Tous':
+                generate_traitements_excel(r)
     def open_compte(self, dev):
         import webbrowser
         if dev == 'Mamy':
