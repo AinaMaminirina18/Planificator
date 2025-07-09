@@ -12,10 +12,38 @@ MDScreen:
             pos_hint: {'center_x': .88, 'center_y': .9}
 
         MDLabel:
-            text: 'Type de traitement'
+            text: 'Catégorie'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .55,'center_y':.72}
+            pos_hint: {"center_x": .55,'center_y':.79}
+
+        MDTextField:
+            id: categ_planning
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint: {"center_x":.17,"center_y":.67}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+            readonly: True
+            text: 'Facture'
+
+        MDIconButton:
+            icon: 'chevron-down'
+            pos_hint:{"center_x": .27, "center_y":.66}
+            on_release:
+                app.dropdown_rendu_excel(self, 'categ_planning')
+
+        MDLabel:
+            id: label_trait
+            text: 'Traitement'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": -1,'center_y':-1}
 
         MDTextField:
             id: type_traitement_planning
@@ -23,17 +51,19 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.17,"center_y":.6}
+            pos_hint:{"center_x":-1,"center_y":-1}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
             readonly: True
+            text: 'Tous'
 
         MDIconButton:
+            id: drop_trait
             icon: 'chevron-down'
-            pos_hint:{"center_x": .27, "center_y":.59}
+            pos_hint:{"center_x": -1, "center_y":-1}
             on_release:
                 app.dropdown_rendu_excel(self, 'type_traitement_planning')
 
@@ -41,7 +71,7 @@ MDScreen:
             text: 'Mois'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .88,'center_y':.72}
+            pos_hint: {"center_x": .88,'center_y':.79}
 
         MDTextField:
             id: mois_planning
@@ -49,17 +79,18 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.5,"center_y":.6}
+            pos_hint:{"center_x":.5,"center_y":.67}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
             size_hint: .25,None
             radius:[10]
             readonly: True
+            text: 'Tous'
 
         MDIconButton:
             icon: 'chevron-down'
-            pos_hint:{"center_x": .6, "center_y":.59}
+            pos_hint:{"center_x": .6, "center_y":.66}
             on_release:
                 app.dropdown_rendu_excel(self, 'mois_planning')
 
@@ -67,14 +98,16 @@ MDScreen:
             text: 'Client'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": 1.21,'center_y':.72}
+            pos_hint: {"center_x": 1.21,'center_y':.79}
 
         MDTextField:
             id: client
             mode: 'fill'
             font_name:"poppins"
-            pos_hint:{"center_x":.83,"center_y":.6}
+            pos_hint:{"center_x":.83,"center_y":.67}
             line_color_focus: '#56B5FB'
+            text_color_normal: 'black'
+            text_color_focus: 'black'
             fill_color_normal: 'white'
             line_color_normal: 'white'
             size_hint: .25,None
@@ -83,7 +116,7 @@ MDScreen:
 
         MDIconButton:
             icon: 'chevron-down'
-            pos_hint:{"center_x": .93, "center_y":.59}
+            pos_hint:{"center_x": .93, "center_y":.66}
             on_release:
                 app.dropdown_rendu_excel(self, 'client')
 
@@ -91,7 +124,7 @@ MDScreen:
             text: 'Voulez-vous génerer un rendu?'
             font_size: 16
             font_name: 'poppins'
-            pos_hint: {'center_x': .88, 'center_y': .45}
+            pos_hint: {'center_x': .88, 'center_y': .33}
 
         MDRectangleFlatButton:
             text: 'Génerer'
@@ -99,7 +132,7 @@ MDScreen:
             font_name: 'poppins'
             font_size: 15
             size_hint: .3, None
-            pos_hint: {'center_x':.7, 'center_y': .2}
+            pos_hint: {'center_x':.7, 'center_y': .17}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
@@ -113,8 +146,9 @@ MDScreen:
             font_name: 'poppins'
             font_size: 15
             size_hint: .3, None
-            pos_hint: {'center_x':.3, 'center_y': .2}
+            pos_hint: {'center_x':.3, 'center_y': .17}
             md_bg_color: '#FF3333'
             line_color: '#FF3333'
             on_release:
                 app.fermer_ecran()
+
