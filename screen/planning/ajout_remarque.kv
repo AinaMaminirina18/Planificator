@@ -60,12 +60,39 @@ MDScreen:
             hint_text: 'Votre remarque'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.5,"center_y":.4}
+            pos_hint:{"center_x":.5,"center_y":.55}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
-            size_hint: .9,.4
-            multiline: True
+            size_hint: .9,None
+            radius:[5]
+
+        MDTextField:
+            id: probleme
+            text_color_normal: 'black'
+            mode: 'fill'
+            hint_text: 'Problème'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.35}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[5]
+
+        MDTextField:
+            id: action
+            text_color_normal: 'black'
+            mode: 'fill'
+            hint_text: 'Action entreprise'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.35}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
             radius:[5]
 
         MDRectangleFlatButton
