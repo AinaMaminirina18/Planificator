@@ -6,6 +6,7 @@ from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
 def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str):
+    print('excel ato')
     safe_client_name = "".join(c for c in client_full_name if c.isalnum() or c in (' ', '-', '_')).replace(' ',
                                                                                                            '_').rstrip(
         '_')
