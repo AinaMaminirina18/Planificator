@@ -48,7 +48,8 @@ class Screen(MDApp):
         # Parametre de la base de données
         self.color_map = {
             "Effectué": '008000',
-            "À venir": 'ff0000'
+            "À venir": 'ff0000',
+            "Résilié": 'FFA500'
         }
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
@@ -363,7 +364,7 @@ class Screen(MDApp):
             result = await self.database.get_client()
             if result:
                 place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-                threading.Thread(target = partial(self.update_contract_table,place, result)).start()
+                Clock.schedule_once(lambda dt: self.update_contract_table(place, result), 0)
 
         except Exception as e:
             print(f"Erreur lors de la récupération des clients: {e}")
@@ -555,7 +556,9 @@ class Screen(MDApp):
     async def supprimer_client(self):
         try:
             await self.database.delete_client(self.current_client[0])
-            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 0.5)
+            await self.populate_tables()
+            await self.get_client()
+            await self.all_clients()
 
         except Exception as e:
             print('suppression', e)
@@ -571,7 +574,6 @@ class Screen(MDApp):
 
         Clock.schedule_once(lambda dt: dlt(),0)
         Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
-        Clock.schedule_once(lambda dt: self.remove_tables('contrat'),0)
 
 
     def delete_account(self, admin_password):
@@ -785,9 +787,8 @@ class Screen(MDApp):
 
         async def changer(old, new):
             print(self.current_client)
-
             try:
-                await self.database.majMontantEtHistorique(self.current_client[14], old, new)
+                await self.database.majMontantEtHistorique(self.current_client[14], int(old), int(new))
             except Exception as e:
                 print('Maj prix',e)
             Clock.schedule_once(lambda dt: self.show_dialog('Avertissement', 'Changement réussie'), .1)
@@ -797,7 +798,7 @@ class Screen(MDApp):
         else:
             Clock.schedule_once(lambda dt :self.dismiss_popup())
             Clock.schedule_once(lambda dt :self.fermer_ecran())
-            asyncio.run_coroutine_threadsafe(changer(old_price.rstrip('Ar'), new_price.rstrip('Ar') if 'Ar' in new_price else new_price), self.loop)
+            asyncio.run_coroutine_threadsafe(changer(old_price.rstrip('Ar').replace(' ',''), new_price.rstrip('Ar').replace(' ', '') if 'Ar' in new_price else new_price.replace(' ', '')), self.loop)
 
 
     def screen_modifier_prix(self, table, row):
@@ -1020,7 +1021,7 @@ class Screen(MDApp):
     def fenetre_histo(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
-        self.popup.current = None
+        self.popup.current = 'vide'
         self.popup.current = ecran
 
         if self.popup.parent:
@@ -1180,7 +1181,9 @@ class Screen(MDApp):
 
             self.fenetre_contrat('Ajout des informations sur le clients', 'ajout_info_client')
 
-    async def all_clients(self, place):
+    async def all_clients(self):
+        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
+
         try:
             client_data = await self.database.get_all_client()
             if client_data:
@@ -1293,7 +1296,7 @@ class Screen(MDApp):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
         #place.clear_widgets()
         def chargement_client():
-            asyncio.run_coroutine_threadsafe(self.all_clients(place), self.loop)
+            asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar','client'), 0)
         Clock.schedule_once(lambda dt: chargement_client(), 0.5)
@@ -1450,12 +1453,11 @@ class Screen(MDApp):
             print(f"Une erreur est survenue lors de la récupération des clients: {e}")
 
     def dropdown_rendu_excel(self,button,  champ):
-        type = ['Tous', 'Dératisation', 'Désinsectisation', 'Désinfection', 'Nettoyage Industriel', 'Anti Termites', 'Fumigation']
         mois = ['Tous', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', "Décembre"]
         client = self.all_client
         categorie = ['Facture', 'Traitement']
 
-        item_menu = type if champ == 'type_traitement_planning' else mois if champ == 'mois_planning' else categorie if champ == 'categ_planning' else client
+        item_menu = mois if champ == 'mois_planning' else categorie if champ == 'categ_planning' else client
         menu = [
             {
                 "text": i,
@@ -1559,11 +1561,14 @@ class Screen(MDApp):
             place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
                  'client').ids.tableau_client
             place2.remove_widget(self.liste_client)
-            asyncio.run_coroutine_threadsafe(self.all_clients(place2), self.loop)
+            asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
 
     @mainthread
     def update_contract_table(self, place, contract_data):
         from kivymd.uix.label import MDLabel
+
+        if self.liste_contrat.parent:
+            self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
         if not contract_data:
             label = MDLabel(
@@ -1581,7 +1586,7 @@ class Screen(MDApp):
                     client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[7] if item[7] is not None else "N/A"
-                    redondance = ', '.join(f'{val} mois' if val != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
+                    redondance = ', '.join(f'{val} mois' if int(val) != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
 
                     client_id.append(item[8])
                     row_data.append((client, date, traitement, redondance ))
@@ -1592,8 +1597,6 @@ class Screen(MDApp):
                 print(f"Error processing planning item: {e}")
 
         try:
-            if self.liste_contrat.parent:
-                self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
             pagination = self.liste_contrat.pagination
 
@@ -1645,7 +1648,7 @@ class Screen(MDApp):
             asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, id[row_num]), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'),0.5)
-        Clock.schedule_once(lambda dt: maj_ecran(),0.5)
+        Clock.schedule_once(lambda dt: maj_ecran(),0)
 
     async def liste_traitement_par_client(self, place, nom_client):
         try:
@@ -1658,6 +1661,9 @@ class Screen(MDApp):
 
     def show_about_treatment(self, place, data):
         from kivymd.uix.label import MDLabel
+
+        if self.all_treat.parent:
+            self.all_treat.parent.remove_widget(self.all_treat)
 
         if not data:
             label = MDLabel(
@@ -1682,8 +1688,6 @@ class Screen(MDApp):
                 print(f"Error processing planning item: {e}")
 
             try:
-                if self.all_treat.parent:
-                    self.all_treat.parent.remove_widget(self.all_treat)
                 self.all_treat.row_data = row_data
 
                 pagination = self.all_treat.pagination
@@ -1760,11 +1764,11 @@ class Screen(MDApp):
         Clock.schedule_once(lambda x: ecran(), 0.5)
 
     def update_client_table_and_switch(self, place, client_data):
+        if self.liste_client.parent:
+            self.liste_client.parent.remove_widget(self.liste_client)
+
         if client_data:
             row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
-
-            if self.liste_client.parent:
-                self.liste_client.parent.remove_widget(self.liste_client)
 
             pagination = self.liste_client.pagination
 
@@ -1887,7 +1891,7 @@ class Screen(MDApp):
                     red = item[2] if item[2] is not None else "N/A"
                     id_planning = item[3] if item[3] is not None else 0
 
-                    row_data.append((client, traitement, f'{red} mois', 'Aucun decalage'))
+                    row_data.append((client, traitement, f'{red} mois' if int(red) != 12 else '1 jours', 'Aucun decalage'))
                     liste_id.append(id_planning)
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -2094,17 +2098,32 @@ class Screen(MDApp):
             except Exception as e:
                 print( 'affichage detail ',e)
 
-    def create_remarque(self):
-        contenu = self.popup.get_screen('ajout_remarque').ids.remarque.text
-        paye = bool(self.popup.get_screen('ajout_remarque').ids.paye_facture.active)
+    def afficher_ecran_remarque(self):
+        self.fenetre_planning('', 'ajout_remarque')
 
-        if contenu:
+        screen = self.popup.get_screen('ajout_remarque')
+        screen.ids.remarque.text = ''
+        screen.ids.probleme.text = ''
+        screen.ids.action.text = ''
+
+    def create_remarque(self):
+        screen = self.popup.get_screen('ajout_remarque')
+        remarque = screen.ids.remarque.text
+        probleme = screen.ids.probleme.text
+        action = screen.ids.action.text
+        paye = bool(screen.ids.paye_facture.active)
+
+        self.dismiss_popup()
+        self.fermer_ecran()
+        if remarque:
             async def remarque(etat_paye):
                 try:
                     await self.database.create_remarque(self.planning_detail[5],
                                                         self.planning_detail[8],
                                                         self.planning_detail[6],
-                                                        contenu)
+                                                        remarque,
+                                                        probleme,
+                                                        action)
 
                     await self.database.update_etat_planning(self.planning_detail[8])
                     if etat_paye:
@@ -2120,8 +2139,10 @@ class Screen(MDApp):
 
             asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
             Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
-            self.popup.get_screen('ajout_remarque').ids.remarque.text = ''
-            paye = False
+            remarque = ''
+            probleme = ''
+            remarque = ''
+            screen.ids.paye_facture.active = False
 
         else:
             self.show_dialog('Erreur', 'Veuillez remplir la case de remarque')
@@ -2198,15 +2219,15 @@ class Screen(MDApp):
         def get_data():
             asyncio.run_coroutine_threadsafe(self.historique_remarque(place, planning_id[row_num]), self.loop)
 
-        Clock.schedule_once(lambda c: self.loading_spinner(self.popup, 'histo_remarque'), 0.5)
-        Clock.schedule_once(lambda c: get_data(), 0.5)
+        Clock.schedule_once(lambda c: self.loading_spinner(self.popup, 'histo_remarque'), 0)
+        Clock.schedule_once(lambda c: get_data(), 0)
 
     async def historique_remarque(self, place, planning_id):
         from kivymd.uix.label import MDLabel
 
         try:
             resultat = await self.database.get_historique_remarque(planning_id)
-            Clock.schedule_once(lambda dt: self.tableau_rem_histo(place, resultat if resultat else []), 0)
+            Clock.schedule_once(lambda dt: self.tableau_rem_histo(place, resultat if resultat else []), 0.5)
         except Exception as e:
             print('Erreur lors de la récupération des remarques :', e)
             if place:
@@ -2248,26 +2269,25 @@ class Screen(MDApp):
             return
 
         try:
-            if not hasattr(self, 'remarque_historique'):
-                self.remarque_historique = MyDatatable(
-                    pos_hint={'center_x': .5, "center_y": .53},
-                    size_hint=(1, 1),
-                    rows_num=5,
-                    elevation=0,
-                    column_data=[
-                        ("Date", dp(30)),
-                        ("Remarque", dp(60)),
-                        ("Avancement", dp(35)),
-                        ("Décalage", dp(35)),
-                        ("Motif", dp(40)),
-                    ]
-                )
-
+            self.remarque_historique = MyDatatable(
+                pos_hint={'center_x': .5, "center_y": .53},
+                size_hint=(1, 1),
+                rows_num=5,
+                elevation=0,
+                column_data=[
+                    ("Date", dp(30)),
+                    ("Remarque", dp(60)),
+                    ("Avancement", dp(35)),
+                    ("Décalage", dp(35)),
+                    ("Motif", dp(40)),
+                ]
+            )
+            def _():
                 self.remarque_historique.row_data = row_data
 
             place.add_widget(self.remarque_historique)
+            Clock.schedule_once(lambda dt: _(), 0)
 
-            del self.remarque_historique
         except Exception as e:
             print(f'Erreur lors de la création du tableau des remarques historiques : {e}')
 
@@ -2441,15 +2461,61 @@ class Screen(MDApp):
         traitement = screen.ids.type_traitement_planning.text
         mois = screen.ids.mois_planning.text
         client = screen.ids.client.text
-
+        data = None
+        self.dismiss_popup()
+        self.fermer_ecran()
+        print(categorie, traitement, mois, client)
         if categorie == 'Facture':
             if mois == 'Tous':
-                generate_comprehensive_facture_excel()
+                data = self.excel_database('facture par client', client.split(' ')[0])
+                generate_comprehensive_facture_excel(data, client)
             else:
-                generate_facture_excel()
-        if categorie == 'Traitment':
-            if traitement == 'Tous' and client == 'Tous':
-                generate_traitements_excel()
+                data = self.excel_database('facture par mois', client.split(' ')[0], mois)
+                generate_facture_excel(data, client, datetime.today().year, datetime.strptime(mois, "%B").month)
+        if categorie == 'Traitement':
+            if traitement == 'Tous' :
+                data = self.excel_database('traitement', mois=mois)
+                generate_traitements_excel(data, datetime.today().year, datetime.strptime(mois, "%B").month)
+
+        print(data)
+
+    def excel_database(self, option, client=None, mois=None):
+        print(client)
+        async def get_data():
+            if option == 'facture par client':
+                return await self.database.get_factures_data_for_client_comprehensive(client)
+
+            elif option == 'facture par mois':
+                return await self.database.obtenirDataFactureClient(
+                    client, datetime.today().year, datetime.strptime(mois, "%B").month
+                )
+
+            elif option == 'traitement':
+                return await self.database.get_traitements_for_month(
+                    datetime.today().year, datetime.strptime(mois, "%B").month
+                )
+
+        future = asyncio.run_coroutine_threadsafe(get_data(), self.loop)
+        return future.result()  # attend et renvoie la vraie valeur
+
+    def resilier_contrat(self):
+        async def get_data():
+            try:
+                id = await self.database.get_planningdetails_id(self.current_client[13])
+                print(id)
+                await self.database.abrogate_contract(id)
+                await self.populate_tables()
+                await self.get_client()
+                await self.all_clients()
+                Clock.schedule_once(lambda dt: self.dismiss_popup())
+                Clock.schedule_once(lambda dt: self.fermer_ecran())
+                Clock.schedule_once(lambda dt: self.show_dialog('Operation effectué', 'Le contrat à été resilié'))
+            except Exception as e:
+                Clock.schedule_once(lambda dt: self.show_dialog('erreur', 'Il y a eu un erreur'))
+                print('Resil', e)
+
+        asyncio.run_coroutine_threadsafe(get_data(), self.loop)
+
     def open_compte(self, dev):
         import webbrowser
         if dev == 'Mamy':
