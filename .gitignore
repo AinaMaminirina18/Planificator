@@ -10,3 +10,4 @@ main.onefile-build
 build
 build_nuitka
 dist
+*.xlsx
