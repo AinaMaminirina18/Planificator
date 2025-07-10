@@ -90,10 +90,12 @@ MDScreen:
             text: 'Résilier le contrat'
             size_hint: .3, None
             font_name: 'poppins'
-            md_bg_color: '#B3F844'
-            line_color: '#B3F844'
+            md_bg_color: '#FF3333'
+            line_color: '#FF3333'
             text_color: 'black'
             pos_hint: {'center_x':.27, 'center_y': .13}
+            on_release:
+                app.resilier_contrat()
 
         MDRectangleFlatButton:
             text: 'Voir les factures du client'
