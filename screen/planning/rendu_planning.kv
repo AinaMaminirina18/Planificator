@@ -60,13 +60,6 @@ MDScreen:
             readonly: True
             text: 'Tous'
 
-        MDIconButton:
-            id: drop_trait
-            icon: 'chevron-down'
-            pos_hint:{"center_x": -1, "center_y":-1}
-            on_release:
-                app.dropdown_rendu_excel(self, 'type_traitement_planning')
-
         MDLabel:
             text: 'Mois'
             font_name: "poppins"
@@ -86,7 +79,7 @@ MDScreen:
             size_hint: .25,None
             radius:[10]
             readonly: True
-            text: 'Tous'
+            text: 'Janvier'
 
         MDIconButton:
             icon: 'chevron-down'
@@ -113,6 +106,7 @@ MDScreen:
             size_hint: .25,None
             radius:[10]
             readonly: True
+            text: 'Tous'
 
         MDIconButton:
             icon: 'chevron-down'
@@ -136,9 +130,7 @@ MDScreen:
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
-                app.fermer_ecran()
-                app.dismiss_popup()
-                app.show_dialog('Rendu en format Excel', 'Fichier généré avec succès')
+                app.generer_excel()
 
         MDRectangleFlatButton:
             text: 'Annuler'
