@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import random
 
 import aiomysql
 
@@ -138,74 +139,185 @@ class DatabaseManager:
                 )
                 current = await cursor.fetchone()
                 return current
-    
-    async def create_contrat(self, client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie):
-        async with self.lock:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    try:
-                        await cur.execute(
-                            "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin, duree_contrat, duree, categorie) VALUES (%s, %s, %s,%s, %s, %s, %s)",
-                            (client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie))
-                        await conn.commit()
-                        return cur.lastrowid
-                    except Exception as e:
-                        print('contrat', e)
-            
-    async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe, nif, stat):
-        async with self.lock:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute(
-                        "INSERT INTO Client (nom, prenom, email, telephone, adresse, nif, stat, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                        (nom, prenom, email, telephone, adresse,nif,stat, date_ajout, categorie, axe))
-                    await conn.commit()
-                    return cur.lastrowid
-            
+
+    async def create_contrat(self, client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie,
+                             max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.lock:
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            await cur.execute(
+                                "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin, duree_contrat, duree, categorie) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                                (client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie)
+                            )
+                            await conn.commit()
+                            return cur.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour create_contrat: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
+
+    async def create_client(self, nom, prenom, email, telephone, adresse, date_ajout, categorie, axe, nif, stat,
+                            max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.lock:
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            await cur.execute(
+                                "INSERT INTO Client (nom, prenom, email, telephone, adresse, nif, stat, date_ajout, categorie, axe) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                                (nom, prenom, email, telephone, adresse, nif, stat, date_ajout, categorie, axe)
+                            )
+                            await conn.commit()
+                            return cur.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour create_client: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
+
     async def get_all_client(self):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER BY nom ASC")
                 return await cur.fetchall()
-                
-    async def typetraitement(self,categorie, type):
+
+    async def typetraitement(self, categorie, type, max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.lock:
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cursor:
+                            await cursor.execute(
+                                "INSERT INTO TypeTraitement (categorieTraitement, typeTraitement) VALUES (%s, %s)",
+                                (categorie, type)
+                            )
+                            await conn.commit()
+                            return cursor.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour typetraitement: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
+
+    async def creation_traitement(self, contrat_id, id_type_traitement, max_retries=3):
         async with self.lock:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cursor:
-                    try:
-                        await cursor.execute("INSERT INTO TypeTraitement (categorieTraitement, typeTraitement) VALUES (%s,%s)",
-                                                (categorie,type))
-                        await conn.commit()
-                        return cursor.lastrowid
-                    except Exception as e:
-                        print(e)
-    
-    async def creation_traitement(self, contrat_id, id_type_traitement):
-        async with self.lock:
+            # Boucle de retry
+            for attempt in range(max_retries):
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        try:
+                            await cur.execute("""
+                                INSERT INTO Traitement (contrat_id, id_type_traitement) 
+                                VALUES (%s, %s)
+                            """, (contrat_id, id_type_traitement))
+
+                            await conn.commit()
+                            print(f"✅ Traitement créé avec succès, ID: {cur.lastrowid}")
+                            return cur.lastrowid
+
+                        except Exception as e:
+                            await conn.rollback()
+                            print(f'creation_traitement tentative {attempt + 1}/{max_retries}: {e}')
+
+                            # Erreurs retryables
+                            retryable_errors = [
+                                "Record has changed",
+                                "Deadlock found",
+                                "Connection lost",
+                                "Lost connection to MySQL server",
+                                "MySQL server has gone away"
+                            ]
+
+                            is_retryable = any(error in str(e) for error in retryable_errors)
+
+                            if is_retryable and attempt < max_retries - 1:
+                                wait_time = 0.1 * (2 ** attempt)  # Backoff exponentiel
+                                print(f"🔄 Retry dans {wait_time} seconde...")
+                                await asyncio.sleep(wait_time)
+                                continue
+
+                            # Dernière tentative ou erreur non-retryable
+                            print("🚫 Abandon, erreur finale")
+                            raise e
+
+    async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin,
+                              max_retries=3):
+
+        for attempt in range(max_retries):
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     try:
-                        await cur.execute("INSERT INTO Traitement (contrat_id, id_type_traitement) VALUES (%s, %s)",
-                                          (contrat_id, id_type_traitement))
+                        await cur.execute("""
+                            INSERT INTO Planning (traitement_id, date_debut_planification, mois_debut, mois_fin, redondance, date_fin_planification) 
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        """, (traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin))
+
                         await conn.commit()
-                        return cur.lastrowid
+                        planning_id = cur.lastrowid
+
+                        print(f"✅ Planning créé avec succès, ID: {planning_id}")
+                        return planning_id
+
                     except Exception as e:
-                        print('traitement', e)
-    
-    async def create_planning(self, traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin):
-        """Crée un planning pour un traitement donné."""
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                try:
-                    await cur.execute(
-                        """INSERT INTO Planning (traitement_id,date_debut_planification, mois_debut, mois_fin, redondance, date_fin_planification) 
-                            VALUES (%s, %s, %s, %s, %s,%s)""",
-                        (traitement_id, date_debut, mois_debut, mois_fin, redondance, date_fin))
-                    await conn.commit()
-                    return cur.lastrowid
-           
-                except Exception as e:
-                    print("planning",e)
+                        await conn.rollback()
+                        print(f'create_planning tentative {attempt + 1}/{max_retries}: {e}')
+
+                        # Erreurs retryables
+                        retryable_errors = [
+                            "Record has changed",
+                            "Deadlock found",
+                            "Connection lost",
+                            "Lost connection to MySQL server",
+                            "MySQL server has gone away"
+                        ]
+
+                        is_retryable = any(error in str(e) for error in retryable_errors)
+
+                        if is_retryable and attempt < max_retries - 1:
+                            wait_time = 0.1 * (2 ** attempt)  # Backoff exponentiel
+                            print(f"🔄 Retry dans {wait_time} seconde...")
+                            await asyncio.sleep(wait_time)
+                            continue
+
+                        # Dernière tentative ou erreur non-retryable
+                        print("🚫 Abandon, erreur finale")
+                        raise e
 
     async def traitement_en_cours(self, year, month):
         async with self.lock:
@@ -309,17 +421,96 @@ class DatabaseManager:
                     except Exception as e:
                         print('Prevision', e)
 
-    async def create_planning_details(self, planning_id, date,statut='À venir'):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                try:
-                    await cur.execute(
-                        "INSERT INTO PlanningDetails (planning_id, date_planification, statut) VALUES ( %s, %s, %s)",
-                        (planning_id, date, statut))
-                    await conn.commit()
-                    return cur.lastrowid
-                except Exception as e:
-                    print("detail",e)
+    import asyncio
+    import random
+    from typing import Optional
+
+    async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.lock:
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            await cur.execute(
+                                "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
+                                (planning_id, montant, date, etat, axe)
+                            )
+                            await conn.commit()
+                            return cur.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+
+                # Si c'est la dernière tentative, on lève l'exception
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                # Calcul du délai avec backoff exponentiel + jitter
+                base_delay = 2 ** attempt  # 1s, 2s, 4s, 8s...
+                jitter = random.uniform(0, 0.1 * base_delay)  # Ajoute un peu d'aléatoire
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
+
+    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe, max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
+                            (nom, prenom, email, telephone, adresse, categorie, axe, client_id)
+                        )
+                        await conn.commit()
+                        return True
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return False
+
+    async def create_planning_details(self, planning_id, date, statut='À venir', max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            "INSERT INTO PlanningDetails (planning_id, date_planification, statut) VALUES (%s, %s, %s)",
+                            (planning_id, date, statut)
+                        )
+                        await conn.commit()
+                        return cur.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour create_planning_details: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt  # 1s, 2s, 4s, 8s...
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
     
     async def get_all_planning(self):
         async with self.pool.acquire() as conn:
@@ -435,26 +626,42 @@ class DatabaseManager:
                                   planning_detail_id = %s''', (new_date, planning_detail_id))
                 await conn.commit()
 
-    async def create_facture(self, planning_id, montant, date, axe, etat = 'Non payé'):
-        async with self.lock:
-            async with self.pool.acquire() as conn:
-                async with conn.cursor() as cur:
-                    try:
-                        await cur.execute(
-                            "INSERT INTO Facture (planning_detail_id, montant,date_traitement, etat,  axe) VALUES (%s, %s, %s,%s, %s)",
-                            (planning_id, montant, date, etat, axe))
-                        await conn.commit()
-                        return cur.lastrowid
-                    except Exception as e:
-                        print("facture",e)
+    async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.lock:
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            await cur.execute(
+                                "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
+                                (planning_id, montant, date, etat, axe)
+                            )
+                            await conn.commit()
+                            return cur.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
     
-    async def create_remarque(self,client, planning_details, facture, contenu):
+    async def create_remarque(self,client, planning_details, facture, contenu, probleme, action):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                    "INSERT INTO Remarque (client_id, planning_detail_id, facture_id, contenu) VALUES (%s, %s, %s, %s)",
-                    (client, planning_details, facture, contenu))
+                    "INSERT INTO Remarque (client_id, planning_detail_id, facture_id, contenu, issue, action) VALUES (%s, %s, %s, %s,%s, %s)",
+                    (client, planning_details, facture, contenu, probleme, action))
                     await conn.commit()
                 except Exception as e:
                     print("remarque",e)
@@ -659,7 +866,8 @@ class DatabaseManager:
                                   c.adresse,
                                   c.axe,
                                   c.telephone,
-                                  p.planning_id
+                                  p.planning_id,
+                                  f.facture_id
                            FROM
                               Client c
                            JOIN
@@ -669,7 +877,11 @@ class DatabaseManager:
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            JOIN
-                              Planning p ON t.traitement_id = p.traitement_id
+                               Planning p ON t.traitement_id = p.traitement_id
+                           JOIN
+                               PlanningDetails pld ON p.planning_id = pld.planning_id
+                           JOIN
+                               Facture f ON pld.planning_detail_id = f.planning_detail_id
                            WHERE
                               c.nom = %s AND co.date_contrat = %s; """, (client, date))
                     resultat = await cursor.fetchone()
@@ -742,13 +954,82 @@ class DatabaseManager:
                 except Exception as e:
                     print(e)
 
-    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute(
-                    "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
-                    (nom, prenom, email, telephone, adresse, categorie, axe, client_id))
-                await conn.commit()
+    import asyncio
+    import random
+    from typing import Optional
+
+    async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
+        """
+        Crée une facture avec retry automatique et backoff exponentiel
+
+        Args:
+            planning_id: ID du planning
+            montant: Montant de la facture
+            date: Date de traitement
+            axe: Axe de la facture
+            etat: État de la facture (défaut: 'Non payé')
+            max_retries: Nombre maximum de tentatives (défaut: 3)
+
+        Returns:
+            ID de la facture créée ou None en cas d'échec
+        """
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.lock:
+                    async with self.pool.acquire() as conn:
+                        async with conn.cursor() as cur:
+                            await cur.execute(
+                                "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
+                                (planning_id, montant, date, etat, axe)
+                            )
+                            await conn.commit()
+                            return cur.lastrowid
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+
+                # Si c'est la dernière tentative, on lève l'exception
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                # Calcul du délai avec backoff exponentiel + jitter
+                base_delay = 2 ** attempt  # 1s, 2s, 4s, 8s...
+                jitter = random.uniform(0, 0.1 * base_delay)  # Ajoute un peu d'aléatoire
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
+
+    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe, max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cur:
+                        await cur.execute(
+                            "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
+                            (nom, prenom, email, telephone, adresse, categorie, axe, client_id)
+                        )
+                        await conn.commit()
+                        return True
+
+            except Exception as e:
+                print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
+
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return False
 
     async def un_jour(self, contrat_id):
         async with self.pool.acquire() as conn:
@@ -757,6 +1038,7 @@ class DatabaseManager:
                     "UPDATE Contrat SET duree_contrat = 1 WHERE contrat_id = %s",
                     (contrat_id, ))
                 await conn.commit()
+
     async def get_all_client_name(self):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
@@ -806,6 +1088,274 @@ class DatabaseManager:
             finally:
                 if conn:
                     self.pool.release(conn)
+
+    #Pour les excels
+    async def get_factures_data_for_client_comprehensive(self, client: str, start_date: datetime.date = None,
+                                                         end_date: datetime.date = None):
+        conn = None
+        try:
+            conn = await self.pool.acquire()
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                query = """
+                        SELECT cl.nom                AS client_nom, \
+                               cl.prenom             AS client_prenom, \
+                               cl.adresse            AS client_adresse,
+                               cl.telephone          AS client_telephone, \
+                               cl.categorie          AS client_categorie,
+                               co.contrat_id, \
+                               co.date_contrat, \
+                               co.date_debut         AS contrat_date_debut,
+                               co.date_fin           AS contrat_date_fin, \
+                               co.statut_contrat, \
+                               co.duree              AS contrat_duree_type,
+                               tt.typeTraitement     AS `Type de Traitement`,
+                               pd.date_planification AS `Date de Planification`,
+                               pd.statut             AS `Etat du Planning`,
+                               p.redondance          AS `Redondance (Mois)`,
+                               f.date_traitement     AS `Date de Facturation`,
+                               f.etat                AS `Etat de Paiement`,
+                               COALESCE(
+                                       (SELECT hp.new_amount
+                                        FROM Historique_prix hp
+                                        WHERE hp.facture_id = f.facture_id
+                                        ORDER BY hp.change_date DESC, hp.history_id DESC
+                                        LIMIT 1),
+                                       f.montant
+                               )                     AS `Montant Facturé`
+                        FROM Client cl
+                                 JOIN Contrat co ON cl.client_id = co.client_id
+                                 JOIN Traitement tr ON co.contrat_id = tr.contrat_id
+                                 JOIN TypeTraitement tt ON tr.id_type_traitement = tt.id_type_traitement
+                                 JOIN Planning p ON tr.traitement_id = p.traitement_id
+                                 LEFT JOIN PlanningDetails pd ON p.planning_id = pd.planning_id
+                                 LEFT JOIN Facture f ON pd.planning_detail_id = f.planning_detail_id
+                        WHERE cl.nom = %s
+                        """
+                params = [client]
+
+                if start_date and end_date:
+                    query += " AND f.date_traitement BETWEEN %s AND %s"
+                    params.append(start_date)
+                    params.append(end_date)
+                elif start_date:  # Only start_date provided, assume from start_date onwards
+                    query += " AND f.date_traitement >= %s"
+                    params.append(start_date)
+                elif end_date:  # Only end_date provided, assume up to end_date
+                    query += " AND f.date_traitement <= %s"
+                    params.append(end_date)
+
+                query += " ORDER BY co.date_contrat ASC, `Date de Planification` ASC, `Date de Facturation` ASC;"
+
+                await cursor.execute(query, tuple(params))
+                result = await cursor.fetchall()
+                return result
+        except Exception as e:
+            print(f"Erreur lors de la récupération des données de facture complètes : {e}")
+            return []
+        finally:
+            if conn:
+                self.pool.release(conn)
+
+    async def obtenirDataFactureClient(self, client_id, year: int, month: int):
+        conn = None
+        try:
+            conn = await self.pool.acquire()
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                query = """
+                        SELECT cl.nom            AS client_nom,
+                               cl.prenom         AS client_prenom,
+                               cl.adresse        AS client_adresse,
+                               cl.telephone      AS client_telephone,
+                               cl.categorie      AS client_categorie,
+                               f.date_traitement AS `Date de traitement`,
+                               tt.typeTraitement AS `Traitement (Type)`,
+                               pd.statut         AS `Etat traitement`,
+                               f.etat            AS `Etat paiement (Payée ou non)`,
+                               -- Utilise le nouveau_montant de Historique_prix si disponible (le plus récent),
+                               -- sinon utilise le montant original de Facture.
+                               COALESCE(
+                                       (SELECT hp.new_amount
+                                        FROM Historique_prix hp
+                                        WHERE hp.facture_id = f.facture_id
+                                        ORDER BY hp.change_date DESC, hp.history_id
+                                                                DESC -- Prend le plus récent, history_id pour briser l'égalité
+                                        LIMIT 1),
+                                       f.montant
+                               )                 AS montant_facture
+                        FROM Facture f
+                                 JOIN
+                             PlanningDetails pd ON f.planning_detail_id = pd.planning_detail_id
+                                 JOIN
+                             Planning p ON pd.planning_id = p.planning_id
+                                 JOIN
+                             Traitement tr ON p.traitement_id = tr.traitement_id
+                                 JOIN
+                             TypeTraitement tt ON tr.id_type_traitement = tt.id_type_traitement
+                                 JOIN
+                             Contrat co ON tr.contrat_id = co.contrat_id
+                                 JOIN
+                             Client cl ON co.client_id = cl.client_id
+                        WHERE cl.nom = %s
+                          AND YEAR(f.date_traitement) = %s
+                          AND MONTH(f.date_traitement) = %s
+                        ORDER BY f.date_traitement;
+                        """
+                await cursor.execute(query, (client_id, year, month))
+                result = await cursor.fetchall()
+                return result
+        except Exception as e:
+            print(f"Erreur lors de la récupération des données de facture : {e}")
+            return []
+        finally:
+            if conn:
+                self.pool.release(conn)
+
+    async def get_traitements_for_month(self, year: int, month: int):
+        conn = None
+        try:
+            conn = await self.pool.acquire()
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                query = """
+                        SELECT pd.date_planification        AS `Date du traitement`,
+                               tt.typeTraitement            AS `Traitement concerné`,
+                               tt.categorieTraitement       AS `Catégorie du traitement`,
+                               CONCAT(c.nom, ' ', c.prenom) AS `Client concerné`,
+                               c.categorie                  AS `Catégorie du client`,
+                               c.axe                        AS `Axe du client`,
+                               pd.statut                    AS `Etat traitement` -- AJOUT DE CETTE COLONNE
+                        FROM PlanningDetails pd
+                                 JOIN
+                             Planning p ON pd.planning_id = p.planning_id
+                                 JOIN
+                             Traitement t ON p.traitement_id = t.traitement_id
+                                 JOIN
+                             TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                 JOIN
+                             Contrat co ON t.contrat_id = co.contrat_id
+                                 JOIN
+                             Client c ON co.client_id = c.client_id
+                        WHERE YEAR(pd.date_planification) = %s
+                          AND MONTH(pd.date_planification) = %s
+                        ORDER BY pd.date_planification;
+                        """
+                await cursor.execute(query, (year, month))
+                result = await cursor.fetchall()
+                return result
+        except Exception as e:
+            print(f"Erreur lors de la récupération des traitements : {e}")
+            return []
+        finally:
+            if conn:
+                self.pool.release(conn)
+
+    #Abrogation contrat
+    async def get_planningdetails_id(self, planning_id):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute("""SELECT pdl.planning_detail_id
+                                            FROM PlanningDetails pdl
+                                            JOIN Planning p ON pdl.planning_id = p.planning_id
+                                            WHERE p.planning_id = %s 
+                                            AND pdl.date_planification >= %s;""",
+                                         (planning_id, datetime.datetime.today()))
+                    result = await cursor.fetchone()
+                    return result
+                except Exception as e:
+                    print('Get details', e)
+
+    async def get_planning_detail_info(self, planning_detail_id: int):
+        """
+        Récupère les informations détaillées d'un planning_detail spécifique,
+        incluant les IDs du planning, traitement et contrat associés.
+        Prend le pool de connexions en argument.
+        """
+        conn = None
+        try:
+            conn = await self.pool.acquire()  # Obtenir une connexion du pool
+            async with conn.cursor(aiomysql.DictCursor) as cursor:
+                query = """
+                        SELECT pd.planning_detail_id, \
+                               pd.planning_id, \
+                               pd.date_planification, \
+                               pd.statut, \
+                               p.traitement_id, \
+                               t.contrat_id
+                        FROM PlanningDetails pd \
+                                 JOIN \
+                             Planning p ON pd.planning_id = p.planning_id \
+                                 JOIN \
+                             Traitement t ON p.traitement_id = t.traitement_id
+                        WHERE pd.planning_detail_id = %s; \
+                        """
+                await cursor.execute(query, (planning_detail_id,))
+                result = await cursor.fetchone()
+                return result
+        except Exception as e:
+            print(f"Erreur lors de la récupération des informations du planning_detail {planning_detail_id}: {e}")
+            return None
+        finally:
+            if conn:
+                self.pool.release(conn)  # Relâcher la connexion dans le pool
+
+    async def abrogate_contract(self, planning_detail_id: int):
+        """
+        Abroge un contrat à partir d'une date de résiliation.
+        Supprime les traitements futurs et marque le contrat comme 'Terminé'.
+        Prend le pool de connexions en argument.
+        """
+        date = datetime.date.today()
+        conn = None
+        try:
+            conn = await self.pool.acquire()
+            # 1. Récupérer les informations initiales pour obtenir planning_id et contrat_id
+            # Passez le pool à get_planning_detail_info
+            detail_info = await self.get_planning_detail_info(planning_detail_id)
+            print(detail_info)
+            if not detail_info:
+                print(f"Impossible de trouver les informations pour planning_detail_id {planning_detail_id}.")
+                return False
+
+            current_planning_id = detail_info['planning_id']
+            current_contrat_id = detail_info['contrat_id']
+
+            print(current_contrat_id, current_planning_id)
+
+            async with conn.cursor() as cursor:
+                print('suppress')
+                # 2. Supprimer les traitements (PlanningDetails) futurs pour ce planning
+                delete_query = """
+                               DELETE 
+                               FROM PlanningDetails
+                               WHERE planning_id = %s 
+                                 AND date_planification > %s; 
+                               """
+                await cursor.execute(delete_query, (current_planning_id, date))
+                deleted_count = cursor.rowcount
+                print(
+                    f"{deleted_count} traitements futurs (PlanningDetails) associés au planning {current_planning_id} ont été supprimés après le {date}.")
+
+                # 3. Mettre à jour le statut du contrat
+                update_contract_query = """
+                                        UPDATE Contrat
+                                        SET statut_contrat = 'Terminé', 
+                                            date_fin       = %s, 
+                                            duree          = 'Déterminée'
+                                        WHERE contrat_id = %s; 
+                                        """
+                await cursor.execute(update_contract_query, (date, current_contrat_id))
+                print('change')
+
+                print(
+                    f"Le contrat {current_contrat_id} a été marqué comme 'Terminé' avec date de fin {date} avec succès.")
+                return True
+
+        except Exception as e:
+            print(f"Erreur lors de l'abrogation du contrat ou de la suppression des traitements: {e}")
+            return False
+        finally:
+            if conn:
+                self.pool.release(conn)
 
     async def close(self):
         """Ferme le pool de connexions."""
