@@ -190,8 +190,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
