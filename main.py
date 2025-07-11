@@ -364,7 +364,9 @@ class Screen(MDApp):
             result = await self.database.get_client()
             if result:
                 place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-                Clock.schedule_once(lambda dt: self.update_contract_table(place, result), 0)
+
+                self.update_contract_table(place, result)
+                place.clear_widgets()
 
         except Exception as e:
             print(f"Erreur lors de la récupération des clients: {e}")
@@ -555,6 +557,7 @@ class Screen(MDApp):
 
     async def supprimer_client(self):
         try:
+
             await self.database.delete_client(self.current_client[0])
             await self.populate_tables()
             await self.get_client()
@@ -568,6 +571,11 @@ class Screen(MDApp):
         self.dismiss_popup()
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
         place.clear_widgets()
+
+        if self.liste_contrat.parent:
+            self.liste_contrat.parent.remove_widget(self.liste_contrat)
+        if self.liste_client.parent:
+            self.liste_client.parent.remove_widget(self.liste_client)
 
         def dlt():
             asyncio.run_coroutine_threadsafe(self.supprimer_client(), self.loop)
@@ -1287,6 +1295,8 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'contrat'
         boutton = self.root.get_screen('Sidebar').ids.contrat
         self.choose_screen(boutton)
+        if self.liste_contrat.parent:
+            self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
         def chargement_contrat():
             asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
@@ -1769,6 +1779,7 @@ class Screen(MDApp):
 
         Clock.schedule_once(lambda x: ecran(), 0.5)
 
+    @mainthread
     def update_client_table_and_switch(self, place, client_data):
         if self.liste_client.parent:
             self.liste_client.parent.remove_widget(self.liste_client)
