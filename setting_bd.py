@@ -817,7 +817,9 @@ class DatabaseManager:
                                   c.axe,
                                   c.telephone,
                                   p.planning_id,
-                                  f.facture_id
+                                  f.facture_id,
+                                  c.nif,
+                                  c.stat
                            FROM
                               Client c
                            JOIN
