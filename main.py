@@ -575,7 +575,6 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: dlt(),0)
         Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
 
-
     def delete_account(self, admin_password):
         import verif_password as vp
 
@@ -788,7 +787,9 @@ class Screen(MDApp):
         async def changer(old, new):
             print(self.current_client)
             try:
-                await self.database.majMontantEtHistorique(self.current_client[14], int(old), int(new))
+                print(self.date)
+                facture_id = await self.database.get_facture_id(self.current_client[0],self.date)
+                await self.database.majMontantEtHistorique(facture_id, int(old), int(new))
             except Exception as e:
                 print('Maj prix',e)
             Clock.schedule_once(lambda dt: self.show_dialog('Avertissement', 'Changement réussie'), .1)
@@ -816,6 +817,7 @@ class Screen(MDApp):
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
+            self.date = self.reverse_date(row_value[0])
 
         def on_press_page(direction, instance=None):
             print(direction)
@@ -917,6 +919,7 @@ class Screen(MDApp):
 
             def _():
                 self.facture.row_data = row_data
+
             self.facture.bind(on_row_press=lambda instance, row: self.screen_modifier_prix(instance, row))
             Clock.schedule_once(lambda dt: _(), 0)
             place.add_widget(self.facture)
@@ -1104,6 +1107,9 @@ class Screen(MDApp):
         if screen == 'new_contrat':
             #pour l'ecran new_contrat
             self.popup.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
+            self.popup.get_screen('new_contrat').ids['fin_new_contrat'].pos_hint = {"center_x":.83,"center_y":.8}
+            self.popup.get_screen('new_contrat').ids['label_fin'].pos_hint = {"center_x": 1.21,'center_y':.92}
+            self.popup.get_screen('new_contrat').ids['fin_icon'].pos_hint = {"center_x": .93, "center_y":.8}
             self.popup.get_screen('new_contrat').ids['cat_contrat'].text = 'Nouveau'
 
             #pour l'ecran ajout_client
@@ -1183,7 +1189,6 @@ class Screen(MDApp):
 
     async def all_clients(self):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
-
         try:
             client_data = await self.database.get_all_client()
             if client_data:
@@ -1287,7 +1292,7 @@ class Screen(MDApp):
             asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar','contrat'), 0)
-        Clock.schedule_once(lambda dt: threading.Thread(target= chargement_contrat()), 0.5)
+        Clock.schedule_once(lambda dt: chargement_contrat(), 0.5)
 
     def switch_to_client(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
@@ -1589,6 +1594,7 @@ class Screen(MDApp):
                     redondance = ', '.join(f'{val} mois' if int(val) != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
 
                     client_id.append(item[8])
+
                     row_data.append((client, date, traitement, redondance ))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -1624,7 +1630,7 @@ class Screen(MDApp):
         except Exception as e:
             print(f"Error creating contract table: {e}")
 
-    def get_traitement_par_client(self, id, table, row):
+    def get_traitement_par_client(self, client_id, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
@@ -1645,7 +1651,7 @@ class Screen(MDApp):
         self.client_name = row_value[0]
 
         def maj_ecran():
-            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, id[row_num]), self.loop)
+            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, client_id[row_num]), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'),0.5)
         Clock.schedule_once(lambda dt: maj_ecran(),0)
@@ -1841,11 +1847,13 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
         index_global = (self.page - 1) * 8 + row_num
+        row_value = None
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
-
+        print(row_value)
         asyncio.run_coroutine_threadsafe(self.current_client_info(row_value[0], row_value[3]),self.loop)
+
         def maj_ecran():
             if self.current_client[3] == 'Particulier':
                 nom = self.current_client[1] + ' ' + self.current_client[2]
@@ -1865,7 +1873,7 @@ class Screen(MDApp):
             self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
 
         Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'))
-        Clock.schedule_once(lambda x: maj_ecran())
+        Clock.schedule_once(lambda x: maj_ecran(), 0)
 
     @mainthread
     def tableau_planning(self, place, result, dt=None):
@@ -2072,6 +2080,7 @@ class Screen(MDApp):
 
         if row.index % 3 == 0:
             self.popup.get_screen('modif_date').ids.date_prevu.text = row_value[0]
+            self.popup.get_screen('modif_date').ids.date_decalage.text = ''
             self.modifier_date()
         else:
             Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'))
@@ -2115,37 +2124,43 @@ class Screen(MDApp):
 
         self.dismiss_popup()
         self.fermer_ecran()
-        if remarque:
-            async def remarque(etat_paye):
-                try:
-                    await self.database.create_remarque(self.planning_detail[5],
-                                                        self.planning_detail[8],
-                                                        self.planning_detail[6],
-                                                        remarque,
-                                                        probleme,
-                                                        action)
+        print(remarque, action, probleme)
 
-                    await self.database.update_etat_planning(self.planning_detail[8])
-                    if etat_paye:
-                        await self.database.update_etat_facture(self.planning_detail[6])
-                    Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
+        remarque_db = remarque if remarque else None
+        probleme_db = probleme if probleme else None
+        action_db = action if action else None
 
-                    Clock.schedule_once(lambda dt: self.fermer_ecran())
-                    Clock.schedule_once(lambda dt: self.dismiss_popup())
+        async def remarque(etat_paye):
+            try:
+                await self.database.create_remarque(self.planning_detail[5],
+                                                    self.planning_detail[8],
+                                                    self.planning_detail[6],
+                                                    remarque_db,
+                                                    probleme_db,
+                                                    action_db)
+                await self.database.update_etat_planning(self.planning_detail[8])
+
+                if etat_paye:
+                    await self.database.update_etat_facture(self.planning_detail[6])
+
+                Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
+                Clock.schedule_once(lambda dt: self.fermer_ecran())
+                Clock.schedule_once(lambda dt: self.dismiss_popup())
+                Clock.schedule_once(lambda dt: self.clear_remarque_fields(screen))
+
+            except Exception as e:
+                print('remarque tsy db',e)
+        asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
+
+        Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
 
 
-                except Exception as e:
-                    print('remarque tsy db',e)
-
-            asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
-            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
-            remarque = ''
-            probleme = ''
-            remarque = ''
-            screen.ids.paye_facture.active = False
-
-        else:
-            self.show_dialog('Erreur', 'Veuillez remplir la case de remarque')
+    def clear_remarque_fields(self, screen):
+        """Nettoie les champs du formulaire"""
+        screen.ids.remarque.text = ''
+        screen.ids.probleme.text = ''
+        screen.ids.action.text = ''
+        screen.ids.paye_facture.active = False
 
     def historique_par_categorie(self, categorie):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('historique').ids.tableau_historic
@@ -2254,7 +2269,10 @@ class Screen(MDApp):
                     remarque = item[1] if item[1] is not None else "N/A"
                     avance = item[2] if item[2] is not None else 'Aucun'
                     decale = item[3] if item[3] is not None else 'Aucun'
-                    row_data.append((date, remarque, avance, decale, item[4]))
+                    probleme = item[4] if item[4] is not None else 'Aucun'
+                    action = item[5] if item[5] is not None else 'Aucun'
+                    print(remarque, probleme, action)
+                    row_data.append((date, remarque, avance, decale,probleme, action))
                 else:
                     print(f"Warning: L'élément de remarque historique n'a pas assez d'éléments (attendu 2+): {item}")
             except Exception as e:
@@ -2275,18 +2293,19 @@ class Screen(MDApp):
                 rows_num=5,
                 elevation=0,
                 column_data=[
-                    ("Date", dp(30)),
-                    ("Remarque", dp(60)),
+                    ("Date", dp(25)),
+                    ("Remarque", dp(40)),
                     ("Avancement", dp(35)),
                     ("Décalage", dp(35)),
-                    ("Motif", dp(40)),
+                    ("Probleme", dp(30)),
+                    ("Action", dp(30)),
                 ]
             )
             def _():
                 self.remarque_historique.row_data = row_data
 
             place.add_widget(self.remarque_historique)
-            Clock.schedule_once(lambda dt: _(), 0)
+            Clock.schedule_once(lambda dt: _(), 0.1)
 
         except Exception as e:
             print(f'Erreur lors de la création du tableau des remarques historiques : {e}')
@@ -2375,6 +2394,22 @@ class Screen(MDApp):
             self.popup.get_screen('modif_client').ids.label_resp.text = 'Responsable'
             nom = self.current_client[1]
 
+        if self.current_client[3] == 'Société':
+            self.popup.get_screen('modif_client').ids.nif.text = self.current_client[15]
+            self.popup.get_screen('modif_client').ids.stat.text = self.current_client[16]
+            self.popup.get_screen('modif_client').ids.stat_label.pos_hint = {'center_x': 1.005, 'center_y': .23}
+            self.popup.get_screen('modif_client').ids.stat.pos_hint = {"center_x":.73,"center_y":.14}
+            self.popup.get_screen('modif_client').ids.nif_label.pos_hint = {'center_x': .5, 'center_y': .23}
+            self.popup.get_screen('modif_client').ids.nif.pos_hint = {"center_x":.225,"center_y":.14}
+        else:
+            self.popup.get_screen('modif_client').ids.nif.text = ''
+            self.popup.get_screen('modif_client').ids.stat.text = ''
+            self.popup.get_screen('modif_client').ids.stat_label.pos_hint = {'center_x':-1 , 'center_y': -1}
+            self.popup.get_screen('modif_client').ids.stat.pos_hint = {"center_x":-1,"center_y":-1}
+            self.popup.get_screen('modif_client').ids.nif_label.pos_hint = {'center_x': -1, 'center_y': -1}
+            self.popup.get_screen('modif_client').ids.nif.pos_hint = {"center_x":-1,"center_y":-1}
+
+
         self.popup.get_screen('modif_client').ids.date_contrat_client.text = self.reverse_date(self.current_client[4])
         self.popup.get_screen('modif_client').ids.cat_client.text = self.current_client[3]
         self.popup.get_screen('modif_client').ids.nom_client.text = self.current_client[1]
@@ -2385,14 +2420,17 @@ class Screen(MDApp):
         self.popup.get_screen('modif_client').ids.telephone.text = self.current_client[12]
         self.fenetre_client(f'Modifications des informartion sur {nom}', 'modif_client')
 
-    def enregistrer_modif_client(self,btn, nom, prenom, email, telephone, adresse, categorie, axe):
+    def enregistrer_modif_client(self,btn, nom, prenom, email, telephone, adresse, categorie, axe, nif, stat):
+        nif_bd = nif if nif else 0
+        stat_bd = stat if stat else 0
+
         if btn.opacity == 1:
             async def save():
                 try:
                     Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
                     Clock.schedule_once(lambda x: self.dismiss_popup())
                     Clock.schedule_once(lambda x: self.fermer_ecran())
-                    await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, categorie, axe)
+                    await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, nif,stat, categorie, axe)
                     Clock.schedule_once(lambda c: self.remove_tables('contrat'))
                     self.current_client = None
                 except Exception as e:
@@ -2501,17 +2539,17 @@ class Screen(MDApp):
     def resilier_contrat(self):
         async def get_data():
             try:
-                id = await self.database.get_planningdetails_id(self.current_client[13])
-                print(id)
+                id, datee = await self.database.get_planningdetails_id(self.current_client[13])
+                print(id, datee)
                 await self.database.abrogate_contract(id)
                 await self.populate_tables()
                 await self.get_client()
                 await self.all_clients()
-                Clock.schedule_once(lambda dt: self.dismiss_popup())
-                Clock.schedule_once(lambda dt: self.fermer_ecran())
-                Clock.schedule_once(lambda dt: self.show_dialog('Operation effectué', 'Le contrat à été resilié'))
+                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
+                Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
+                Clock.schedule_once(lambda dt: self.show_dialog('Operation effectué', 'Le contrat à été resilié'), 0.5)
             except Exception as e:
-                Clock.schedule_once(lambda dt: self.show_dialog('erreur', 'Il y a eu un erreur'))
+                Clock.schedule_once(lambda dt: self.show_dialog('erreur', 'Il y a eu une erreur'))
                 print('Resil', e)
 
         asyncio.run_coroutine_threadsafe(get_data(), self.loop)
