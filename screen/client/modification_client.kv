@@ -212,11 +212,11 @@ MDScreen:
             font_name: 'poppins'
             font_size: 15
             size_hint: .3, None
-            pos_hint: {'center_x':.7, 'center_y': .1}
+            pos_hint: {'center_x':.7, 'center_y': .03}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
-                app.enregistrer_modif_client(self,nom_client.text, resp_client.text, email_client.text, telephone.text, adresse_client.text, cat_client.text, axe_client.text)
+                app.enregistrer_modif_client(self,nom_client.text, resp_client.text, email_client.text, telephone.text, adresse_client.text, cat_client.text, axe_client.text, nif.text, stat.text)
 
         MDRectangleFlatButton:
             id: annuler
@@ -225,7 +225,7 @@ MDScreen:
             font_name: 'poppins'
             font_size: 15
             size_hint: .3, None
-            pos_hint: {'center_x':.3, 'center_y': .1}
+            pos_hint: {'center_x':.3, 'center_y': .03}
             md_bg_color: '#FF3333'
             line_color: '#FF3333'
             on_release:
