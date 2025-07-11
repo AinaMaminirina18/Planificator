@@ -456,14 +456,14 @@ class DatabaseManager:
 
         return None
 
-    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe, max_retries=3):
+    async def update_client(self, client_id, nom, prenom, email, telephone, adresse,nif, stat, categorie, axe, max_retries=3):
         for attempt in range(max_retries + 1):
             try:
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
                         await cur.execute(
-                            "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
-                            (nom, prenom, email, telephone, adresse, categorie, axe, client_id)
+                            "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s,nif=%s, stat=%s, categorie = %s, axe = %s WHERE client_id = %s",
+                            (nom, prenom, email, telephone, adresse,nif,stat, categorie, axe, client_id)
                         )
                         await conn.commit()
                         return True
@@ -673,24 +673,25 @@ class DatabaseManager:
                     await cur.execute(
                         """ SELECT
                                 pdl.date_planification AS Date, 
-                                r.contenu AS Remarque, 
+                                COALESCE(NULLIF(r.contenu, ''), 'Aucune remarque') AS Remarque, 
                                 COALESCE(sa.motif, 'Aucun') AS Avancement, 
                                 COALESCE(sd.motif, 'Aucun') AS Décalage, 
-                                'Aucun' AS Motif
+                                COALESCE(NULLIF(r.issue, ''), 'Aucun problème') AS probleme, 
+                                COALESCE(NULLIF(r.action, ''), 'Aucune action') AS action
                             FROM
-                                Client c
+                               Client c
                             JOIN
-                                Contrat co ON c.client_id = co.client_id
+                               Contrat co ON c.client_id = co.client_id
                             JOIN
-                                Traitement t ON co.contrat_id = t.contrat_id
+                               Traitement t ON co.contrat_id = t.contrat_id
                             JOIN
-                                TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                             JOIN
-                                Planning p ON t.traitement_id = p.traitement_id
+                               Planning p ON t.traitement_id = p.traitement_id
                             JOIN
-                                PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                               PlanningDetails pdl ON p.planning_id = pdl.planning_id
                             JOIN
-                                Remarque r ON pdl.planning_detail_id = r.planning_detail_id
+                               Remarque r ON pdl.planning_detail_id = r.planning_detail_id
                             LEFT JOIN
                                 Signalement sa ON r.planning_detail_id = sa.planning_detail_id AND sa.type = 'Avancement'
                             LEFT JOIN
@@ -850,6 +851,7 @@ class DatabaseManager:
                     print("Delete",e)
 
     async def get_current_client(self, client, date):
+        print(client, date)
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
@@ -867,7 +869,9 @@ class DatabaseManager:
                                   c.axe,
                                   c.telephone,
                                   p.planning_id,
-                                  f.facture_id
+                                  f.facture_id,
+                                  c.nif,
+                                  c.stat
                            FROM
                               Client c
                            JOIN
@@ -885,6 +889,7 @@ class DatabaseManager:
                            WHERE
                               c.nom = %s AND co.date_contrat = %s; """, (client, date))
                     resultat = await cursor.fetchone()
+                    print(resultat)
                     return resultat
                 except Exception as e:
                     print(e)
@@ -1051,6 +1056,25 @@ class DatabaseManager:
                 except Exception as e:
                     print('error get client ', e)
 
+    async def get_facture_id(self, client_id, date):
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    await cursor.execute(
+                        """SELECT f.facture_id
+                           FROM Facture f
+                           JOIN PlanningDetails pd ON f.planning_detail_id = pd.planning_detail_id
+                           JOIN Planning p ON pd.planning_id = p.planning_id
+                           JOIN Traitement t ON p.traitement_id = t.traitement_id
+                           JOIN Contrat c ON t.contrat_id = c.contrat_id
+                           WHERE c.client_id = %s
+                           AND pd.date_planification = %s;""", (client_id, date)
+                    )
+                    result = await cursor.fetchone()
+                    return result
+                except Exception as e:
+                    print("aaa", e)
+
     async def majMontantEtHistorique(self, facture_id: int, old_amount: float, new_amount: float,
                                      changed_by: str = 'System'):
         """
@@ -1060,35 +1084,36 @@ class DatabaseManager:
 
         print("ato")
         async with self.pool.acquire() as conn:
-            try:
-                # Assurez-vous que les opérations sont atomiques (tout ou rien)
-                async with conn.cursor() as cursor:
+            async with conn.cursor() as cursor:
+                try:
+                    # Commencer une transaction explicite
+                    await conn.begin()
+
                     # 1. Mettre à jour le montant dans la table Facture
                     update_query = "UPDATE Facture SET montant = %s WHERE facture_id = %s;"
                     await cursor.execute(update_query, (new_amount, facture_id))
                     print('fini')
+
                     # 2. Insérer l'entrée d'historique
                     insert_history_query = """
-                                           INSERT INTO Historique_prix
-                                           (facture_id, old_amount, new_amount, change_date, changed_by)
-                                           VALUES (%s, %s, %s, %s, %s);
-                                           """
+                        INSERT INTO Historique_prix
+                        (facture_id, old_amount, new_amount, change_date, changed_by)
+                        VALUES (%s, %s, %s, %s, %s);
+                    """
                     await cursor.execute(insert_history_query,
                                          (facture_id, old_amount, new_amount, datetime.datetime.now(), changed_by))
                     print('fini 2')
 
-                    await conn.commit()  # Valider la transaction si autocommit n'est pas activé ou pour plus de clarté
-
+                    # Valider la transaction
+                    await conn.commit()
+                    print("Transaction validée")
                     return True
-            except Exception as e:
-                if conn:
-                    await conn.rollback()  # Annuler la transaction en cas d'erreur
-                print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
-                return False
-            finally:
-                if conn:
-                    self.pool.release(conn)
 
+                except Exception as e:
+                    # Annuler la transaction en cas d'erreur
+                    await conn.rollback()
+                    print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
+                    return False
     #Pour les excels
     async def get_factures_data_for_client_comprehensive(self, client: str, start_date: datetime.date = None,
                                                          end_date: datetime.date = None):
@@ -1253,7 +1278,7 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
-                    await cursor.execute("""SELECT pdl.planning_detail_id
+                    await cursor.execute("""SELECT pdl.planning_detail_id,pdl.date_planification
                                             FROM PlanningDetails pdl
                                             JOIN Planning p ON pdl.planning_id = p.planning_id
                                             WHERE p.planning_id = %s 
@@ -1324,14 +1349,17 @@ class DatabaseManager:
             async with conn.cursor() as cursor:
                 print('suppress')
                 # 2. Supprimer les traitements (PlanningDetails) futurs pour ce planning
-                delete_query = """
-                               DELETE 
-                               FROM PlanningDetails
-                               WHERE planning_id = %s 
-                                 AND date_planification > %s; 
-                               """
-                await cursor.execute(delete_query, (current_planning_id, date))
-                deleted_count = cursor.rowcount
+                try:
+                    delete_query = """
+                                   DELETE 
+                                   FROM PlanningDetails
+                                   WHERE planning_id = %s 
+                                     AND date_planification > %s; 
+                                   """
+                    await cursor.execute(delete_query, (current_planning_id, date))
+                    deleted_count = cursor.rowcount
+                except Exception as e:
+                    print(e)
                 print(
                     f"{deleted_count} traitements futurs (PlanningDetails) associés au planning {current_planning_id} ont été supprimés après le {date}.")
 
