@@ -190,8 +190,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -283,6 +283,7 @@ class Screen(MDApp):
         except Exception as e:
             Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Une erreur inattendue est survenue.'))
             print(f"Erreur inattendue: {e}")
+
     def creer_contrat(self):
         from dateutil.relativedelta import relativedelta
 
@@ -364,9 +365,7 @@ class Screen(MDApp):
             result = await self.database.get_client()
             if result:
                 place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
-
                 self.update_contract_table(place, result)
-                place.clear_widgets()
 
         except Exception as e:
             print(f"Erreur lors de la récupération des clients: {e}")
@@ -557,11 +556,19 @@ class Screen(MDApp):
 
     async def supprimer_client(self):
         try:
-
             await self.database.delete_client(self.current_client[0])
+            await asyncio.sleep(2)
             await self.populate_tables()
-            await self.get_client()
-            await self.all_clients()
+            Clock.schedule_once(lambda dt:self.remove_tables('contrat'))
+
+            """await asyncio.gather(
+                        self.populate_tables(),
+                        self.all_clients(),
+                        self.get_client()
+            )"""
+
+            Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
+
 
         except Exception as e:
             print('suppression', e)
@@ -572,16 +579,10 @@ class Screen(MDApp):
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
         place.clear_widgets()
 
-        if self.liste_contrat.parent:
-            self.liste_contrat.parent.remove_widget(self.liste_contrat)
-        if self.liste_client.parent:
-            self.liste_client.parent.remove_widget(self.liste_client)
-
         def dlt():
             asyncio.run_coroutine_threadsafe(self.supprimer_client(), self.loop)
 
         Clock.schedule_once(lambda dt: dlt(),0)
-        Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
 
     def delete_account(self, admin_password):
         import verif_password as vp
@@ -814,30 +815,15 @@ class Screen(MDApp):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
 
-        pagination = self.facture.pagination
-
-        btn_prev = pagination.ids.button_back
-        btn_next = pagination.ids.button_forward
-
-        self.page = 1
-        index_global = (self.page - 1) * 8 + row_num
+        index_global = (self.page - 1) * 5 + row_num
         row_value = None
+        print(index_global)
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
             self.date = self.reverse_date(row_value[0])
 
-        def on_press_page(direction, instance=None):
-            print(direction)
-            max_page = (len(row_data) - 1) // 5 + 1
-            if direction == 'moins' and self.page > 1:
-                self.page -= 1
-            elif direction == 'plus' and self.page < max_page:
-                self.page += 1
-            print(self.page)
-
-        btn_prev.bind(on_press=partial(on_press_page, 'moins'))
-        btn_next.bind(on_press=partial(on_press_page, 'plus'))
+            print(row_value)
 
         self.popup.get_screen('modif_prix').ids.prix_init.text = row_value[1]
 
@@ -924,6 +910,24 @@ class Screen(MDApp):
                     ("Etat", dp(30)),
                 ]
             )
+            pagination = self.facture.pagination
+
+            btn_prev = pagination.ids.button_back
+            btn_next = pagination.ids.button_forward
+
+            self.page = 1
+
+            def on_press_page(direction, instance=None):
+                print(direction)
+                max_page = (len(row_data) - 1) // 5 + 1
+                if direction == 'moins' and self.page > 1:
+                    self.page -= 1
+                elif direction == 'plus' and self.page < max_page:
+                    self.page += 1
+                print(self.page)
+
+            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
+            btn_next.bind(on_press=partial(on_press_page, 'plus'))
 
             def _():
                 self.facture.row_data = row_data
@@ -1181,6 +1185,9 @@ class Screen(MDApp):
             return
 
         if not date_contrat or not date_debut or not duree_contrat or not categorie_contrat:
+            self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
+            return
+        if duree_contrat == 'Déterminée' and not date_fin:
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
             return
         else:
@@ -1582,8 +1589,8 @@ class Screen(MDApp):
     def update_contract_table(self, place, contract_data):
         from kivymd.uix.label import MDLabel
 
-        if self.liste_contrat.parent:
-            self.liste_contrat.parent.remove_widget(self.liste_contrat)
+        #if self.liste_contrat.parent:
+        #    self.liste_contrat.parent.remove_widget(self.liste_contrat)
 
         if not contract_data:
             label = MDLabel(
@@ -1635,7 +1642,8 @@ class Screen(MDApp):
 
             self.liste_contrat.row_data = row_data
             self.liste_contrat.bind(on_row_press=partial(self.get_traitement_par_client, client_id))
-            place.add_widget(self.liste_contrat)
+            if contract_data:
+                place.add_widget(self.liste_contrat)
 
         except Exception as e:
             print(f"Error creating contract table: {e}")
@@ -1651,9 +1659,11 @@ class Screen(MDApp):
         place = self.popup.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
         index_global = (self.page - 1) * 8 + row_num
+        row_value = None
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
+            print(row_value)
 
         self.fenetre_contrat('', 'all_treatment')
 
@@ -1677,9 +1687,6 @@ class Screen(MDApp):
 
     def show_about_treatment(self, place, data):
         from kivymd.uix.label import MDLabel
-
-        if self.all_treat.parent:
-            self.all_treat.parent.remove_widget(self.all_treat)
 
         if not data:
             label = MDLabel(
@@ -1726,7 +1733,11 @@ class Screen(MDApp):
                 btn_next.bind(on_press=partial(on_press_page, 'plus'))
 
                 self.all_treat.bind(on_row_press=self.row_pressed_contrat)
+                print(self.all_treat.parent)
+                if self.all_treat.parent:
+                    self.all_treat.parent.remove_widget(self.all_treat)
                 place.add_widget(self.all_treat)
+
             except Exception as e:
                 print(f'Error creating traitement table: {e}')
 
@@ -1738,7 +1749,7 @@ class Screen(MDApp):
         self.fermer_ecran()
         self.fenetre_contrat('', 'option_contrat')
 
-        index_global = (self.page - 1) * 8 + row_num
+        index_global = (self.page - 1) * 4 + row_num
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
@@ -1781,6 +1792,7 @@ class Screen(MDApp):
 
     @mainthread
     def update_client_table_and_switch(self, place, client_data):
+
         if self.liste_client.parent:
             self.liste_client.parent.remove_widget(self.liste_client)
 
@@ -2042,7 +2054,8 @@ class Screen(MDApp):
 
         self.fenetre_planning('', 'selection_planning')
         print(row_value)
-        Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0)
+        if row_value :
+            Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0)
 
     def get_and_update(self, data1, data2, data3):
         asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
@@ -2327,8 +2340,9 @@ class Screen(MDApp):
                 users = await self.database.get_all_user()
                 if users:
                     Clock.schedule_once(lambda dt: self.tableau_compte(place, users))
-            except:
-                self.show_dialog('erreur', 'Merde !!!')
+            except Exception as e:
+                print(e)
+                self.show_dialog('erreur', 'Erreur !')
 
         asyncio.run_coroutine_threadsafe(data_account(), self.loop)
 
