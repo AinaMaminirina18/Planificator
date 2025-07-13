@@ -1117,30 +1117,32 @@ class DatabaseManager:
                     print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
                     return False
     #Pour les excels
-    async def get_factures_data_for_client_comprehensive(self, client: str, start_date: datetime.date = None,
+    async def get_factures_data_for_client_comprehensive(self, client_id: int, start_date: datetime.date = None,
                                                          end_date: datetime.date = None):
         conn = None
         try:
             conn = await self.pool.acquire()
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 query = """
-                        SELECT cl.nom                AS client_nom, \
-                               cl.prenom             AS client_prenom, \
-                               cl.adresse            AS client_adresse,
-                               cl.telephone          AS client_telephone, \
-                               cl.categorie          AS client_categorie,
-                               co.contrat_id, \
-                               co.date_contrat, \
-                               co.date_debut         AS contrat_date_debut,
-                               co.date_fin           AS contrat_date_fin, \
-                               co.statut_contrat, \
-                               co.duree              AS contrat_duree_type,
-                               tt.typeTraitement     AS `Type de Traitement`,
-                               pd.date_planification AS `Date de Planification`,
-                               pd.statut             AS `Etat du Planning`,
-                               p.redondance          AS `Redondance (Mois)`,
-                               f.date_traitement     AS `Date de Facturation`,
-                               f.etat                AS `Etat de Paiement`,
+                        SELECT cl.nom                  AS client_nom,
+                               COALESCE(cl.prenom, '') AS client_prenom,
+                               cl.adresse              AS client_adresse,
+                               cl.telephone            AS client_telephone,
+                               cl.categorie            AS client_categorie,
+                               cl.axe                  AS client_axe,
+                               co.contrat_id,
+                               co.date_contrat,
+                               co.date_debut           AS contrat_date_debut,
+                               co.date_fin             AS contrat_date_fin,
+                               co.statut_contrat,
+                               co.duree                AS contrat_duree_type,
+                               tt.typeTraitement       AS `Type de Traitement`,
+                               pd.date_planification   AS `Date de Planification`,
+                               pd.statut               AS `Etat du Planning`,
+                               p.redondance            AS `Redondance (Mois)`,
+                               f.date_traitement       AS `Date de Facturation`,
+                               f.etat                  AS `Etat de Paiement`,
+                               f.mode                  AS `Mode de Paiement`,
                                COALESCE(
                                        (SELECT hp.new_amount
                                         FROM Historique_prix hp
@@ -1148,30 +1150,30 @@ class DatabaseManager:
                                         ORDER BY hp.change_date DESC, hp.history_id DESC
                                         LIMIT 1),
                                        f.montant
-                               )                     AS `Montant Facturé`
+                               )                       AS `Montant Facturé`
                         FROM Client cl
                                  JOIN Contrat co ON cl.client_id = co.client_id
                                  JOIN Traitement tr ON co.contrat_id = tr.contrat_id
                                  JOIN TypeTraitement tt ON tr.id_type_traitement = tt.id_type_traitement
                                  JOIN Planning p ON tr.traitement_id = p.traitement_id
-                                 LEFT JOIN PlanningDetails pd ON p.planning_id = pd.planning_id
-                                 LEFT JOIN Facture f ON pd.planning_detail_id = f.planning_detail_id
-                        WHERE cl.nom = %s
+                                 INNER JOIN PlanningDetails pd ON p.planning_id = pd.planning_id
+                                 INNER JOIN Facture f ON pd.planning_detail_id = f.planning_detail_id
+                        WHERE cl.client_id = %s
                         """
-                params = [client]
+                params = [client_id]
 
                 if start_date and end_date:
                     query += " AND f.date_traitement BETWEEN %s AND %s"
                     params.append(start_date)
                     params.append(end_date)
-                elif start_date:  # Only start_date provided, assume from start_date onwards
+                elif start_date:
                     query += " AND f.date_traitement >= %s"
                     params.append(start_date)
-                elif end_date:  # Only end_date provided, assume up to end_date
+                elif end_date:
                     query += " AND f.date_traitement <= %s"
                     params.append(end_date)
 
-                query += " ORDER BY co.date_contrat ASC, `Date de Planification` ASC, `Date de Facturation` ASC;"
+                query += " ORDER BY `Date de Planification` ASC, `Date de Facturation` ASC;"
 
                 await cursor.execute(query, tuple(params))
                 result = await cursor.fetchall()
@@ -1183,46 +1185,39 @@ class DatabaseManager:
             if conn:
                 self.pool.release(conn)
 
-    async def obtenirDataFactureClient(self, client_id, year: int, month: int):
+    async def obtenirDataFactureClient(pool, client_id: int, year: int, month: int):
         conn = None
         try:
-            conn = await self.pool.acquire()
+            conn = await pool.acquire()
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 query = """
-                        SELECT cl.nom            AS client_nom,
-                               cl.prenom         AS client_prenom,
-                               cl.adresse        AS client_adresse,
-                               cl.telephone      AS client_telephone,
-                               cl.categorie      AS client_categorie,
-                               f.date_traitement AS `Date de traitement`,
-                               tt.typeTraitement AS `Traitement (Type)`,
-                               pd.statut         AS `Etat traitement`,
-                               f.etat            AS `Etat paiement (Payée ou non)`,
-                               -- Utilise le nouveau_montant de Historique_prix si disponible (le plus récent),
-                               -- sinon utilise le montant original de Facture.
+                        SELECT cl.nom                  AS client_nom,
+                               COALESCE(cl.prenom, '') AS client_prenom,
+                               cl.adresse              AS client_adresse,
+                               cl.telephone            AS client_telephone,
+                               cl.categorie            AS client_categorie,
+                               cl.axe                  AS client_axe,
+                               f.date_traitement       AS `Date de traitement`,
+                               tt.typeTraitement       AS `Traitement (Type)`,
+                               pd.statut               AS `Etat traitement`,
+                               f.etat                  AS `Etat paiement (Payée ou non)`,
+                               f.mode                  AS `Mode de Paiement`,
                                COALESCE(
                                        (SELECT hp.new_amount
                                         FROM Historique_prix hp
                                         WHERE hp.facture_id = f.facture_id
-                                        ORDER BY hp.change_date DESC, hp.history_id
-                                                                DESC -- Prend le plus récent, history_id pour briser l'égalité
+                                        ORDER BY hp.change_date DESC, hp.history_id DESC
                                         LIMIT 1),
                                        f.montant
-                               )                 AS montant_facture
+                               )                       AS montant_facture
                         FROM Facture f
-                                 JOIN
-                             PlanningDetails pd ON f.planning_detail_id = pd.planning_detail_id
-                                 JOIN
-                             Planning p ON pd.planning_id = p.planning_id
-                                 JOIN
-                             Traitement tr ON p.traitement_id = tr.traitement_id
-                                 JOIN
-                             TypeTraitement tt ON tr.id_type_traitement = tt.id_type_traitement
-                                 JOIN
-                             Contrat co ON tr.contrat_id = co.contrat_id
-                                 JOIN
-                             Client cl ON co.client_id = cl.client_id
-                        WHERE cl.nom = %s
+                                 JOIN PlanningDetails pd ON f.planning_detail_id = pd.planning_detail_id
+                                 JOIN Planning p ON pd.planning_id = p.planning_id
+                                 JOIN Traitement tr ON p.traitement_id = tr.traitement_id
+                                 JOIN TypeTraitement tt ON tr.id_type_traitement = tt.id_type_traitement
+                                 JOIN Contrat co ON tr.contrat_id = co.contrat_id
+                                 JOIN Client cl ON co.client_id = cl.client_id
+                        WHERE cl.client_id = %s
                           AND YEAR(f.date_traitement) = %s
                           AND MONTH(f.date_traitement) = %s
                         ORDER BY f.date_traitement;
@@ -1235,7 +1230,7 @@ class DatabaseManager:
             return []
         finally:
             if conn:
-                self.pool.release(conn)
+                pool.release(conn)
 
     async def get_traitements_for_month(self, year: int, month: int):
         conn = None

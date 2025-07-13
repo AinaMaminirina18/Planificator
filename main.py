@@ -561,12 +561,6 @@ class Screen(MDApp):
             await self.populate_tables()
             Clock.schedule_once(lambda dt:self.remove_tables('contrat'))
 
-            """await asyncio.gather(
-                        self.populate_tables(),
-                        self.all_clients(),
-                        self.get_client()
-            )"""
-
             Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
 
 
