@@ -1,4 +1,5 @@
 from kivy.config import Config
+from kivymd.toast import toast
 
 Config.set('graphics', 'resizable', False)
 
@@ -1562,11 +1563,9 @@ class Screen(MDApp):
         if text == 'Traitement':
             self.popup.get_screen('rendu_planning').ids.label_trait.pos_hint = {"center_x": .55,'center_y':.55}
             self.popup.get_screen('rendu_planning').ids.type_traitement_planning.pos_hint = {"center_x":.17,"center_y":.43}
-            self.popup.get_screen('rendu_planning').ids.drop_trait.pos_hint = {"center_x": .27, "center_y":.42}
         if text == 'Facture':
             self.popup.get_screen('rendu_planning').ids.label_trait.pos_hint = {"center_x": -1,'center_y':-1}
             self.popup.get_screen('rendu_planning').ids.type_traitement_planning.pos_hint = {"center_x":-1,"center_y":-1}
-            self.popup.get_screen('rendu_planning').ids.drop_trait.pos_hint = {"center_x": -1, "center_y":-1}
             self.popup.get_screen('rendu_planning').ids.type_traitement_planning.text = 'Tous'
 
         self.menu.dismiss()
@@ -1705,6 +1704,9 @@ class Screen(MDApp):
     def show_about_treatment(self, place, data):
         from kivymd.uix.label import MDLabel
 
+        if self.all_treat.parent:
+            self.all_treat.parent.remove_widget(self.all_treat)
+
         if not data:
             label = MDLabel(
                 text="Aucune donnée de planning disponible",
@@ -1780,10 +1782,10 @@ class Screen(MDApp):
                 else:
                     nom = self.current_client[1]
 
-                if self.current_client[6] == 'Indéterminée':
-                    fin = self.reverse_date(self.current_client[8])
-                else :
+                if self.current_client[6] == 'Indeterminée':
                     fin = self.current_client[8]
+                else :
+                    fin = self.reverse_date(self.current_client[8])
 
                 self.popup.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
                 self.popup.get_screen(
@@ -2557,18 +2559,25 @@ class Screen(MDApp):
         self.dismiss_popup()
         self.fermer_ecran()
         print(categorie, traitement, mois, client)
+        if "mme" in client.lower():
+            nom = client.split('mme')[0]
+        if "mr" in client.lower():
+            nom = client.split('mr')[0]
+        else:
+            nom = client.split(' ')[0]
+
         if categorie == 'Facture':
             if mois == 'Tous':
-                data = self.excel_database('facture par client', client.split(' ')[0])
+                data = self.excel_database('facture par client', nom)
                 generate_comprehensive_facture_excel(data, client)
             else:
-                data = self.excel_database('facture par mois', client.split(' ')[0], mois)
+                data = self.excel_database('facture par mois', nom, mois)
                 generate_facture_excel(data, client, datetime.today().year, datetime.strptime(mois, "%B").month)
         if categorie == 'Traitement':
             if traitement == 'Tous' :
                 data = self.excel_database('traitement', mois=mois)
                 generate_traitements_excel(data, datetime.today().year, datetime.strptime(mois, "%B").month)
-
+        self.show_dialog('', 'Le fichier a été generé avec succes')
         print(data)
 
     def excel_database(self, option, client=None, mois=None):
@@ -2583,6 +2592,10 @@ class Screen(MDApp):
                 )
 
             elif option == 'traitement':
+                if mois == 'Tous':
+                    self.show_dialog('', 'Veuillez choisir un mois')
+                    return
+
                 return await self.database.get_traitements_for_month(
                     datetime.today().year, datetime.strptime(mois, "%B").month
                 )
