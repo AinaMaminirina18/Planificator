@@ -39,12 +39,55 @@ MDScreen:
             pos_hint:{"center_x":.56, "center_y":.7}
             on_release:
                 paye_facture.active = True if paye_facture.active is False else False
+                app.on_check_press(paye_facture.active)
+
 
         MDCheckbox:
             id: paye_facture
             pos_hint: {"center_x": .51,'center_y':.7}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
+            on_active:
+                app.on_check_press(paye_facture.active)
+
+        MDTextButton:
+            id: label_cheque
+            text: 'Chèque'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.71, "center_y":.7}
+            opacity: 0
+            disbaled : True
+            on_release:
+                cheque.active = True if cheque.active is False else False
+
+        MDCheckbox:
+            id: cheque
+            pos_hint: {"center_x": .65,'center_y':.7}
+            size_hint: .07, .07
+            checkbox_icon_down: 'check'
+            group: 'payement'
+            opacity: 0
+            active: True
+
+        MDTextButton:
+            id: label_espece
+            text: 'Espèce'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.83, "center_y":.7}
+            opacity: 0
+            disbaled : True
+            on_release:
+                espece.active = True if espece.active is False else False
+
+        MDCheckbox:
+            id: espece
+            pos_hint: {"center_x": .77,'center_y':.7}
+            size_hint: .07, .07
+            checkbox_icon_down: 'check'
+            group: 'payement'
+            opacity: 0
 
         MDLabel:
             id: mois_trait
