@@ -703,12 +703,12 @@ class DatabaseManager:
                 except Exception as e:
                     print('histo remarque',e)
 
-    async def update_etat_facture(self, facture):
+    async def update_etat_facture(self, facture, payement):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                    "UPDATE Facture SET etat = %s WHERE facture_id = %s",('Payé', facture))
+                    "UPDATE Facture SET etat = %s, mode = %s WHERE facture_id = %s",('Payé', payement, facture))
                     await conn.commit()
                 except Exception as e:
                     print("update facture",e)
