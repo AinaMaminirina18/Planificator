@@ -1117,7 +1117,7 @@ class DatabaseManager:
                     print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
                     return False
     #Pour les excels
-    async def get_factures_data_for_client_comprehensive(self, client_id: int, start_date: datetime.date = None,
+    async def get_factures_data_for_client_comprehensive(self, client: str, start_date: datetime.date = None,
                                                          end_date: datetime.date = None):
         conn = None
         try:
@@ -1158,9 +1158,9 @@ class DatabaseManager:
                                  JOIN Planning p ON tr.traitement_id = p.traitement_id
                                  INNER JOIN PlanningDetails pd ON p.planning_id = pd.planning_id
                                  INNER JOIN Facture f ON pd.planning_detail_id = f.planning_detail_id
-                        WHERE cl.client_id = %s
+                        WHERE cl.nom = %s
                         """
-                params = [client_id]
+                params = [client]
 
                 if start_date and end_date:
                     query += " AND f.date_traitement BETWEEN %s AND %s"
@@ -1185,10 +1185,10 @@ class DatabaseManager:
             if conn:
                 self.pool.release(conn)
 
-    async def obtenirDataFactureClient(pool, client_id: int, year: int, month: int):
+    async def obtenirDataFactureClient(self, client: str, year: int, month: int):
         conn = None
         try:
-            conn = await pool.acquire()
+            conn = await self.pool.acquire()
             async with conn.cursor(aiomysql.DictCursor) as cursor:
                 query = """
                         SELECT cl.nom                  AS client_nom,
@@ -1217,12 +1217,12 @@ class DatabaseManager:
                                  JOIN TypeTraitement tt ON tr.id_type_traitement = tt.id_type_traitement
                                  JOIN Contrat co ON tr.contrat_id = co.contrat_id
                                  JOIN Client cl ON co.client_id = cl.client_id
-                        WHERE cl.client_id = %s
+                        WHERE cl.nom = %s
                           AND YEAR(f.date_traitement) = %s
                           AND MONTH(f.date_traitement) = %s
                         ORDER BY f.date_traitement;
                         """
-                await cursor.execute(query, (client_id, year, month))
+                await cursor.execute(query, (client, year, month))
                 result = await cursor.fetchall()
                 return result
         except Exception as e:
@@ -1230,7 +1230,7 @@ class DatabaseManager:
             return []
         finally:
             if conn:
-                pool.release(conn)
+                self.pool.release(conn)
 
     async def get_traitements_for_month(self, year: int, month: int):
         conn = None
