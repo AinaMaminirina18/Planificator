@@ -190,8 +190,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -638,6 +638,29 @@ class Screen(MDApp):
     def search(self, text, search='False'):
         if search:
             print(self.verifier_mois(text))
+
+    def on_check_press(self, active):
+        ecran = self.popup.get_screen('ajout_remarque')
+        label = ecran.ids.label_cheque
+        label1 = ecran.ids.label_espece
+        cheque = ecran.ids.cheque
+        espece = ecran.ids.espece
+
+        if active:
+            label.opacity = 1
+            label1.opacity = 1
+            label.disabled = False
+            label1.disabled = False
+            cheque.opacity = 1
+            espece.opacity = 1
+        else:
+            label.opacity = 0
+            label1.opacity = 0
+            label.disabled = True
+            label1.disabled = True
+            cheque.opacity = 0
+            espece.opacity = 0
+
 
     def verifier_mois(self, text ):
         from fuzzywuzzy import process
@@ -1886,7 +1909,7 @@ class Screen(MDApp):
             self.popup.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
             self.popup.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
             self.popup.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {fin}'
-            self.popup.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[4]}'
+            self.popup.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
             self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
 
         Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'))
@@ -2139,6 +2162,13 @@ class Screen(MDApp):
         probleme = screen.ids.probleme.text
         action = screen.ids.action.text
         paye = bool(screen.ids.paye_facture.active)
+        cheque = bool(screen.ids.cheque.active)
+        espece = bool(screen.ids.espece.active)
+        payement = None
+
+        if paye and not espece and not cheque:
+            self.show_dialog('Attention', 'Veuillez choisir une mode de payement')
+            return
 
         self.dismiss_popup()
         self.fermer_ecran()
@@ -2159,7 +2189,12 @@ class Screen(MDApp):
                 await self.database.update_etat_planning(self.planning_detail[8])
 
                 if etat_paye:
-                    await self.database.update_etat_facture(self.planning_detail[6])
+                    if cheque:
+                        payement = 'Chèque'
+                    if espece:
+                        payement = "Espèce"
+
+                    await self.database.update_etat_facture(self.planning_detail[6], payement)
 
                 Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
                 Clock.schedule_once(lambda dt: self.fermer_ecran())
