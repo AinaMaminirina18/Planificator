@@ -8,10 +8,29 @@ MDScreen:
         pos_hint: {'center_x':.5, 'center_y': .5}
 
         MDLabel:
+            text: 'Numéro du contrat'
+            font_name: "poppins"
+            font_size: 15
+            pos_hint: {"center_x": .55,'center_y':1.07}
+
+        MDTextField:
+            id: num_new_contrat
+            text_color_normal: 'black'
+            mode: 'fill'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.17,"center_y":.95}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .25,None
+            radius:[10]
+
+        MDLabel:
             text: 'Date du contrat'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .55,'center_y':.92}
+            pos_hint: {"center_x": .55,'center_y':.82}
 
         MDTextField:
             id: date_new_contrat
@@ -19,7 +38,7 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.17,"center_y":.8}
+            pos_hint:{"center_x":.17,"center_y":.7}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -31,7 +50,7 @@ MDScreen:
 
         MDIconButton:
             icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .27, "center_y":.8}
+            pos_hint:{"center_x": .27, "center_y":.7}
             on_release:
                 app.calendrier('new_contrat', 'date_new_contrat')
 
@@ -39,7 +58,7 @@ MDScreen:
             text: 'Début du contrat'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .88,'center_y':.92}
+            pos_hint: {"center_x": .88,'center_y':.82}
 
         MDTextField:
             id: debut_new_contrat
@@ -47,7 +66,7 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.5,"center_y":.8}
+            pos_hint:{"center_x":.5,"center_y":.7}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -59,7 +78,7 @@ MDScreen:
 
         MDIconButton:
             icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .6, "center_y":.8}
+            pos_hint:{"center_x": .6, "center_y":.7}
             on_release:
                 app.calendrier('new_contrat', 'debut_new_contrat')
 
@@ -68,7 +87,7 @@ MDScreen:
             text: 'Fin du contrat'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": 1.21,'center_y':.92}
+            pos_hint: {"center_x": 1.21,'center_y':.82}
 
         MDTextField:
             id: fin_new_contrat
@@ -76,7 +95,7 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.83,"center_y":.8}
+            pos_hint:{"center_x":.83,"center_y":.7}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -89,7 +108,7 @@ MDScreen:
         MDIconButton:
             id: fin_icon
             icon: 'Assets/calendar.png'
-            pos_hint:{"center_x": .93, "center_y":.8}
+            pos_hint:{"center_x": .93, "center_y":.7}
             on_release:
                 app.calendrier('new_contrat', 'fin_new_contrat')
 
@@ -97,11 +116,11 @@ MDScreen:
             text: 'Type de traitement'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .55,'center_y':.62}
+            pos_hint: {"center_x": .55,'center_y':.55}
 
         MDCheckbox:
             id: deratisation
-            pos_hint: {"center_x": .02,'center_y':.5}
+            pos_hint: {"center_x": .02,'center_y':.45}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
 
@@ -109,11 +128,11 @@ MDScreen:
             text: 'Dératisation'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .54,'center_y':.5}
+            pos_hint: {"center_x": .54,'center_y':.45}
 
         MDCheckbox:
             id: desinfection
-            pos_hint: {"center_x": .02,'center_y':.35}
+            pos_hint: {"center_x": .02,'center_y':.3}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
 
@@ -121,11 +140,11 @@ MDScreen:
             text: 'Désinfection'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .54,'center_y':.35}
+            pos_hint: {"center_x": .54,'center_y':.3}
 
         MDCheckbox:
             id: desinsectisation
-            pos_hint: {"center_x": .18,'center_y':.5}
+            pos_hint: {"center_x": .18,'center_y':.45}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
 
@@ -133,11 +152,11 @@ MDScreen:
             text: 'Désinsectisation'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .7,'center_y':.5}
+            pos_hint: {"center_x": .7,'center_y':.45}
 
         MDCheckbox:
             id: nettoyage
-            pos_hint: {"center_x": .02,'center_y':.05}
+            pos_hint: {"center_x": .02,'center_y':.0}
             size_hint: .05, .07
             checkbox_icon_down: 'check'
 
@@ -145,11 +164,11 @@ MDScreen:
             text: 'Nettoyage Industriel'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .54,'center_y':.05}
+            pos_hint: {"center_x": .54,'center_y':.0}
 
         MDCheckbox:
             id: ramassage
-            pos_hint: {"center_x": .18,'center_y':.35}
+            pos_hint: {"center_x": .18,'center_y':.3}
             size_hint: .05, .07
             checkbox_icon_down: 'check'
 
@@ -157,11 +176,11 @@ MDScreen:
             text: 'Fumigation'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .7,'center_y':.2}
+            pos_hint: {"center_x": .7,'center_y':.15}
 
         MDCheckbox:
             id: anti_ter
-            pos_hint: {"center_x": .02,'center_y':.2}
+            pos_hint: {"center_x": .02,'center_y':.15}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
 
@@ -169,11 +188,11 @@ MDScreen:
             text: 'Anti termites'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .54,'center_y':.2}
+            pos_hint: {"center_x": .54,'center_y':.15}
 
         MDCheckbox:
             id: fumigation
-            pos_hint: {"center_x": .18,'center_y':.2}
+            pos_hint: {"center_x": .18,'center_y':.15}
             size_hint: .05, .07
             checkbox_icon_down: 'check'
 
@@ -181,13 +200,13 @@ MDScreen:
             text: "Ramassage ordures "
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .7,'center_y':.35}
+            pos_hint: {"center_x": .7,'center_y':.3}
 
         MDLabel:
             text: 'Durée du contrat'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": .88,'center_y':.62}
+            pos_hint: {"center_x": .88,'center_y':.52}
 
         MDTextField:
             id: duree_new_contrat
@@ -196,7 +215,7 @@ MDScreen:
             mode: 'fill'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.5,"center_y":.5}
+            pos_hint:{"center_x":.5,"center_y":.4}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -205,7 +224,7 @@ MDScreen:
 
         MDIconButton:
             icon: 'chevron-down'
-            pos_hint:{"center_x": .6, "center_y":.5}
+            pos_hint:{"center_x": .6, "center_y":.4}
             on_release:
                 app.dropdown_new_contrat(self, 'duree_new_contrat', 'new_contrat')
 
@@ -213,14 +232,14 @@ MDScreen:
             text: 'Catégorie du contrat'
             font_name: "poppins"
             font_size: 15
-            pos_hint: {"center_x": 1.21,'center_y':.62}
+            pos_hint: {"center_x": 1.21,'center_y':.52}
 
         MDTextField:
             id: cat_contrat
             text: 'Nouveau'
             mode: 'fill'
             font_name:"poppins"
-            pos_hint:{"center_x":.83,"center_y":.5}
+            pos_hint:{"center_x":.83,"center_y":.4}
             text_color_normal: 'black'
             text_color_focus: 'black'
             line_color_focus: '#56B5FB'
@@ -232,7 +251,7 @@ MDScreen:
 
         MDIconButton:
             icon: 'chevron-down'
-            pos_hint:{"center_x": .93, "center_y":.5}
+            pos_hint:{"center_x": .93, "center_y":.4}
             on_release:
                 app.dropdown_new_contrat(self, 'cat_contrat', 'new_contrat')
 
@@ -242,11 +261,11 @@ MDScreen:
             font_name: 'poppins'
             font_size: 15
             size_hint: .2, None
-            pos_hint: {'center_x':.85, 'center_y': .1}
+            pos_hint: {'center_x':.85, 'center_y': .05}
             md_bg_color: '#B3F844'
             line_color: '#B3F844'
             on_release:
-                app.enregistrer_contrat(date_new_contrat.text, debut_new_contrat.text, fin_new_contrat.text, duree_new_contrat.text, cat_contrat.text)
+                app.enregistrer_contrat(num_new_contrat.text,date_new_contrat.text, debut_new_contrat.text, fin_new_contrat.text, duree_new_contrat.text, cat_contrat.text)
 
         MDRectangleFlatButton:
             text: 'Annuler'
@@ -254,7 +273,7 @@ MDScreen:
             font_name: 'poppins'
             font_size: 15
             size_hint: .2, None
-            pos_hint: {'center_x':.5, 'center_y': .1}
+            pos_hint: {'center_x':.5, 'center_y': .05}
             md_bg_color: '#FF3333'
             line_color: '#FF3333'
             on_release:
