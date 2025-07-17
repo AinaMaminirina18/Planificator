@@ -12,6 +12,9 @@ Window.size = (1300, 680)
 Window.left = 30
 Window.top = 80
 
+Window.maxWidth = 1300
+Window.maxHeight = 680
+
 import asyncio
 import threading
 import locale
@@ -191,8 +194,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -637,8 +640,9 @@ class Screen(MDApp):
         return traitement, categorie
 
     def search(self, text, search='False'):
-        if search:
-            print(self.verifier_mois(text))
+        """if search:
+            print(self.verifier_mois(text)) """
+        self.fenetre_contrat('', 'ajout_remarque')
 
     def on_check_press(self, active):
         ecran = self.popup.get_screen('ajout_remarque')
@@ -755,11 +759,11 @@ class Screen(MDApp):
             md_bg_color='#56B5FB',
             title=titre,
             type='custom',
-            size_hint=(.8, .85) if ecran == 'ajout_info_client' else (.8,.4) if ecran == 'save_info_client' else (.8, .65) ,
+            size_hint=(.8, .85) if ecran == 'ajout_info_client' else (.8,.4) if ecran == 'save_info_client' else (.8, .75) if ecran == 'new_contrat' else (.8, .65) ,
             content_cls= self.popup,
             auto_dismiss=False
         )
-        hauteur = '500dp' if ecran == 'option_contrat' else '520dp' if ecran == 'ajout_info_client' else '300dp' if ecran == 'save_info_client' else '400dp'
+        hauteur = '500dp' if ecran == 'option_contrat' else '430dp' if ecran == 'new_contrat' else '520dp' if ecran == 'ajout_info_client' else '300dp' if ecran == 'save_info_client' else '400dp'
         self.popup.height = hauteur
         self.popup.width = '1000dp'
         self.dialog = contrat
@@ -1189,7 +1193,7 @@ class Screen(MDApp):
             self.fermer_ecran()
             self.fenetre_contrat('', 'save_info_client')
 
-    def enregistrer_contrat(self, date_contrat, date_debut, date_fin, duree_contrat, categorie_contrat):
+    def enregistrer_contrat(self,numero_contrat, date_contrat, date_debut, date_fin, duree_contrat, categorie_contrat):
         dératisation = self.popup.get_screen('new_contrat').ids.deratisation.active
         désinfection = self.popup.get_screen('new_contrat').ids.desinfection.active
         désinsectisation = self.popup.get_screen('new_contrat').ids.desinsectisation.active
@@ -1202,7 +1206,7 @@ class Screen(MDApp):
             self.show_dialog("Erreur", "Veuillez choisir au moins un traitement")
             return
 
-        if not date_contrat or not date_debut or not duree_contrat or not categorie_contrat:
+        if not numero_contrat or not date_contrat or not date_debut or not duree_contrat or not categorie_contrat:
             self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
             return
         if duree_contrat == 'Déterminée' and not date_fin:
