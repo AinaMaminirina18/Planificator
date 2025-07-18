@@ -30,21 +30,20 @@ MDScreen:
             text: 'Durée totale du traitement: 12 mois'
             font_name: 'poppins'
             font_size: 16
-            pos_hint:{"center_x":.55, "center_y":.7}
+            pos_hint:{"center_x":.55, "center_y":.75}
 
         MDTextButton:
             text: 'Payé'
             font_name: 'poppins'
             font_size: 16
-            pos_hint:{"center_x":.56, "center_y":.7}
+            pos_hint:{"center_x":.56, "center_y":.75}
             on_release:
                 paye_facture.active = True if paye_facture.active is False else False
                 app.on_check_press(paye_facture.active)
 
-
         MDCheckbox:
             id: paye_facture
-            pos_hint: {"center_x": .51,'center_y':.7}
+            pos_hint: {"center_x": .51,'center_y':.75}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
             on_active:
@@ -55,27 +54,53 @@ MDScreen:
             text: 'Chèque'
             font_name: 'poppins'
             font_size: 16
-            pos_hint:{"center_x":.71, "center_y":.7}
+            pos_hint:{"center_x":.71, "center_y":.75}
             opacity: 0
             disbaled : True
             on_release:
+                app.activate_descri(paye_facture.active)
                 cheque.active = True if cheque.active is False else False
 
         MDCheckbox:
             id: cheque
-            pos_hint: {"center_x": .65,'center_y':.7}
+            pos_hint: {"center_x": .65,'center_y':.75}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
             group: 'payement'
             opacity: 0
             active: True
+            on_active:
+                app.activate_descri(paye_facture.active)
+
+        MDTextButton:
+            id: label_virement
+            text: 'Virement'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.72, "center_y":.65}
+            opacity: 0
+            disbaled : True
+            on_release:
+                app.activate_descri(paye_facture.active)
+                virement.active = True if virement.active is False else False
+
+        MDCheckbox:
+            id: virement
+            pos_hint: {"center_x": .65,'center_y':.65}
+            size_hint: .07, .07
+            checkbox_icon_down: 'check'
+            group: 'payement'
+            opacity: 0
+            active: True
+            on_active:
+                app.activate_descri(paye_facture.active)
 
         MDTextButton:
             id: label_espece
             text: 'Espèce'
             font_name: 'poppins'
             font_size: 16
-            pos_hint:{"center_x":.83, "center_y":.7}
+            pos_hint:{"center_x":.85, "center_y":.75}
             opacity: 0
             disbaled : True
             on_release:
@@ -83,7 +108,26 @@ MDScreen:
 
         MDCheckbox:
             id: espece
-            pos_hint: {"center_x": .77,'center_y':.7}
+            pos_hint: {"center_x": .79,'center_y':.75}
+            size_hint: .07, .07
+            checkbox_icon_down: 'check'
+            group: 'payement'
+            opacity: 0
+
+        MDTextButton:
+            id: label_money
+            text: 'Mobile money'
+            font_name: 'poppins'
+            font_size: 16
+            pos_hint:{"center_x":.88, "center_y":.65}
+            opacity: 0
+            disbaled : True
+            on_release:
+                mobile_money.active = True if mobile_money.active is False else False
+
+        MDCheckbox:
+            id: mobile_money
+            pos_hint: {"center_x": .79,'center_y':.65}
             size_hint: .07, .07
             checkbox_icon_down: 'check'
             group: 'payement'
@@ -97,13 +141,47 @@ MDScreen:
             pos_hint:{"center_x":1, "center_y":.85}
 
         MDTextField:
+            id: numero_facture
+            text_color_normal: 'black'
+            mode: 'fill'
+            hint_text: 'Numéro facture'
+            hint_text_color : 'black'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.25,"center_y":.55}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[5]
+            disabled: True
+            opacity: 0
+
+        MDTextField:
+            id: descri
+            text_color_normal: 'black'
+            mode: 'fill'
+            hint_text: 'Description'
+            text_color_focus: 'black'
+            font_name:"poppins"
+            pos_hint:{"center_x":.75,"center_y":.55}
+            line_color_focus: '#56B5FB'
+            fill_color_normal: 'white'
+            line_color_normal: 'white'
+            size_hint: .4,None
+            radius:[5]
+            disabled: True
+            opacity:  0
+
+
+        MDTextField:
             id: remarque
             text_color_normal: 'black'
             mode: 'fill'
             hint_text: 'Votre remarque'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.5,"center_y":.55}
+            pos_hint:{"center_x":.5,"center_y":.4}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -117,7 +195,7 @@ MDScreen:
             hint_text: 'Problème'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.25,"center_y":.35}
+            pos_hint:{"center_x":.25,"center_y":.25}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -131,7 +209,7 @@ MDScreen:
             hint_text: 'Action entreprise'
             text_color_focus: 'black'
             font_name:"poppins"
-            pos_hint:{"center_x":.75,"center_y":.35}
+            pos_hint:{"center_x":.75,"center_y":.25}
             line_color_focus: '#56B5FB'
             fill_color_normal: 'white'
             line_color_normal: 'white'
@@ -145,7 +223,7 @@ MDScreen:
             md_bg_color: '#FF3333'
             line_color: '#FF3333'
             size_hint: .25, None
-            pos_hint: {'center_x': .3, 'center_y': .1}
+            pos_hint: {'center_x': .3, 'center_y': .08}
             on_release:
                 app.fermer_ecran()
                 app.dismiss_popup()
@@ -157,6 +235,6 @@ MDScreen:
             md_bg_color: 'white'
             line_color: 'white'
             size_hint: .25, None
-            pos_hint: {'center_x': .7, 'center_y': .1}
+            pos_hint: {'center_x': .7, 'center_y': .08}
             on_release:
                 app.create_remarque()
