@@ -642,7 +642,7 @@ class Screen(MDApp):
     def search(self, text, search='False'):
         """if search:
             print(self.verifier_mois(text)) """
-        self.fenetre_contrat('', 'ajout_remarque')
+        self.fenetre_planning('', 'ajout_remarque')
 
     def on_check_press(self, active):
         ecran = self.popup.get_screen('ajout_remarque')
@@ -650,22 +650,64 @@ class Screen(MDApp):
         label1 = ecran.ids.label_espece
         cheque = ecran.ids.cheque
         espece = ecran.ids.espece
+        label_v = ecran.ids.label_virement
+        virement = ecran.ids.virement
+        label_m = ecran.ids.label_money
+        mobile_money = ecran.ids.mobile_money
+        num_fact = ecran.ids.numero_facture
+        descri = ecran.ids.descri
 
         if active:
             label.opacity = 1
             label1.opacity = 1
+            label_v.opacity = 1
+            label_m.opacity = 1
             label.disabled = False
             label1.disabled = False
+            label_v.disabled = False
+            label_m.disabled = False
+            num_fact.disabled = False
+            num_fact.opacity = 1
+            mobile_money.opacity = 1
+            virement.opacity = 1
             cheque.opacity = 1
             espece.opacity = 1
+            descri.disabled = False
+            descri.opacity = 1
+            cheque.active = True
         else:
             label.opacity = 0
             label1.opacity = 0
+            label_v.opacity = 0
+            label_m.opacity = 0
             label.disabled = True
             label1.disabled = True
+            label_v.disabled = True
+            num_fact.disabled = True
+            label_m.disabled = True
+            num_fact.opacity = 0
+            mobile_money.opacity = 0
+            virement.opacity = 0
             cheque.opacity = 0
             espece.opacity = 0
+            descri.opacity = 0
+            descri.disabled = True
+            descri.text = ''
+            num_fact.text = ''
 
+    def activate_descri(self, paye):
+        ecran = self.popup.get_screen('ajout_remarque')
+        cheque = ecran.ids.cheque.active
+        virement = ecran.ids.virement.active
+        descri = ecran.ids.descri
+        if paye:
+            if cheque or virement:
+                descri.disabled = False
+                descri.opacity = 1
+            else:
+                descri.opacity = 0
+                descri.disabled = True
+                descri.text = ''
 
     def verifier_mois(self, text ):
         from fuzzywuzzy import process
@@ -1022,7 +1064,7 @@ class Screen(MDApp):
                   "selection_planning": '500dp',
                   "rendu_planning": '450dp',
                   "selection_element_tableau": "300dp",
-                  "ajout_remarque": "350dp"}
+                  "ajout_remarque": "450dp"}
 
         size_tableau = {"option_decalage": (.6, .3),
                         "ecran_decalage": (.7, .6),
@@ -1132,7 +1174,7 @@ class Screen(MDApp):
         sign_up = ['nom','prenom','Email','type','signup_username','signup_password','confirm_password']
         modif_compte = ['nom','prenom','email','username','password','confirm_password']
         login = ['login_username', 'login_password']
-        new_contrat = ['date_new_contrat', 'debut_new_contrat', 'fin_new_contrat']
+        new_contrat = ['num_new_contrat','date_new_contrat', 'debut_new_contrat', 'fin_new_contrat']
         new_client = ['date_contrat_client', 'ajout_client', 'nom_client', 'email_client', 'adresse_client', 'responsable_client', 'telephone' ,'nif', 'stat']
         planning = ['mois_date', 'mois_fin', 'axe_client', 'type_traitement', 'date_prevu']
         facture = ['montant', 'mois_fin', 'axe_client', 'traitement_c', 'date_prevu', 'red_trait']
@@ -2161,20 +2203,33 @@ class Screen(MDApp):
         screen.ids.remarque.text = ''
         screen.ids.probleme.text = ''
         screen.ids.action.text = ''
+        screen.ids.paye_facture.active = False
+        self.on_check_press(False)
 
     def create_remarque(self):
         screen = self.popup.get_screen('ajout_remarque')
         remarque = screen.ids.remarque.text
         probleme = screen.ids.probleme.text
         action = screen.ids.action.text
+        numero = screen.ids.numero_facture.text
+        descri = screen.ids.descri.text
         paye = bool(screen.ids.paye_facture.active)
         cheque = bool(screen.ids.cheque.active)
         espece = bool(screen.ids.espece.active)
+        virement = bool(screen.ids.virement.active)
+        mobile = bool(screen.ids.mobile_money.active)
         payement = None
 
-        if paye and not espece and not cheque:
-            self.show_dialog('Attention', 'Veuillez choisir une mode de payement')
-            return
+        if paye:
+            if not espece and not cheque and not virement and not mobile:
+                self.show_dialog('Attention', 'Veuillez choisir une mode de payement')
+                return
+            if not numero:
+                self.show_dialog('Attention', 'Veuillez remplir tous les champs')
+                return
+            if cheque or virement and not descri:
+                self.show_dialog('Attention', 'Veuillez remplir tous les champs')
+                return
 
         self.dismiss_popup()
         self.fermer_ecran()
