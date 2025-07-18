@@ -355,7 +355,7 @@ class DatabaseManager:
                         rows = await curseur.fetchall()
                         for nom, traitement, statut, date_str, idplanning, axe in rows:
                             traitements.append({
-                                "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
+                                "traitement": f'{traitement.partition("(")[0].strip()} pour {nom}',
                                 "date": date_str,
                                 'etat': statut,
                                 'axe': axe
@@ -412,7 +412,7 @@ class DatabaseManager:
                         rows = await curseur.fetchall()
                         for nom, traitement, statut, date_str, idplanning, axe in rows:
                             traitements.append({
-                                "traitement": f'{traitement.partition('(')[0].strip()} pour {nom}',
+                                "traitement": f'{traitement.partition("(")[0].strip()} pour {nom}',
                                 "date": date_str,
                                 'etat': statut,
                                 'axe': axe
