@@ -16,7 +16,7 @@ class DatabaseManager:
             """Crée un pool de connexions à la base de données."""
             self.pool = await aiomysql.create_pool(
                 host="localhost",
-                port=3306,
+                port=3307,
                 user="root",
                 password="root",
                 db="Planificator",
@@ -140,7 +140,7 @@ class DatabaseManager:
                 current = await cursor.fetchone()
                 return current
 
-    async def create_contrat(self, client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie,
+    async def create_contrat(self, client_id,numero_contrat,  date_contrat, date_debut, date_fin, duree, duree_contrat, categorie,
                              max_retries=3):
         for attempt in range(max_retries + 1):
             try:
@@ -148,8 +148,8 @@ class DatabaseManager:
                     async with self.pool.acquire() as conn:
                         async with conn.cursor() as cur:
                             await cur.execute(
-                                "INSERT INTO Contrat (client_id, date_contrat, date_debut, date_fin, duree_contrat, duree, categorie) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                                (client_id, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie)
+                                "INSERT INTO Contrat (client_id,reference_contrat, date_contrat, date_debut, date_fin, duree_contrat, duree, categorie) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                                (client_id, numero_contrat, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie)
                             )
                             await conn.commit()
                             return cur.lastrowid
@@ -703,15 +703,22 @@ class DatabaseManager:
                 except Exception as e:
                     print('histo remarque',e)
 
-    async def update_etat_facture(self, facture, payement):
+    async def update_etat_facture(self, facture, reference, payement, etablissement, date, num_cheque):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await cur.execute(
-                    "UPDATE Facture SET etat = %s, mode = %s WHERE facture_id = %s",('Payé', payement, facture))
+                        """ UPDATE Facture 
+                            SET reference_facture = %s,
+                                etablissement_payeur = %s, 
+                                date_cheque = %s, 
+                                numero_cheque = %s, 
+                                etat = %s, 
+                                mode = %s 
+                            WHERE facture_id = %s ;""", (reference, etablissement, date, num_cheque, 'Payé', payement, facture))
                     await conn.commit()
                 except Exception as e:
-                    print("update facture",e)
+                    print("update facture", e)
 
     async def update_etat_planning(self, details_id):
         async with self.pool.acquire() as conn:
