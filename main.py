@@ -18,7 +18,8 @@ Window.maxHeight = 680
 import asyncio
 import threading
 import locale
-locale.setlocale(locale.LC_TIME, "fr_FR.utf8")
+#locale.setlocale(locale.LC_TIME, "fr_FR.utf8") Pour linux /MAC
+locale.setlocale(locale.LC_TIME, "French_France.1252")
 
 from datetime import datetime
 from functools import partial
@@ -194,8 +195,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -303,6 +304,7 @@ class Screen(MDApp):
         nif = ecran.ids.nif.text if categorie_client == 'Société' else 0
         stat = ecran.ids.stat.text if categorie_client == 'Société' else 0
 
+        numero_contrat = self.popup.get_screen('new_contrat').ids.num_new_contrat.text
         duree_contrat = self.popup.get_screen('new_contrat').ids.duree_new_contrat.text
         categorie_contrat = self.popup.get_screen('new_contrat').ids.cat_contrat.text
         date_contrat = self.popup.get_screen('new_contrat').ids.date_new_contrat.text
@@ -339,6 +341,7 @@ class Screen(MDApp):
 
                 self.contrat = await self.database.create_contrat(
                     client,
+                    numero_contrat,
                     self.reverse_date(date_contrat),
                     self.reverse_date(date_debut),
                     fin_contrat,
@@ -655,7 +658,10 @@ class Screen(MDApp):
         label_m = ecran.ids.label_money
         mobile_money = ecran.ids.mobile_money
         num_fact = ecran.ids.numero_facture
-        descri = ecran.ids.descri
+        descri = ecran.ids.date_payement
+        etab = ecran.ids.etablissement
+        num_cheque = ecran.ids.num_cheque
+        icon = ecran.ids.icon
 
         if active:
             label.opacity = 1
@@ -667,13 +673,19 @@ class Screen(MDApp):
             label_v.disabled = False
             label_m.disabled = False
             num_fact.disabled = False
+            etab.disabled = False
+            num_cheque.disabled = False
+            descri.disabled = False
+            icon.disabled = False
             num_fact.opacity = 1
+            icon.opacity = 1
             mobile_money.opacity = 1
             virement.opacity = 1
             cheque.opacity = 1
             espece.opacity = 1
-            descri.disabled = False
             descri.opacity = 1
+            etab.opacity = 1
+            num_cheque.opacity = 1
             cheque.active = True
         else:
             label.opacity = 0
@@ -685,29 +697,42 @@ class Screen(MDApp):
             label_v.disabled = True
             num_fact.disabled = True
             label_m.disabled = True
+            etab.disabled = True
+            num_cheque.disabled = True
+            icon.disabled = True
             num_fact.opacity = 0
+            icon.opacity = 0
             mobile_money.opacity = 0
             virement.opacity = 0
             cheque.opacity = 0
             espece.opacity = 0
             descri.opacity = 0
+            etab.opacity = 0
+            num_cheque.opacity = 0
             descri.disabled = True
             descri.text = ''
             num_fact.text = ''
+            num_cheque.text = ''
+            etab.text = ''
 
     def activate_descri(self, paye):
         ecran = self.popup.get_screen('ajout_remarque')
         cheque = ecran.ids.cheque.active
         virement = ecran.ids.virement.active
-        descri = ecran.ids.descri
-        if paye:
-            if cheque or virement:
-                descri.disabled = False
-                descri.opacity = 1
-            else:
-                descri.opacity = 0
-                descri.disabled = True
-                descri.text = ''
+        etab = ecran.ids.etablissement
+        num_cheque = ecran.ids.num_cheque
+        if paye and cheque:
+            etab.disabled = False
+            etab.opacity = 1
+            num_cheque.disabled = False
+            num_cheque.opacity = 1
+        else:
+            etab.opacity = 0
+            etab.disabled = True
+            etab.text = ''
+            num_cheque.opacity = 0
+            num_cheque.disabled = True
+            num_cheque.text = ''
 
     def verifier_mois(self, text ):
         from fuzzywuzzy import process
@@ -1064,14 +1089,14 @@ class Screen(MDApp):
                   "selection_planning": '500dp',
                   "rendu_planning": '450dp',
                   "selection_element_tableau": "300dp",
-                  "ajout_remarque": "450dp"}
+                  "ajout_remarque": "550dp"}
 
         size_tableau = {"option_decalage": (.6, .3),
                         "ecran_decalage": (.7, .6),
                         "selection_planning": (.8, .6),
                         "rendu_planning": (.8, .58),
                         "selection_element_tableau": (.6, .4),
-                        "ajout_remarque": (.6, .55)}
+                        "ajout_remarque": (.6, .65)}
 
         width = {"option_decalage": '700dp',
                         "ecran_decalage": '1000dp',
@@ -1235,7 +1260,7 @@ class Screen(MDApp):
             self.fermer_ecran()
             self.fenetre_contrat('', 'save_info_client')
 
-    def enregistrer_contrat(self,numero_contrat, date_contrat, date_debut, date_fin, duree_contrat, categorie_contrat):
+    def enregistrer_contrat(self, numero_contrat, date_contrat, date_debut, date_fin, duree_contrat, categorie_contrat):
         dératisation = self.popup.get_screen('new_contrat').ids.deratisation.active
         désinfection = self.popup.get_screen('new_contrat').ids.desinfection.active
         désinsectisation = self.popup.get_screen('new_contrat').ids.desinsectisation.active
@@ -1540,7 +1565,9 @@ class Screen(MDApp):
 
     def dropdown_rendu_excel(self,button,  champ):
         mois = ['Tous', 'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', "Décembre"]
-        client = self.all_client
+        client = ['Tous']
+        for i in self.all_client:
+            client.append(i)
         categorie = ['Facture', 'Traitement']
 
         item_menu = mois if champ == 'mois_planning' else categorie if champ == 'categ_planning' else client
@@ -2212,7 +2239,9 @@ class Screen(MDApp):
         probleme = screen.ids.probleme.text
         action = screen.ids.action.text
         numero = screen.ids.numero_facture.text
-        descri = screen.ids.descri.text
+        descri = self.reverse_date(screen.ids.date_payement.text)
+        etab = screen.ids.etablissement.text
+        num_cheque = screen.ids.num_cheque.text
         paye = bool(screen.ids.paye_facture.active)
         cheque = bool(screen.ids.cheque.active)
         espece = bool(screen.ids.espece.active)
@@ -2224,12 +2253,13 @@ class Screen(MDApp):
             if not espece and not cheque and not virement and not mobile:
                 self.show_dialog('Attention', 'Veuillez choisir une mode de payement')
                 return
-            if not numero:
+            if not numero or not descri:
                 self.show_dialog('Attention', 'Veuillez remplir tous les champs')
                 return
-            if cheque or virement and not descri:
-                self.show_dialog('Attention', 'Veuillez remplir tous les champs')
-                return
+            if cheque:
+                if not etab or not num_cheque:
+                    self.show_dialog('Attention', 'Veuillez remplir tous les champs')
+                    return
 
         self.dismiss_popup()
         self.fermer_ecran()
@@ -2248,14 +2278,21 @@ class Screen(MDApp):
                                                     probleme_db,
                                                     action_db)
                 await self.database.update_etat_planning(self.planning_detail[8])
-
+                bnk = None
+                numero_cheque = None
                 if etat_paye:
                     if cheque:
                         payement = 'Chèque'
+                        bnk = etab
+                        numero_cheque = num_cheque
                     if espece:
                         payement = "Espèce"
+                    if virement:
+                        payement = 'Virement'
+                    if mobile:
+                        payement = 'Mobile Money'
 
-                    await self.database.update_etat_facture(self.planning_detail[6], payement)
+                    await self.database.update_etat_facture(self.planning_detail[6], numero, payement, bnk, descri, numero_cheque )
 
                 Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
                 Clock.schedule_once(lambda dt: self.fermer_ecran())
@@ -2633,7 +2670,7 @@ class Screen(MDApp):
                 data = self.excel_database('facture par mois', nom, mois)
                 generate_facture_excel(data, client, datetime.today().year, datetime.strptime(mois, "%B").month)
         if categorie == 'Traitement':
-            if traitement == 'Tous' :
+            if traitement == 'Tous' and client == 'Tous':
                 data = self.excel_database('traitement', mois=mois)
                 generate_traitements_excel(data, datetime.today().year, datetime.strptime(mois, "%B").month)
         self.show_dialog('', 'Le fichier a été generé avec succes')
