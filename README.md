@@ -23,7 +23,7 @@
 - **Gestion des contrats:** création ou renouvellement de contrat existant.
 - **Gestion des clients**
 - **Planification des traitements:** création de planning pour chaque traitement des clients.
-- **Suivi des traitements:** dans une historique, avec chaque remarque ou action entrepris à chaque traitement.
+- **Suivi des traitements:** dans un historique, avec chaque remarque ou action entreprise à chaque traitement.
 - **Gestion de recouvrement (Facture):** ajout de facture pour chaque traitement ou service.
 - **Géneration de rapport Excel:** pour les traitements annuels ou mensuels, des factures pour chaque client en fonction des services.
 
