@@ -5,13 +5,14 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
 
+
 def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str):
     report_period = datetime.date.today().year
+
     safe_client_name = "".join(c for c in client_full_name if c.isalnum() or c in (' ', '-', '_')).replace(' ',
                                                                                                            '_').rstrip(
         '_')
     file_name = f"Rapport_Factures_{safe_client_name}_{report_period}.xlsx"
-
 
     wb = Workbook()
     ws = wb.active
@@ -40,6 +41,11 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
         ws.cell(row=current_row, column=2, value=client_display_name)
         current_row += 1
 
+        # Ajout du numéro de contrat
+        ws.cell(row=current_row, column=1, value="N° Contrat :").font = bold_font
+        ws.cell(row=current_row, column=2, value=client_info.get('Référence Contrat', 'N/A'))
+        current_row += 1
+
         ws.cell(row=current_row, column=1, value="Adresse :").font = bold_font
         ws.cell(row=current_row, column=2, value=client_info['client_adresse'])
         current_row += 1
@@ -62,8 +68,8 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
     ws.cell(row=current_row, column=1,
             value=f"Rapport de Facturation pour la période : {report_period}").font = header_font
     table_headers = [
-        'Date de Planification', 'Date de Facturation', 'Traitement concerné', 'Redondance (Mois)',
-        'Etat du Planning', 'Mode de Paiement', 'Etat de Paiement', 'Montant Facturé'
+        'Numéro Facture', 'Date de Planification', 'Date de Facturation', 'Type de Traitement',
+        'Etat du Planning', 'Mode de Paiement', 'Détails Paiement', 'Etat de Paiement', 'Montant Facturé'
     ]
     max_cols_for_merge = len(table_headers)
     ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=max_cols_for_merge)
@@ -85,10 +91,44 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
         current_row += 1
     else:
         df_invoice_data = pd.DataFrame(data)
-        df_display = df_invoice_data.reindex(columns=table_headers)
 
-        for r_idx, row_data in enumerate(df_display.values.tolist(), start=current_row):
-            payment_status = row_data[6]
+        for r_idx, row_dict in enumerate(df_invoice_data.to_dict('records'), start=current_row):
+            # Gérer le numéro de facture: afficher "Aucun" si vide ou None
+            invoice_number = row_dict.get('Numéro Facture')
+            display_invoice_number = invoice_number if invoice_number else "Aucun"
+
+            row_data = [
+                display_invoice_number, # Utilisation de la valeur traitée
+                row_dict.get('Date de Planification', 'N/A'),
+                row_dict.get('Date de Facturation', 'N/A'),
+                row_dict.get('Type de Traitement', 'N/A'),
+                row_dict.get('Etat du Planning', 'N/A'),
+                row_dict.get('Mode de Paiement', 'N/A'),
+                '',  # Placeholder for Détails Paiement
+                row_dict.get('Etat de Paiement', 'N/A'),
+                row_dict.get('Montant Facturé', 'N/A')
+            ]
+
+            # Gérer les détails de paiement
+            mode_paiement = row_dict.get('Mode de Paiement')
+            details_paiement = "N/A"
+            date_cheque_obj = row_dict.get('Date de Paiement')
+            date_cheque_str = date_cheque_obj.strftime('%Y-%m-%d') if date_cheque_obj else 'N/A'
+
+            if mode_paiement == 'Chèque':
+                numero_cheque_str = row_dict.get('Numéro du Chèque', 'N/A')
+                etablissement_payeur_str = row_dict.get('Établissement Payeur', 'N/A')
+                details_paiement = f"Chèque: {numero_cheque_str} ({date_cheque_str}, {etablissement_payeur_str})"
+            elif mode_paiement == 'Virement':
+                details_paiement = f"Virement: ({date_cheque_str})"
+            elif mode_paiement == 'Mobile Money':
+                details_paiement = f"Mobile Money ({date_cheque_str})"
+            elif mode_paiement == 'Espèce':
+                details_paiement = f"Espèces: ({date_cheque_str})"
+            row_data[6] = details_paiement  # Mettre à jour la colonne 'Détails Paiement'
+
+
+            payment_status = row_dict.get('Etat de Paiement')
             fill_to_apply = None
             if payment_status == 'Payé':
                 fill_to_apply = green_fill
@@ -167,6 +207,7 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
     try:
         output = BytesIO()
         wb.save(output)
+        # Save to a file in the current directory
         with open(file_name, 'wb') as f:
             f.write(output.getvalue())
 
@@ -174,7 +215,8 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
     except Exception as e:
         print(f"Erreur lors de la génération du fichier Excel de la facture : {e}")
 
-def generate_facture_excel(data: list[dict], client_full_name: str, year: int, month: int):
+
+def generer_facture_excel(data: list[dict], client_full_name: str, year: int, month: int):
     month_name_fr = datetime.date(year, month, 1).strftime('%B').capitalize()
 
     safe_client_name = "".join(c for c in client_full_name if c.isalnum() or c in (' ', '-', '_')).replace(' ',
@@ -211,6 +253,11 @@ def generate_facture_excel(data: list[dict], client_full_name: str, year: int, m
         ws.cell(row=ligneActuelle, column=2, value=affichageNomClient)
         ligneActuelle += 1
 
+        # Ajout du numéro de contrat
+        ws.cell(row=ligneActuelle, column=1, value="N° Contrat :").font = bold_font
+        ws.cell(row=ligneActuelle, column=2, value=infoClient.get('Référence Contrat', 'N/A'))
+        ligneActuelle += 1
+
         ws.cell(row=ligneActuelle, column=1, value="Adresse :").font = bold_font
         ws.cell(row=ligneActuelle, column=2, value=infoClient['client_adresse'])
         ligneActuelle += 1
@@ -230,8 +277,10 @@ def generate_facture_excel(data: list[dict], client_full_name: str, year: int, m
     ligneActuelle += 1
 
     # Tableau des traitements
-    table_headers = ['Date de Planification', 'Date de Facturation', 'Traitement concerné', 'Redondance (Mois)',
-                     'Etat du Planning', 'Mode de Paiement', 'Etat de Paiement', 'Montant']
+    table_headers = [
+        'Numéro Facture', 'Date de Planification', 'Date de traitement', 'Traitement concerné',
+        'Etat du Planning', 'Mode de Paiement', 'Détails Paiement', 'Etat de Paiement', 'Montant'
+    ]
     num_table_cols = len(table_headers)
 
     # Ligne "Facture du mois de:"
@@ -253,20 +302,46 @@ def generate_facture_excel(data: list[dict], client_full_name: str, year: int, m
         ws.merge_cells(start_row=ligneActuelle, start_column=1, end_row=ligneActuelle, end_column=len(table_headers))
         ligneActuelle += 1
     else:
+        # Convertir en DataFrame pour un traitement plus facile
         df_invoice_data = pd.DataFrame(data)
-        df_display = df_invoice_data.reindex(columns=[
-            'Date de Planification', 'Date de Facturation', 'Traitement (Type)', 'Redondance (Mois)',
-            'Etat traitement', 'Mode de Paiement', 'Etat paiement (Payée ou non)', 'montant_facture'
-        ])
-        df_display.rename(columns={
-            'Traitement (Type)': 'Traitement concerné',
-            'Etat traitement': 'Etat du Planning',
-            'Etat paiement (Payée ou non)': 'Etat de Paiement',
-            'montant_facture': 'Montant'
-        }, inplace=True)
 
-        for r_idx, row_data in enumerate(df_display.values.tolist(), start=ligneActuelle):
-            payment_status = row_data[6]
+        for r_idx, row_dict in enumerate(df_invoice_data.to_dict('records'), start=ligneActuelle):
+            # Gérer le numéro de facture: afficher "Aucun" si vide ou None
+            invoice_number = row_dict.get('Numéro Facture')
+            display_invoice_number = invoice_number if invoice_number else "Aucun"
+
+            # Préparer les données de la ligne selon les en-têtes définis
+            row_data = [
+                display_invoice_number, # Utilisation de la valeur traitée
+                row_dict.get('Date de Planification', 'N/A'),
+                row_dict.get('Date de traitement', 'N/A'),
+                row_dict.get('Traitement (Type)', 'N/A'),
+                row_dict.get('Etat traitement', 'N/A'),
+                row_dict.get('Mode de Paiement', 'N/A'),
+                '',  # Placeholder for Détails Paiement
+                row_dict.get('Etat paiement (Payée ou non)', 'N/A'),
+                row_dict.get('montant_facture', 'N/A')
+            ]
+
+            # Gérer les détails de paiement
+            mode_paiement = row_dict.get('Mode de Paiement')
+            details_paiement = "N/A"
+            date_cheque_obj = row_dict.get('Date de Paiement')
+            date_cheque_str = date_cheque_obj.strftime('%Y-%m-%d') if date_cheque_obj else 'N/A'
+
+            if mode_paiement == 'Chèque':
+                numero_cheque_str = row_dict.get('Numéro du Chèque', 'N/A')
+                etablissement_payeur_str = row_dict.get('Établissement Payeur', 'N/A')
+                details_paiement = f"Chèque: {numero_cheque_str} ({date_cheque_str}, {etablissement_payeur_str})"
+            elif mode_paiement == 'Virement':
+                details_paiement = f"Virement: ({date_cheque_str})"
+            elif mode_paiement == 'Mobile Money':
+                details_paiement = f"Mobile Money ({date_cheque_str})"
+            elif mode_paiement == 'Espèce':
+                details_paiement = f"Espèces: ({date_cheque_str})"
+            row_data[6] = details_paiement # Mettre à jour la colonne 'Détails Paiement'
+
+            payment_status = row_dict.get('Etat paiement (Payée ou non)')
             fill_to_apply = None
             if payment_status == 'Payé':
                 fill_to_apply = green_fill
@@ -326,18 +401,25 @@ def generate_facture_excel(data: list[dict], client_full_name: str, year: int, m
         for row_idx in range(1, ws.max_row + 1):
             cell = ws.cell(row=row_idx, column=i)
             if cell.value is not None:
-                length = max(length, len(str(cell.value)))
+                # Gérer les dates pour le calcul de la largeur
+                if isinstance(cell.value, (datetime.date, datetime.datetime)):
+                    cell_length = len(cell.value.strftime('%Y-%m-%d'))
+                else:
+                    cell_length = len(str(cell.value))
+                length = max(length, cell_length)
         ws.column_dimensions[column_letter].width = length + 2
 
     try:
         output = BytesIO()
         wb.save(output)
+        # Save to a file in the current directory
         with open(file_name, 'wb') as f:
             f.write(output.getvalue())
 
         print(f"Fichier '{file_name}' généré avec succès.")
     except Exception as e:
         print(f"Erreur lors de la génération du fichier Excel de la facture : {e}")
+
 
 def generate_traitements_excel(data: list[dict], year: int, month: int):
     month_name_fr = datetime.date(year, month, 1).strftime('%B').capitalize()
@@ -351,6 +433,10 @@ def generate_traitements_excel(data: list[dict], year: int, month: int):
     bold_font = Font(bold=True)
     header_font = Font(bold=True, size=14)
     center_align = Alignment(horizontal='center', vertical='center')
+    thin_border = Border(left=Side(style='thin'),
+                         right=Side(style='thin'),
+                         top=Side(style='thin'),
+                         bottom=Side(style='thin'))
 
     # Définition des couleurs de remplissage
     red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid") # Rouge clair
@@ -359,7 +445,8 @@ def generate_traitements_excel(data: list[dict], year: int, month: int):
     # Titre du rapport
     ws.cell(row=1, column=1, value=f"Rapport des Traitements du mois de {month_name_fr} {year}").font = header_font
     ws.cell(row=1, column=1).alignment = center_align
-    num_data_cols = 7
+    # Ajuster le nombre de colonnes fusionnées au nombre réel de colonnes de données
+    num_data_cols = len(data[0]) if data else 7 # Fallback if data is empty
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=num_data_cols)
 
     # Nombre total de traitements
@@ -372,32 +459,27 @@ def generate_traitements_excel(data: list[dict], year: int, month: int):
     df = pd.DataFrame(data)
 
     if df.empty:
-        ws.cell(row=5, column=1, value="Aucun traitement trouvé pour ce mois.")
+        ws.cell(row=5, column=1, value="Aucun traitement trouvé pour ce mois.").border = thin_border
+        ws.merge_cells(start_row=5, start_column=1, end_row=5, end_column=num_data_cols)
     else:
         headers = df.columns.tolist()
-        # Trouvez l'index de la colonne 'Etat traitement'
-        status_col_idx = -1
-        try:
-            status_col_idx = headers.index('Etat traitement')
-        except ValueError:
-            print("AVERTISSEMENT: La colonne 'Etat traitement' n'a pas été trouvée dans les données. Les couleurs ne seront pas appliquées.")
-
-
         for col_idx, header in enumerate(headers, 1):
             cell = ws.cell(row=5, column=col_idx, value=header)
             cell.font = bold_font
+            cell.border = thin_border # Appliquer la bordure aux en-têtes
 
         # Itérer sur les données et appliquer la couleur
-        for r_idx, row_dict in enumerate(data, start=6): # Utiliser les dictionnaires directement pour accéder au statut
-            # Utiliser les valeurs du dictionnaire pour écrire les cellules
-            for c_idx, (col_name, value) in enumerate(row_dict.items(), 1):
+        for r_idx, row_dict in enumerate(data, start=6):
+            for c_idx, col_name in enumerate(headers, 1): # Itérer sur les noms de colonnes pour maintenir l'ordre
+                value = row_dict.get(col_name, 'N/A') # Obtenir la valeur par nom de colonne
                 cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                cell.border = thin_border # Appliquer la bordure aux cellules de données
 
                 # Appliquer la couleur si c'est la colonne 'Etat traitement'
                 if col_name == 'Etat traitement':
                     if value == 'Effectué':
                         cell.fill = red_fill
-                    elif value == 'À venir': # Assurez-vous que cette valeur correspond à votre ENUM
+                    elif value == 'À venir':
                         cell.fill = green_fill
 
     max_col_for_width = len(df.columns) if not df.empty else num_data_cols
@@ -408,7 +490,11 @@ def generate_traitements_excel(data: list[dict], year: int, month: int):
         for row_idx in range(1, ws.max_row + 1):
             cell = ws.cell(row=row_idx, column=i)
             if cell.value is not None:
-                length = max(length, len(str(cell.value)))
+                if isinstance(cell.value, (datetime.date, datetime.datetime)):
+                    cell_length = len(cell.value.strftime('%Y-%m-%d'))
+                else:
+                    cell_length = len(str(cell.value))
+                length = max(length, cell_length)
         ws.column_dimensions[column_letter].width = length + 2
 
     try:
