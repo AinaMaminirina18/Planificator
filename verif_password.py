@@ -1,5 +1,6 @@
 import bcrypt
 
+
 #inverser le hachage
 def reverse(password, password_bd):
     bytes_pass = password_bd.encode('utf-8')
@@ -17,6 +18,7 @@ def password_is_personal_info(nom, prenom, password):
     if prenom and prenom.lower() in password_lower:
         return True
     return False
+
 
 # Fonction utilitaire (à implémenter si ce n'est pas déjà fait)
 def hash_password(password):
