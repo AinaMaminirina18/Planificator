@@ -1,6 +1,4 @@
 from kivy.config import Config
-from kivymd.toast import toast
-
 Config.set('graphics', 'resizable', False)
 
 from kivy.uix.screenmanager import ScreenManager
@@ -29,9 +27,10 @@ from kivymd.app import MDApp
 from kivymd.uix.datatables import MDDataTable
 from kivymd.uix.dropdownitem import MDDropDownItem
 from kivymd.uix.spinner import MDSpinner
+from kivymd.toast import toast
 
 from gestion_ecran import gestion_ecran, popup
-from excel import generate_comprehensive_facture_excel, generate_facture_excel, generate_traitements_excel
+from excel import generate_comprehensive_facture_excel, generer_facture_excel, generate_traitements_excel
 
 
 class MyDatatable(MDDataTable):
@@ -429,7 +428,8 @@ class Screen(MDApp):
         redondance = self.popup.get_screen('ajout_planning').ids.red_trait.text
         date_debut = self.popup.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
-        date_fin = datetime.strptime(f'{temp[0]}-{(int(temp[1])+11) % 12}-{(int(temp[2]) + 1) if temp[1] != 1 else temp[2]}',  "%d-%m-%Y").date()
+        date = datetime.strptime(f'{temp[0]}-{temp[1]}-{temp[2]}')
+        date_fin = date + relativedelta(month=+11)
 
         montant = self.popup.get_screen('ajout_facture').ids.montant.text
         axe_client = self.popup.get_screen('ajout_facture').ids.axe_client.text
@@ -2239,7 +2239,7 @@ class Screen(MDApp):
         probleme = screen.ids.probleme.text
         action = screen.ids.action.text
         numero = screen.ids.numero_facture.text
-        descri = self.reverse_date(screen.ids.date_payement.text)
+        descri = screen.ids.date_payement.text
         etab = screen.ids.etablissement.text
         num_cheque = screen.ids.num_cheque.text
         paye = bool(screen.ids.paye_facture.active)
@@ -2292,7 +2292,7 @@ class Screen(MDApp):
                     if mobile:
                         payement = 'Mobile Money'
 
-                    await self.database.update_etat_facture(self.planning_detail[6], numero, payement, bnk, descri, numero_cheque )
+                    await self.database.update_etat_facture(self.planning_detail[6], numero, payement, bnk, self.reverse_date(descri), numero_cheque )
 
                 Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
                 Clock.schedule_once(lambda dt: self.fermer_ecran())
@@ -2652,8 +2652,6 @@ class Screen(MDApp):
         mois = screen.ids.mois_planning.text
         client = screen.ids.client.text
         data = None
-        self.dismiss_popup()
-        self.fermer_ecran()
         print(categorie, traitement, mois, client)
         if "mme" in client.lower():
             nom = client.split('mme')[0]
@@ -2664,20 +2662,33 @@ class Screen(MDApp):
 
         if categorie == 'Facture':
             if mois == 'Tous':
+                if client == 'Tous':
+                    self.show_dialog('Attention', 'Veuillez specifier un client')
+                    return
                 data = self.excel_database('facture par client', nom)
                 generate_comprehensive_facture_excel(data, client)
             else:
                 data = self.excel_database('facture par mois', nom, mois)
-                generate_facture_excel(data, client, datetime.today().year, datetime.strptime(mois, "%B").month)
+                generer_facture_excel(data, client, datetime.today().year, datetime.strptime(mois, "%B").month)
         if categorie == 'Traitement':
             if traitement == 'Tous' and client == 'Tous':
+                if client != 'Tous':
+                    self.show_dialog('Attention', 'Les traitements ne sont disponibles que pour tous les clients')
+                    return
+                if mois == 'Tous':
+                    self.show_dialog('Attention', 'Veuillez choisir un mois')
+                    return
                 data = self.excel_database('traitement', mois=mois)
                 generate_traitements_excel(data, datetime.today().year, datetime.strptime(mois, "%B").month)
+
+        self.dismiss_popup()
+        self.fermer_ecran()
         self.show_dialog('', 'Le fichier a été generé avec succes')
         print(data)
 
     def excel_database(self, option, client=None, mois=None):
         print(client)
+
         async def get_data():
             if option == 'facture par client':
                 return await self.database.get_factures_data_for_client_comprehensive(client)
@@ -2688,10 +2699,6 @@ class Screen(MDApp):
                 )
 
             elif option == 'traitement':
-                if mois == 'Tous':
-                    self.show_dialog('', 'Veuillez choisir un mois')
-                    return
-
                 return await self.database.get_traitements_for_month(
                     datetime.today().year, datetime.strptime(mois, "%B").month
                 )
@@ -2731,6 +2738,7 @@ class Screen(MDApp):
             future.result()
 
         self.loop.call_soon_threadsafe(self.loop.stop)
+
 
 if __name__ == "__main__":
     from kivy.core.text import LabelBase
