@@ -15,10 +15,10 @@ class DatabaseManager:
         try:
             """Crée un pool de connexions à la base de données."""
             self.pool = await aiomysql.create_pool(
-                host="localhost",
+                host="192.168.1.141",
                 port=3307,
-                user="root",
-                password="root",
+                user="planificator",
+                password="planificator",
                 db="Planificator",
                 loop=self.loop
             )
@@ -38,6 +38,7 @@ class DatabaseManager:
     async def update_user(self,new_nom, new_prenom, new_email, new_username, new_password, id):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
+                await conn.begin()
                 await cur.execute(
                     "UPDATE Account SET nom = %s, prenom= %s, email=%s, username=%s, password=%s WHERE id_compte = %s",
                     (new_nom, new_prenom, new_email, new_username, new_password, id)
@@ -242,6 +243,7 @@ class DatabaseManager:
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
                         try:
+                            await conn.begin()
                             await cur.execute("""
                                 INSERT INTO Traitement (contrat_id, id_type_traitement) 
                                 VALUES (%s, %s)
@@ -283,6 +285,7 @@ class DatabaseManager:
             async with self.pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     try:
+                        await conn.begin()
                         await cur.execute("""
                             INSERT INTO Planning (traitement_id, date_debut_planification, mois_debut, mois_fin, redondance, date_fin_planification) 
                             VALUES (%s, %s, %s, %s, %s, %s)
@@ -461,12 +464,16 @@ class DatabaseManager:
             try:
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        await cur.execute(
-                            "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s,nif=%s, stat=%s, categorie = %s, axe = %s WHERE client_id = %s",
-                            (nom, prenom, email, telephone, adresse,nif,stat, categorie, axe, client_id)
-                        )
-                        await conn.commit()
-                        return True
+                        try:
+                            await conn.begin()
+                            await cur.execute(
+                                "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s,nif=%s, stat=%s, categorie = %s, axe = %s WHERE client_id = %s",
+                                (nom, prenom, email, telephone, adresse,nif,stat, categorie, axe, client_id)
+                            )
+                            await conn.commit()
+                            return True
+                        except Exception as e:
+                            await conn.rollback()
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
@@ -489,12 +496,16 @@ class DatabaseManager:
             try:
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
-                        await cur.execute(
-                            "INSERT INTO PlanningDetails (planning_id, date_planification, statut) VALUES (%s, %s, %s)",
-                            (planning_id, date, statut)
-                        )
-                        await conn.commit()
-                        return cur.lastrowid
+                        try:
+                            await conn.begin()
+                            await cur.execute(
+                                "INSERT INTO PlanningDetails (planning_id, date_planification, statut) VALUES (%s, %s, %s)",
+                                (planning_id, date, statut)
+                            )
+                            await conn.commit()
+                            return cur.lastrowid
+                        except Exception as e:
+                            await conn.rollback()
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_planning_details: {e}")
@@ -609,22 +620,27 @@ class DatabaseManager:
                                      planning_detail_id >= %s"""
 
                     requete = décalage if option == 'décalage' else avancement
-
+                    await conn.begin()
                     await cur.execute(requete, (interval, planning_id, planning_detail_id))
                     await conn.commit()
 
                 except Exception as e:
+                    await conn.rollback()
                     print('Changement de date', e)
 
     async def modifier_date(self, planning_detail_id, new_date):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute('''UPDATE PlanningDetails
-                               SET
-                                  date_planification = %s
-                               WHERE
-                                  planning_detail_id = %s''', (new_date, planning_detail_id))
-                await conn.commit()
+                try:
+                    await conn.begin()
+                    await cur.execute('''UPDATE PlanningDetails
+                                   SET
+                                      date_planification = %s
+                                   WHERE
+                                      planning_detail_id = %s''', (new_date, planning_detail_id))
+                    await conn.commit()
+                except Exception as e:
+                    await conn.rollback()
 
     async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
         for attempt in range(max_retries + 1):
@@ -632,12 +648,16 @@ class DatabaseManager:
                 async with self.lock:
                     async with self.pool.acquire() as conn:
                         async with conn.cursor() as cur:
-                            await cur.execute(
-                                "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
-                                (planning_id, montant, date, etat, axe)
-                            )
-                            await conn.commit()
-                            return cur.lastrowid
+                            try:
+                                await conn.begin()
+                                await cur.execute(
+                                    "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
+                                    (planning_id, montant, date, etat, axe)
+                                )
+                                await conn.commit()
+                                return cur.lastrowid
+                            except Exception as e:
+                                await conn.rollback()
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
@@ -707,6 +727,7 @@ class DatabaseManager:
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
+                    await conn.begin()
                     await cur.execute(
                         """ UPDATE Facture 
                             SET reference_facture = %s,
@@ -718,6 +739,7 @@ class DatabaseManager:
                             WHERE facture_id = %s ;""", (reference, etablissement, date, num_cheque, 'Payé', payement, facture))
                     await conn.commit()
                 except Exception as e:
+                    await conn.rollback()
                     print("update facture", e)
 
     async def update_etat_planning(self, details_id):
@@ -1022,6 +1044,7 @@ class DatabaseManager:
             try:
                 async with self.pool.acquire() as conn:
                     async with conn.cursor() as cur:
+                        await conn.begin()
                         await cur.execute(
                             "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
                             (nom, prenom, email, telephone, adresse, categorie, axe, client_id)
@@ -1048,6 +1071,7 @@ class DatabaseManager:
     async def un_jour(self, contrat_id):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
+                await conn.begin()
                 await cur.execute(
                     "UPDATE Contrat SET duree_contrat = 1 WHERE contrat_id = %s",
                     (contrat_id, ))
@@ -1123,8 +1147,10 @@ class DatabaseManager:
                     await conn.rollback()
                     print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
                     return False
+
     #Pour les excels
-    async def get_factures_data_for_client_comprehensive(self, client: str, start_date: datetime.date = None,
+
+    async def get_factures_data_for_client_comprehensive(self, client_name: str, start_date: datetime.date = None,
                                                          end_date: datetime.date = None):
         conn = None
         try:
@@ -1138,11 +1164,13 @@ class DatabaseManager:
                                cl.categorie            AS client_categorie,
                                cl.axe                  AS client_axe,
                                co.contrat_id,
+                               co.reference_contrat    AS `Référence Contrat`,
                                co.date_contrat,
                                co.date_debut           AS contrat_date_debut,
                                co.date_fin             AS contrat_date_fin,
                                co.statut_contrat,
                                co.duree                AS contrat_duree_type,
+                               f.reference_facture     AS `Numéro Facture`,
                                tt.typeTraitement       AS `Type de Traitement`,
                                pd.date_planification   AS `Date de Planification`,
                                pd.statut               AS `Etat du Planning`,
@@ -1150,6 +1178,9 @@ class DatabaseManager:
                                f.date_traitement       AS `Date de Facturation`,
                                f.etat                  AS `Etat de Paiement`,
                                f.mode                  AS `Mode de Paiement`,
+                               f.date_cheque         AS `Date de Paiement`,
+                               f.numero_cheque         AS `Numéro du Chèque`,
+                               f.etablissement_payeur   AS `Établissement Payeur`,
                                COALESCE(
                                        (SELECT hp.new_amount
                                         FROM Historique_prix hp
@@ -1167,7 +1198,7 @@ class DatabaseManager:
                                  INNER JOIN Facture f ON pd.planning_detail_id = f.planning_detail_id
                         WHERE cl.nom = %s
                         """
-                params = [client]
+                params = [client_name]
 
                 if start_date and end_date:
                     query += " AND f.date_traitement BETWEEN %s AND %s"
@@ -1192,7 +1223,8 @@ class DatabaseManager:
             if conn:
                 self.pool.release(conn)
 
-    async def obtenirDataFactureClient(self, client: str, year: int, month: int):
+
+    async def obtenirDataFactureClient(self, client_name: str, year: int, month: int):
         conn = None
         try:
             conn = await self.pool.acquire()
@@ -1204,11 +1236,16 @@ class DatabaseManager:
                                cl.telephone            AS client_telephone,
                                cl.categorie            AS client_categorie,
                                cl.axe                  AS client_axe,
+                               co.reference_contrat    AS `Référence Contrat`,
+                               f.reference_facture     AS `Numéro Facture`,
                                f.date_traitement       AS `Date de traitement`,
                                tt.typeTraitement       AS `Traitement (Type)`,
                                pd.statut               AS `Etat traitement`,
                                f.etat                  AS `Etat paiement (Payée ou non)`,
                                f.mode                  AS `Mode de Paiement`,
+                               f.date_cheque         AS `Date de Paiement`,
+                               f.numero_cheque         AS `Numéro du Chèque`,
+                               f.etablissement_payeur   AS `Établissement Payeur`,
                                COALESCE(
                                        (SELECT hp.new_amount
                                         FROM Historique_prix hp
@@ -1229,7 +1266,7 @@ class DatabaseManager:
                           AND MONTH(f.date_traitement) = %s
                         ORDER BY f.date_traitement;
                         """
-                await cursor.execute(query, (client, year, month))
+                await cursor.execute(query, (client_name, year, month))
                 result = await cursor.fetchall()
                 return result
         except Exception as e:
@@ -1375,6 +1412,7 @@ class DatabaseManager:
                                             duree          = 'Déterminée'
                                         WHERE contrat_id = %s; 
                                         """
+                await conn.begin()
                 await cursor.execute(update_contract_query, (date, current_contrat_id))
                 print('change')
 
@@ -1384,6 +1422,7 @@ class DatabaseManager:
 
         except Exception as e:
             print(f"Erreur lors de l'abrogation du contrat ou de la suppression des traitements: {e}")
+            await conn.rollback()
             return False
         finally:
             if conn:
