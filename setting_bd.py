@@ -15,10 +15,10 @@ class DatabaseManager:
         try:
             """Crée un pool de connexions à la base de données."""
             self.pool = await aiomysql.create_pool(
-                host="192.168.1.141",
+                host="localhost",
                 port=3307,
-                user="planificator",
-                password="planificator",
+                user="root",
+                password="root",
                 db="Planificator",
                 loop=self.loop
             )
