@@ -422,13 +422,15 @@ class Screen(MDApp):
             self.fenetre_contrat('Ajout du planning','ajout_planning')
 
     def save_planning(self):
+        from dateutil.relativedelta import relativedelta
+
         mois_debut = self.popup.get_screen('ajout_planning').ids.mois_date.text
         mois_fin = self.popup.get_screen('ajout_planning').ids.mois_fin.text
         date_prevu = self.popup.get_screen('ajout_planning').ids.date_prevu.text
         redondance = self.popup.get_screen('ajout_planning').ids.red_trait.text
         date_debut = self.popup.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
-        date = datetime.strptime(f'{temp[0]}-{temp[1]}-{temp[2]}')
+        date = datetime.strptime(f'{temp[0]}-{temp[1]}-{temp[2]}', "%d-%m-%Y")
         date_fin = date + relativedelta(month=+11)
 
         montant = self.popup.get_screen('ajout_facture').ids.montant.text
@@ -1208,7 +1210,7 @@ class Screen(MDApp):
         if screen == 'new_contrat':
             #pour l'ecran new_contrat
             self.popup.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
-            self.popup.get_screen('new_contrat').ids['fin_new_contrat'].pos_hint = {"center_x":.83,"center_y":.8}
+            self.popup.get_screen('new_contrat').ids['fin_new_contrat'].pos_hint = {"center_x":.83,"center_y":.7}
             self.popup.get_screen('new_contrat').ids['label_fin'].pos_hint = {"center_x": 1.21,'center_y':.92}
             self.popup.get_screen('new_contrat').ids['fin_icon'].pos_hint = {"center_x": .93, "center_y":.8}
             self.popup.get_screen('new_contrat').ids['cat_contrat'].text = 'Nouveau'
@@ -2665,11 +2667,17 @@ class Screen(MDApp):
                 if client == 'Tous':
                     self.show_dialog('Attention', 'Veuillez specifier un client')
                     return
+                else:
+                    self.show_dialog('Attention', 'Veuillez choisir un mois spécifique')
+                    return
+
                 data = self.excel_database('facture par client', nom)
                 generate_comprehensive_facture_excel(data, client)
+
             else:
                 data = self.excel_database('facture par mois', nom, mois)
                 generer_facture_excel(data, client, datetime.today().year, datetime.strptime(mois, "%B").month)
+
         if categorie == 'Traitement':
             if traitement == 'Tous' and client == 'Tous':
                 if client != 'Tous':
