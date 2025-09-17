@@ -1,9 +1,34 @@
 import pandas as pd
+from pathlib import Path
 import datetime
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
+
+
+def getdesktoppath():
+
+    home = Path.home()
+    common_candidates = [
+        home / "Desktop",
+        home / "Bureau"
+    ]
+
+    for p in common_candidates:
+        if p.exists() and p.is_dir():
+            return p
+
+
+desktop = getdesktoppath()
+dossier = ["Factures", 'Traitement']
+paths = []
+
+for nom in dossier:
+    path = (desktop / nom)
+    path.mkdir(parents=True, exist_ok=True)
+    paths.append(path)
+    print(f'Dossier {nom} créer')
 
 
 def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str):
@@ -12,7 +37,6 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
     safe_client_name = "".join(c for c in client_full_name if c.isalnum() or c in (' ', '-', '_')).replace(' ',
                                                                                                            '_').rstrip(
         '_')
-    file_name = f"Rapport_Factures_{safe_client_name}_{report_period}.xlsx"
 
     wb = Workbook()
     ws = wb.active
@@ -208,6 +232,9 @@ def generate_comprehensive_facture_excel(data: list[dict], client_full_name: str
         output = BytesIO()
         wb.save(output)
         # Save to a file in the current directory
+        dir = Path(paths[0])
+        file_name = (dir / f"Rapport_Factures_{safe_client_name}_{report_period}.xlsx")
+
         with open(file_name, 'wb') as f:
             f.write(output.getvalue())
 
@@ -222,7 +249,6 @@ def generer_facture_excel(data: list[dict], client_full_name: str, year: int, mo
     safe_client_name = "".join(c for c in client_full_name if c.isalnum() or c in (' ', '-', '_')).replace(' ',
                                                                                                            '_').rstrip(
         '_')
-    file_name = f"{safe_client_name}-{month_name_fr}-{year}.xlsx"
 
     wb = Workbook()
     ws = wb.active
@@ -413,6 +439,10 @@ def generer_facture_excel(data: list[dict], client_full_name: str, year: int, mo
         output = BytesIO()
         wb.save(output)
         # Save to a file in the current directory
+
+        dir = Path(paths[0])
+        file_name = (dir / f"{safe_client_name}-{month_name_fr}-{year}.xlsx")
+
         with open(file_name, 'wb') as f:
             f.write(output.getvalue())
 
@@ -423,7 +453,6 @@ def generer_facture_excel(data: list[dict], client_full_name: str, year: int, mo
 
 def generate_traitements_excel(data: list[dict], year: int, month: int):
     month_name_fr = datetime.date(year, month, 1).strftime('%B').capitalize()
-    file_name = f"traitements-{month_name_fr}-{year}.xlsx"
 
     wb = Workbook()
     ws = wb.active
@@ -500,6 +529,10 @@ def generate_traitements_excel(data: list[dict], year: int, month: int):
     try:
         output = BytesIO()
         wb.save(output)
+
+        dir = Path(paths[1])
+        file_name = (dir / f"traitements-{month_name_fr}-{year}.xlsx" )
+
         with open(file_name, 'wb') as f:
             f.write(output.getvalue())
 
