@@ -157,6 +157,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_contrat: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
@@ -187,6 +188,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_client: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
@@ -222,6 +224,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour typetraitement: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
@@ -443,6 +446,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+                await conn.rollback()
 
                 # Si c'est la dernière tentative, on lève l'exception
                 if attempt == max_retries:
@@ -477,6 +481,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
@@ -509,6 +514,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_planning_details: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
@@ -661,6 +667,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
@@ -1023,6 +1030,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+                await conn.rollback()
 
                 # Si c'est la dernière tentative, on lève l'exception
                 if attempt == max_retries:
@@ -1054,6 +1062,7 @@ class DatabaseManager:
 
             except Exception as e:
                 print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
+                await conn.rollback()
 
                 if attempt == max_retries:
                     print(f"Échec définitif après {max_retries + 1} tentatives")
