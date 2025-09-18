@@ -24,7 +24,7 @@ MDScreen:
             size_hint: .22, .055
             radius: [8]
             padding: 8
-            pos_hint:{'center_x':.35, 'center_y': .81}
+            pos_hint:{'center_x':.6, 'center_y': .81}
 
             MDTextButton:
                 text : ' Obtenir un rendu excel'
@@ -40,30 +40,6 @@ MDScreen:
                 pos_hint:{'center_x':.9, 'center_y': .5}
                 on_release:
                     app.render_excel()
-
-        MDBoxLayout:
-            id: search_client
-            orientation: 'horizontal'
-            md_bg_color: '#B3F844'
-            size_hint: .22, .055
-            radius: [8]
-            padding: 8
-            pos_hint:{'center_x':.6, 'center_y': .81}
-
-            MDTextField:
-                font_size: 15
-                line_color_normal : '#B3F844'
-                line_color_normal: 'black'
-                text_color_focus: 'black'
-                font_name: 'poppins'
-                pos_hint:{'center_x':.9, 'center_y': .5}
-                on_text:
-                    app.search(self.text, True)
-
-            MDIconButton:
-                icon: 'Assets/search.png'
-                icon_size:20
-                pos_hint:{'center_x':.9, 'center_y': .5}
 
         MDSpinner:
             id: spinner
