@@ -4,6 +4,14 @@ import random
 
 import aiomysql
 
+import json
+import os
+config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+
+with open(config_path, "r", encoding="utf-8") as f:
+    config = json.load(f)
+
+
 class DatabaseManager:
     """Gestionnaire de la base de données utilisant aiomysql."""
     def __init__(self, loop):
@@ -15,10 +23,10 @@ class DatabaseManager:
         try:
             """Crée un pool de connexions à la base de données."""
             self.pool = await aiomysql.create_pool(
-                host="localhost",
-                port=3307,
-                user="root",
-                password="root",
+                host=config['host'],
+                port=config['port'],
+                user=config['user'],
+                password=config['password'],
                 db="Planificator",
                 loop=self.loop
             )
