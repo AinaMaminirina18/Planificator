@@ -58,9 +58,8 @@ class Screen(MDApp):
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
-        asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
         self.calendar = None
-
+        asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
 
     def on_start(self):
         gestion_ecran(self.root)
@@ -119,7 +118,7 @@ class Screen(MDApp):
                     ("Client concerné", dp(60)),
                     ("Date du contrat", dp(35)),
                     ("Type de traitement", dp(40)),
-                    ("Redondance", dp(40)),
+                    ("Fréquence", dp(40)),
                 ],
             )
 
@@ -134,7 +133,7 @@ class Screen(MDApp):
             column_data=[
                 ("Date du contrat", dp(40)),
                 ("Type de traitement", dp(50)),
-                ("Redondance", dp(40)),
+                ("Fréquence", dp(40)),
             ],
         )
         self.liste_planning = MDDataTable(
@@ -148,7 +147,7 @@ class Screen(MDApp):
             column_data=[
                 ("Client", dp(50)),
                 ("Type de traitement", dp(50)),
-                ("Redondance", dp(30)),
+                ("Fréquence", dp(30)),
                 ("Option", dp(45)),
             ]
         )
@@ -382,7 +381,7 @@ class Screen(MDApp):
         mois_fin = ajout_planning_screen.ids.mois_fin.text
         mois_debut = ajout_planning_screen.ids.mois_date.text
         date_prevu = ajout_planning_screen.ids.date_prevu.text
-        redondance = ajout_planning_screen.ids.red_trait.text
+        fréquence = ajout_planning_screen.ids.red_trait.text
 
         bouton = self.popup.get_screen('ajout_facture').ids.accept
 
@@ -391,7 +390,7 @@ class Screen(MDApp):
                 self.popup.get_screen('ajout_facture').ids.mois_fin.text = mois_fin
                 self.popup.get_screen('ajout_facture').ids.montant.text = ''
                 self.popup.get_screen('ajout_facture').ids.date_prevu.text = date_prevu
-                self.popup.get_screen('ajout_facture').ids.red_trait.text = redondance
+                self.popup.get_screen('ajout_facture').ids.red_trait.text = fréquence
                 self.popup.get_screen('ajout_facture').ids.traitement_c.text = self.traitement[0]
                 if len(self.traitement) == 1:
                     bouton.text = 'Enregistrer'
@@ -427,7 +426,7 @@ class Screen(MDApp):
         mois_debut = self.popup.get_screen('ajout_planning').ids.mois_date.text
         mois_fin = self.popup.get_screen('ajout_planning').ids.mois_fin.text
         date_prevu = self.popup.get_screen('ajout_planning').ids.date_prevu.text
-        redondance = self.popup.get_screen('ajout_planning').ids.red_trait.text
+        fréquence = self.popup.get_screen('ajout_planning').ids.red_trait.text
         date_debut = self.popup.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
         date = datetime.strptime(f'{temp[0]}-{temp[1]}-{temp[2]}', "%d-%m-%Y")
@@ -435,8 +434,8 @@ class Screen(MDApp):
 
         montant = self.popup.get_screen('ajout_facture').ids.montant.text
         axe_client = self.popup.get_screen('ajout_facture').ids.axe_client.text
-        if redondance != 'une seule fois':
-            int_red = redondance.split(" ")[0]
+        if fréquence != 'une seule fois':
+            int_red = fréquence.split(" ")[0]
         else:
             int_red = 12
 
@@ -475,13 +474,13 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(save(), self.loop)
         self.gestion_planning()
 
-    def planning_per_year(self, debut, redondance):
+    def planning_per_year(self, debut, fréquence):
         from datetime import timedelta
         from tester_date import ajuster_si_weekend, jours_feries
 
 
-        #red = redondance.split(' ')
-        pas = int(redondance)
+        #red = fréquence.split(' ')
+        pas = int(fréquence)
         date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
 
         def ajouter_mois(date_depart, nombre_mois):
@@ -1211,7 +1210,7 @@ class Screen(MDApp):
             #pour l'ecran new_contrat
             self.popup.get_screen('new_contrat').ids['duree_new_contrat'].text = 'Déterminée'
             self.popup.get_screen('new_contrat').ids['fin_new_contrat'].pos_hint = {"center_x":.83,"center_y":.7}
-            self.popup.get_screen('new_contrat').ids['label_fin'].pos_hint = {"center_x": 1.21,'center_y':.92}
+            self.popup.get_screen('new_contrat').ids['label_fin'].text = 'Fin du contrat'
             self.popup.get_screen('new_contrat').ids['fin_icon'].pos_hint = {"center_x": .93, "center_y":.8}
             self.popup.get_screen('new_contrat').ids['cat_contrat'].text = 'Nouveau'
 
@@ -1533,9 +1532,9 @@ class Screen(MDApp):
         durée = ['Déterminée', 'Indéterminée']
         categorie = ['Nouveau ', 'Renouvellement']
         type_client = ['Société', 'Organisation', 'Particulier']
-        redondance = ['une seule fois', '1 mois', '2 mois', '3 mois', '4 mois', '6 mois']
+        fréquence = ['une seule fois', '1 mois', '2 mois', '3 mois', '4 mois', '6 mois']
 
-        item_menu = axe if champ == 'axe_client' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else redondance if champ == 'red_trait' else type_client
+        item_menu = axe if champ == 'axe_client' else durée if champ == 'duree_new_contrat' else categorie if champ == "cat_contrat" else fréquence if champ == 'red_trait' else type_client
         menu = [
             {
                 "text": i,
@@ -1600,8 +1599,8 @@ class Screen(MDApp):
             self.popup.get_screen('ajout_facture').ids.label_fin_facture.text = ''
 
         elif text == 'Déterminée':
-            self.popup.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": .83, "center_y": .8}
-            self.popup.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": .93, "center_y":.8}
+            self.popup.get_screen(screen).ids.fin_new_contrat.pos_hint = {"center_x": .83, "center_y": .7}
+            self.popup.get_screen(screen).ids.fin_icon.pos_hint = {"center_x": .93, "center_y": .7}
             self.popup.get_screen(screen).ids.label_fin.text = 'Fin du contrat'
 
             #Ecran ajout planning
@@ -1699,11 +1698,11 @@ class Screen(MDApp):
                     client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[7] if item[7] is not None else "N/A"
-                    redondance = ', '.join(f'{val} mois' if int(val) != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
+                    fréquence = ', '.join(f'{val} mois' if int(val) != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
 
                     client_id.append(item[8])
 
-                    row_data.append((client, date, traitement, redondance ))
+                    row_data.append((client, date, traitement, fréquence ))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
 
@@ -1796,9 +1795,9 @@ class Screen(MDApp):
                 if len(item) >= 3:
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[2] if item[2] is not None else "N/A"
-                    redondance = item[7] if item[7] is not None else "N/A"
+                    fréquence = item[7] if item[7] is not None else "N/A"
 
-                    row_data.append((date, traitement, '1 jours' if item[7] == 12 else f'{redondance} mois'))
+                    row_data.append((date, traitement, '1 jours' if item[7] == 12 else f'{fréquence} mois'))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
