@@ -3,11 +3,5 @@
 /__pycache__
 /main.spec
 test.py
-main.bin
-main.build
-main.dist
-main.onefile-build
-build
-build_nuitka
-dist
+*.json
 *.xlsx
