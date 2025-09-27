@@ -21,7 +21,7 @@ def getdesktoppath():
 
 
 desktop = getdesktoppath()
-dossier = ["Factures", 'Traitement']
+dossier = ["Factures", 'Traitements']
 paths = []
 
 for nom in dossier:
