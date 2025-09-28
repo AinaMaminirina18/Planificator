@@ -193,8 +193,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
+        screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -404,7 +404,7 @@ class Screen(MDApp):
         elif not self.traitement:
             self.dismiss_popup()
             self.fermer_ecran()
-            Clock.schedule_once(lambda dt:asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
+            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
 
             self.clear_fields('new_contrat')
             self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
@@ -512,7 +512,6 @@ class Screen(MDApp):
             print('func get_all_planning', e)
             return []
 
-
     def update_account(self, nom, prenom, email, username, password, confirm):
         import verif_password as vp
         from email_verification import is_valid_email
@@ -567,7 +566,7 @@ class Screen(MDApp):
             await self.database.delete_client(self.current_client[0])
             await asyncio.sleep(2)
             await self.populate_tables()
-            Clock.schedule_once(lambda dt:self.remove_tables('contrat'))
+            Clock.schedule_once(lambda dt: self.remove_tables('contrat'))
 
             Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
 
@@ -875,7 +874,7 @@ class Screen(MDApp):
             self.fermer_ecran()
 
             asyncio.run_coroutine_threadsafe(modifier(date), self.loop)
-            asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
+            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
         else:
             self.show_dialog('Erreur', 'Aucune date est choisie')
 
@@ -899,7 +898,6 @@ class Screen(MDApp):
             Clock.schedule_once(lambda dt :self.dismiss_popup())
             Clock.schedule_once(lambda dt :self.fermer_ecran())
             asyncio.run_coroutine_threadsafe(changer(old_price.rstrip('Ar').replace(' ',''), new_price.rstrip('Ar').replace(' ', '') if 'Ar' in new_price else new_price.replace(' ', '')), self.loop)
-
 
     def screen_modifier_prix(self, table, row):
         row_num = int(row.index / len(table.column_data))
@@ -1297,7 +1295,7 @@ class Screen(MDApp):
         try:
             client_data = await self.database.get_all_client()
             if client_data:
-                Clock.schedule_once(lambda dt: self.update_client_table_and_switch(place,client_data), 0.1)
+                Clock.schedule_once(lambda dt: self.update_client_table_and_switch(place, client_data), 0.1)
             else:
                 self.show_dialog('Information', 'Aucun client trouvé.')
 
@@ -1345,7 +1343,7 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
 
     def switch_to_login(self):
-        self.root.current =  'login'
+        self.root.current = 'login'
 
     def switch_to_compte(self):
         ecran = 'compte' if self.admin else 'not_admin'
@@ -1407,6 +1405,7 @@ class Screen(MDApp):
         self.choose_screen(boutton)
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('client').ids.tableau_client
         #place.clear_widgets()
+
         def chargement_client():
             asyncio.run_coroutine_threadsafe(self.all_clients(), self.loop)
 
@@ -1716,16 +1715,16 @@ class Screen(MDApp):
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
-            self.page = 1
+            self.main_page = 1
 
             def on_press_page(direction, instance=None):
                 print(direction)
                 max_page = (len(row_data) - 1) // 5 + 1
-                if direction == 'moins' and self.page > 1:
-                    self.page -= 1
-                elif direction == 'plus' and self.page < max_page:
-                    self.page += 1
-                print(self.page)
+                if direction == 'moins' and self.main_page > 1:
+                    self.main_page -= 1
+                elif direction == 'plus' and self.main_page < max_page:
+                    self.main_page += 1
+                print(self.main_page)
 
             btn_prev.bind(on_press=partial(on_press_page, 'moins'))
             btn_next.bind(on_press=partial(on_press_page, 'plus'))
@@ -1897,16 +1896,16 @@ class Screen(MDApp):
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
-            self.page = 1
+            self.main_page = 1
 
             def on_press_page(direction, instance=None):
                 print(direction)
                 max_page = (len(row_data) - 1) // 5 + 1
-                if direction == 'moins' and self.page > 1:
-                    self.page -= 1
-                elif direction == 'plus' and self.page < max_page:
-                    self.page += 1
-                print(self.page)
+                if direction == 'moins' and self.main_page > 1:
+                    self.main_page -= 1
+                elif direction == 'plus' and self.main_page < max_page:
+                    self.main_page += 1
+                print(self.main_page)
 
             btn_prev.bind(on_press=partial(on_press_page, 'moins'))
             btn_next.bind(on_press=partial(on_press_page, 'plus'))
@@ -2039,16 +2038,16 @@ class Screen(MDApp):
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
-            self.page = 1
+            self.main_page = 1
 
             def on_press_page(direction, instance=None):
                 print(direction)
                 max_page = (len(row_data) - 1) // 5 + 1
-                if direction == 'moins' and self.page > 1:
-                    self.page -= 1
-                elif direction == 'plus' and self.page < max_page:
-                    self.page += 1
-                print(self.page)
+                if direction == 'moins' and self.main_page > 1:
+                    self.main_page -= 1
+                elif direction == 'plus' and self.main_page < max_page:
+                    self.main_page += 1
+                print(self.main_page)
 
             btn_prev.bind(on_press=partial(on_press_page, 'moins'))
             btn_next.bind(on_press=partial(on_press_page, 'plus'))
@@ -2105,6 +2104,7 @@ class Screen(MDApp):
                     ("Etat du traitement", dp(40)),
                 ]
             )
+
             def _():
                 self.liste_select_planning.row_data = row_data
 
@@ -2304,8 +2304,7 @@ class Screen(MDApp):
                 print('remarque tsy db',e)
         asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
 
-        Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), .5)
-
+        Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
 
     def clear_remarque_fields(self, screen):
         """Nettoie les champs du formulaire"""
@@ -2351,16 +2350,16 @@ class Screen(MDApp):
         btn_prev = pagination.ids.button_back
         btn_next = pagination.ids.button_forward
 
-        self.page = 1
+        self.main_page = 1
 
         def on_press_page( direction, instance=None):
             print(direction)
             max_page = (len(row_data) - 1) // 5 + 1
-            if direction == 'moins' and self.page > 1:
-                self.page -= 1
-            elif direction == 'plus' and self.page < max_page:
-                self.page += 1
-            print(self.page)
+            if direction == 'moins' and self.main_page > 1:
+                self.main_page -= 1
+            elif direction == 'plus' and self.main_page < max_page:
+                self.main_page += 1
+            print(self.main_page)
 
         btn_prev.bind(on_press=partial(on_press_page,  'moins'))
         btn_next.bind(on_press=partial(on_press_page,  'plus'))
@@ -2719,6 +2718,7 @@ class Screen(MDApp):
                 id, datee = await self.database.get_planningdetails_id(self.current_client[13])
                 print(id, datee)
                 await self.database.abrogate_contract(id)
+                await asyncio.sleep(2)
                 await self.populate_tables()
                 await self.get_client()
                 await self.all_clients()
