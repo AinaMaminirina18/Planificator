@@ -576,42 +576,62 @@ class DatabaseManager:
                     return await cursor.fetchall()
                 except Exception as e:
                     print('details', e)
-    
-    async def get_info_planning(self, planning_id, date):
-        async with self.pool.acquire() as conn:
-            async with conn.cursor() as cursor:
-                try:
-                    await cursor.execute("""SELECT c.nom AS nom_client,
-                                                  tt.typeTraitement AS type_traitement,
-                                                  p.duree_traitement,
-                                                  co.date_debut,
-                                                  co.date_fin,
-                                                  c.client_id,
-                                                  f.facture_id,
-                                                  p.planning_id,
-                                                  pdl.planning_detail_id,
-                                                  pdl.date_planification
-                                                  
-                                           FROM
-                                              Client c
-                                           JOIN
-                                              Contrat co ON c.client_id = co.client_id
-                                           JOIN
-                                              Traitement t ON co.contrat_id = t.contrat_id
-                                           JOIN
-                                              Planning p ON t.traitement_id = p.traitement_id
-                                           JOIN
-                                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
-                                           JOIN
-                                              PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                                           JOIN
-                                              Facture f ON pdl.planning_detail_id = f.planning_detail_id
-                                           WHERE
-                                              p.planning_id = %s AND pdl.date_planification = %s""", (planning_id,date))
-                    resultat = await cursor.fetchone()
-                    return resultat
-                except Exception as e:
-                    print('get_info', e)
+
+    async def get_info_planning(self, planning_id, date, max_retries=3):
+        for attempt in range(max_retries + 1):
+            try:
+                async with self.pool.acquire() as conn:
+                    async with conn.cursor() as cursor:
+                        try:
+                            await cursor.execute("""SELECT c.nom AS nom_client,
+                                                      tt.typeTraitement AS type_traitement,
+                                                      p.duree_traitement,
+                                                      co.date_debut,
+                                                      co.date_fin,
+                                                      c.client_id,
+                                                      f.facture_id,
+                                                      p.planning_id,
+                                                      pdl.planning_detail_id,
+                                                      pdl.date_planification
+
+                                                FROM
+                                                    Client c
+                                                JOIN
+                                                    Contrat co ON c.client_id = co.client_id
+                                                JOIN
+                                                    Traitement t ON co.contrat_id = t.contrat_id
+                                                JOIN
+                                                    Planning p ON t.traitement_id = p.traitement_id
+                                                JOIN
+                                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                                JOIN
+                                                    PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                                JOIN
+                                                    Facture f ON pdl.planning_detail_id = f.planning_detail_id
+                                                WHERE
+                                                    p.planning_id = %s AND pdl.date_planification = %s""",
+                                                 (planning_id, date))
+                            resultat = await cursor.fetchone()
+                            return resultat
+                        except Exception as e:
+                            print('get_info', e)
+
+            except Exception as e:
+                print(f'tentive {attempt +1 } échouée pour get info planning: {e}')
+
+                await conn.rollback()
+                if attempt == max_retries:
+                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                raise e
+
+                base_delay = 2 ** attempt
+                jitter = random.uniform(0, 0.1 * base_delay)
+                delay = base_delay + jitter
+
+                print(f"Retry dans {delay:.2f}s...")
+                await asyncio.sleep(delay)
+
+        return None
 
     async def modifier_date_signalement(self,planning_id, planning_detail_id, option, interval):
         async with self.pool.acquire() as conn:
