@@ -1678,9 +1678,6 @@ class Screen(MDApp):
     def update_contract_table(self, place, contract_data):
         from kivymd.uix.label import MDLabel
 
-        #if self.liste_contrat.parent:
-        #    self.liste_contrat.parent.remove_widget(self.liste_contrat)
-
         if not contract_data:
             label = MDLabel(
                 text="Aucune donnée de planning disponible",
@@ -1747,7 +1744,7 @@ class Screen(MDApp):
 
         place = self.popup.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
-        index_global = (self.page - 1) * 8 + row_num
+        index_global = (self.main_page - 1) * 8 + row_num
         row_value = None
 
         if 0 <= index_global < len(table.row_data):
@@ -1825,7 +1822,7 @@ class Screen(MDApp):
                 btn_next.bind(on_press=partial(on_press_page, 'plus'))
 
                 self.all_treat.bind(on_row_press=self.row_pressed_contrat)
-                print(self.all_treat.parent)
+
                 if self.all_treat.parent:
                     self.all_treat.parent.remove_widget(self.all_treat)
                 place.add_widget(self.all_treat)
@@ -1849,30 +1846,33 @@ class Screen(MDApp):
         async def maj_ecran():
             try:
                 self.current_client = await self.database.get_current_contrat(self.client_name,self.reverse_date(row_value[0]), row_value[1])
-
-                if self.current_client[3] == 'Particulier':
-                    nom = self.current_client[1] + ' ' + self.current_client[2]
+                if type(self.current_client) is None:
+                    toast('Veuillez réessayer dans quelques secondes')
+                    return
                 else:
-                    nom = self.current_client[1]
+                    if self.current_client[3] == 'Particulier':
+                        nom = self.current_client[1] + ' ' + self.current_client[2]
+                    else:
+                        nom = self.current_client[1]
 
-                if self.current_client[6] == 'Indeterminée':
-                    fin = self.current_client[8]
-                else :
-                    fin = self.reverse_date(self.current_client[8])
+                    if self.current_client[6] == 'Indeterminée':
+                        fin = self.current_client[8]
+                    else :
+                        fin = self.reverse_date(self.current_client[8])
 
-                self.popup.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
-                self.popup.get_screen(
-                    'option_contrat').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
-                self.popup.get_screen(
-                    'option_contrat').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
-                self.popup.get_screen(
-                    'option_contrat').ids.fin_contrat.text = f'Fin du contrat : {fin}'
-                self.popup.get_screen(
-                    'option_contrat').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
-                self.popup.get_screen(
-                    'option_contrat').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
-                self.popup.get_screen(
-                    'option_contrat').ids.axe.text = f'Axe du client: {self.current_client[11]}'
+                    self.popup.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
+                    self.popup.get_screen(
+                        'option_contrat').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
+                    self.popup.get_screen(
+                        'option_contrat').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
+                    self.popup.get_screen(
+                        'option_contrat').ids.fin_contrat.text = f'Fin du contrat : {fin}'
+                    self.popup.get_screen(
+                        'option_contrat').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
+                    self.popup.get_screen(
+                        'option_contrat').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
+                    self.popup.get_screen(
+                        'option_contrat').ids.axe.text = f'Axe du client: {self.current_client[11]}'
 
             except Exception as e:
                 print(e)
@@ -1961,7 +1961,7 @@ class Screen(MDApp):
     def row_pressed_client(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-        index_global = (self.page - 1) * 8 + row_num
+        index_global = (self.main_page - 1) * 8 + row_num
         row_value = None
 
         if 0 <= index_global < len(table.row_data):
@@ -1970,22 +1970,26 @@ class Screen(MDApp):
         asyncio.run_coroutine_threadsafe(self.current_client_info(row_value[0], row_value[3]),self.loop)
 
         def maj_ecran():
-            if self.current_client[3] == 'Particulier':
-                nom = self.current_client[1] + ' ' + self.current_client[2]
+            if not self.current_client:
+                toast('Veuillez r&essayer dans quelques secondes')
+                return
             else:
-                nom = self.current_client[1]
+                if self.current_client[3] == 'Particulier':
+                    nom = self.current_client[1] + ' ' + self.current_client[2]
+                else:
+                    nom = self.current_client[1]
 
-            if self.current_client[6] == 'Indéterminée':
-                fin = self.reverse_date(self.current_client[8])
-            else :
-                fin = self.current_client[8]
+                if self.current_client[6] == 'Indéterminée':
+                    fin = self.reverse_date(self.current_client[8])
+                else :
+                    fin = self.current_client[8]
 
-            self.popup.get_screen('option_client').ids.titre.text = f'A propos de {nom}'
-            self.popup.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
-            self.popup.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
-            self.popup.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {fin}'
-            self.popup.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
-            self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
+                self.popup.get_screen('option_client').ids.titre.text = f'A propos de {nom}'
+                self.popup.get_screen('option_client').ids.date_contrat.text = f'Contrat du : {self.reverse_date(self.current_client[4])}'
+                self.popup.get_screen('option_client').ids.debut_contrat.text = f'Début du contrat : {self.reverse_date(self.current_client[7])}'
+                self.popup.get_screen('option_client').ids.fin_contrat.text = f'Fin du contrat : {fin}'
+                self.popup.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
+                self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
 
         Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'))
         Clock.schedule_once(lambda x: maj_ecran(), 0)
@@ -2140,7 +2144,7 @@ class Screen(MDApp):
         row_data = table.row_data[row_num]
 
         row_value = None
-        index_global = (self.page - 1) * 8 + row_num
+        index_global = (self.main_page - 1) * 8 + row_num
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
@@ -2371,7 +2375,7 @@ class Screen(MDApp):
     def row_pressed_histo(self, table, row, planning_id):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data
-        index_global = (self.page - 1) * 5 + row_num
+        index_global = (self.main_page - 1) * 5 + row_num
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
@@ -2382,6 +2386,7 @@ class Screen(MDApp):
         place = self.popup.get_screen('histo_remarque').ids.tableau_rem_histo
         place.clear_widgets()
         self.fenetre_histo('', 'histo_remarque')
+
         def get_data():
             asyncio.run_coroutine_threadsafe(self.historique_remarque(place, planning_id[row_num]), self.loop)
 
