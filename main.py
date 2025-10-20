@@ -193,8 +193,8 @@ class Screen(MDApp):
         self.dialogue = None
 
         screen = ScreenManager()
-        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/main.kv'))
+        screen.add_widget(Builder.load_file('screen/Sidebar.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
         return screen
@@ -407,8 +407,8 @@ class Screen(MDApp):
             Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
 
             self.clear_fields('new_contrat')
-            self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
             self.remove_tables('contrat')
+            self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
 
         else:
 
@@ -643,8 +643,6 @@ class Screen(MDApp):
         return traitement, categorie
 
     def search(self, text, search='False'):
-        """if search:
-            print(self.verifier_mois(text)) """
         self.fenetre_planning('', 'ajout_remarque')
 
     def on_check_press(self, active):
@@ -1397,7 +1395,7 @@ class Screen(MDApp):
             asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar','contrat'), 0)
-        Clock.schedule_once(lambda dt: chargement_contrat(), 0.5)
+        Clock.schedule_once(lambda dt: chargement_contrat(), .5)
 
     def switch_to_client(self):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current = 'client'
@@ -1668,7 +1666,8 @@ class Screen(MDApp):
         elif screen == 'contrat':
             place1 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('contrat').ids.tableau_contrat
             place1.remove_widget(self.liste_contrat)
-            asyncio.run_coroutine_threadsafe(self.get_client(), self.loop)
+
+            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.get_client(), self.loop), 2)
             place2 = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen(
                  'client').ids.tableau_client
             place2.remove_widget(self.liste_client)
@@ -1698,7 +1697,7 @@ class Screen(MDApp):
 
                     client_id.append(item[8])
 
-                    row_data.append((client, date, traitement, fréquence ))
+                    row_data.append((client, date, traitement, fréquence))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
 
@@ -1726,7 +1725,11 @@ class Screen(MDApp):
             btn_prev.bind(on_press=partial(on_press_page, 'moins'))
             btn_next.bind(on_press=partial(on_press_page, 'plus'))
 
+            if self.liste_contrat.parent:
+                self.liste_contrat.parent.remove_widget(self.liste_contrat)
+
             self.liste_contrat.row_data = row_data
+            print(client_id)
             self.liste_contrat.bind(on_row_press=partial(self.get_traitement_par_client, client_id))
             if contract_data:
                 place.add_widget(self.liste_contrat)
@@ -1749,24 +1752,24 @@ class Screen(MDApp):
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
-            print(row_value)
 
         self.fenetre_contrat('', 'all_treatment')
 
         self.popup.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {row_value[0]}'
         self.client_name = row_value[0]
 
-        def maj_ecran():
-            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, client_id[row_num]), self.loop)
+        def maj_ecran(client_id):
 
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'),0.5)
-        Clock.schedule_once(lambda dt: maj_ecran(),0)
+            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, client_id[index_global]), self.loop)
+
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'all_treatment'), 0.5)
+        Clock.schedule_once(lambda dt: maj_ecran(client_id), 0.5)
 
     async def liste_traitement_par_client(self, place, nom_client):
         try:
             result = await self.database.traitement_par_client(nom_client)
             if result:
-                Clock.schedule_once(lambda dt : self.show_about_treatment(place, result), 0.1)
+                Clock.schedule_once(lambda dt: self.show_about_treatment(place, result), 0.1)
 
         except Exception as e:
             print('erreur get traitement'+ str(e))
@@ -1810,7 +1813,7 @@ class Screen(MDApp):
                 self.page = 1
 
                 def on_press_page(direction, instance=None):
-                    print(direction)
+
                     max_page = (len(row_data) - 1) // 5 + 1
                     if direction == 'moins' and self.page > 1:
                         self.page -= 1
@@ -1857,7 +1860,7 @@ class Screen(MDApp):
 
                     if self.current_client[6] == 'Indeterminée':
                         fin = self.current_client[8]
-                    else :
+                    else:
                         fin = self.reverse_date(self.current_client[8])
 
                     self.popup.get_screen('option_contrat').ids.titre.text = f'A propos de {nom}'
@@ -1878,7 +1881,7 @@ class Screen(MDApp):
                 print(e)
 
         def ecran():
-            asyncio.run_coroutine_threadsafe(maj_ecran(),self.loop)
+            asyncio.run_coroutine_threadsafe(maj_ecran(), self.loop)
 
         Clock.schedule_once(lambda x: ecran(), 0.5)
 
