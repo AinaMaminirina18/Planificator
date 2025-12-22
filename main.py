@@ -16,8 +16,7 @@ Window.maxHeight = 680
 import asyncio
 import threading
 import locale
-#locale.setlocale(locale.LC_TIME, "fr_FR.utf8") Pour linux /MAC
-locale.setlocale(locale.LC_TIME, "French_France.1252")
+locale.setlocale(locale.LC_TIME, "fr_FR.utf8")  # Pour linux/MAC - Windows: French_France.1252
 
 from datetime import datetime
 from functools import partial
@@ -60,11 +59,11 @@ class Screen(MDApp):
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
         self.calendar = None
         asyncio.run_coroutine_threadsafe(self.database.connect(), self.loop)
+        self._screens_initialized = False  # Flag pour éviter d'initialiser 2x
 
     def on_start(self):
-        gestion_ecran(self.root)
-
-        asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
+        # Ne rien appeler ici - attendre la connexion réussie
+        pass
 
     def build(self):
         #Configuration de la fenêtre
@@ -1382,6 +1381,12 @@ class Screen(MDApp):
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'about'
 
     def switch_to_main(self):
+        # Initialiser les écrans une seule fois après authentification
+        if not self._screens_initialized:
+            gestion_ecran(self.root)
+            self._screens_initialized = True
+            asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop)
+        
         self.root.current = 'Sidebar'
         self.root.get_screen('Sidebar').ids['gestion_ecran'].current =  'Home'
         self.reset()
