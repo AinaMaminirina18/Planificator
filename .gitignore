@@ -5,3 +5,4 @@
 test.py
 *.json
 *.xlsx
+logs/planificator_db.log
