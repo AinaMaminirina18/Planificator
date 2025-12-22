@@ -1,16 +1,92 @@
 import asyncio
 import datetime
 import random
+import logging
+import sys
 
 import aiomysql
 
 import json
 import os
+
+# =====================================================
+# LOGGING CONFIGURATION
+# =====================================================
+# Déterminer le répertoire de base (pour .exe ou script Python)
+if getattr(sys, 'frozen', False):
+    # Exécutable PyInstaller (.exe)
+    base_dir = os.path.dirname(sys.executable)
+else:
+    # Script Python normal - utiliser le répertoire courant
+    base_dir = os.getcwd()
+
+# Créer le dossier 'logs' s'il n'existe pas
+log_dir = os.path.join(base_dir, 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
+log_file = os.path.join(log_dir, 'planificator_db.log')
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()  # Aussi afficher dans console
+    ]
+)
+logger = logging.getLogger(__name__)
+
 config_path = os.path.join(os.path.dirname(__file__), 'config.json')
 
 with open(config_path, "r", encoding="utf-8") as f:
     config = json.load(f)
+    logger.info(f"Configuration chargée depuis {config_path}")
 
+# =====================================================
+# VALIDATION & ERROR HANDLING
+# =====================================================
+
+def validate_email(email):
+    """Valide un email basique."""
+    if not email or '@' not in email or '.' not in email.split('@')[1]:
+        return False
+    return True
+
+def validate_phone(phone):
+    """Valide un numéro de téléphone (enlève les caractères non-numériques)."""
+    if not phone:
+        return None
+    cleaned = ''.join(filter(str.isdigit, str(phone)))
+    return cleaned if len(cleaned) >= 7 else None
+
+def validate_not_empty(value, field_name):
+    """Vérifie qu'un champ n'est pas vide."""
+    if not value or (isinstance(value, str) and not value.strip()):
+        logger.warning(f"⚠️  Champ vide: {field_name}")
+        raise ValueError(f"Le champ '{field_name}' ne peut pas être vide")
+    return value
+
+def validate_positive_number(value, field_name):
+    """Vérifie qu'une valeur est un nombre positif."""
+    try:
+        num = float(value)
+        if num < 0:
+            raise ValueError(f"{field_name} doit être positif (valeur: {value})")
+        return num
+    except (ValueError, TypeError):
+        raise ValueError(f"{field_name} doit être un nombre valide (valeur: {value})")
+
+def safe_execute(func_name):
+    """Décorateur pour wrapper les erreurs critiques."""
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except Exception as e:
+                logger.error(f"❌ ERREUR CRITIQUE dans {func_name}: {e}", exc_info=True)
+                raise
+        return wrapper
+    return decorator
 
 class DatabaseManager:
     """Gestionnaire de la base de données utilisant aiomysql."""
@@ -21,17 +97,160 @@ class DatabaseManager:
 
     async def connect(self):
         try:
-            """Crée un pool de connexions à la base de données."""
-            self.pool = await aiomysql.create_pool(
-                host=config['host'],
-                port=config['port'],
-                user=config['user'],
-                password=config['password'],
-                db="Planificator",
-                loop=self.loop
-            )
+            """Crée un pool de connexions à la base de données avec support réseau."""
+            # Configuration pour réseau/distante
+            pool_config = {
+                'host': config['host'],
+                'port': config['port'],
+                'user': config['user'],
+                'password': config['password'],
+                'db': "Planificator",
+                'loop': self.loop,
+                'autocommit': False,
+                'echo': False,
+            }
+            
+            # Ajouter timeouts si c'est une connexion réseau (pas localhost)
+            if config['host'] != 'localhost' and config['host'] != '127.0.0.1':
+                pool_config['connect_timeout'] = 10  # 10 sec pour se connecter
+                logger.warning(f"⚠️  Connexion réseau détectée ({config['host']}:{config['port']}) - timeout 10s activé")
+            
+            self.pool = await aiomysql.create_pool(**pool_config)
+            logger.info(f"✅ Connexion BD réussie - Pool créé (host={config['host']}, port={config['port']}, db=Planificator)")
         except Exception as e:
-            print('Erreur', e)
+            logger.error(f"❌ Erreur connexion BD: {e}", exc_info=True)
+            raise
+    
+    async def reconnect(self):
+        """Reconnecte la pool en cas de déconnexion."""
+        try:
+            logger.warning("🔄 Tentative de reconnexion BD...")
+            if self.pool is not None:
+                self.pool.close()
+                await self.pool.wait_closed()
+            
+            await self.connect()
+            logger.info("✅ Reconnexion réussie")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Reconnexion échouée: {e}", exc_info=True)
+            return False
+    
+    async def get_pool_status(self):
+        """Retourne l'état de la connection pool."""
+        if self.pool is None:
+            return {"status": "disconnected", "message": "Pool non initialisée"}
+        
+        try:
+            free_size = self.pool._free_size if hasattr(self.pool, '_free_size') else 0
+            size = self.pool._size if hasattr(self.pool, '_size') else 0
+            
+            status = {
+                "status": "connected",
+                "total_connections": size,
+                "free_connections": free_size,
+                "active_connections": size - free_size,
+                "pool_healthy": free_size > 0
+            }
+            
+            logger.debug(f"Pool status: {status}")
+            
+            if free_size == 0:
+                logger.warning("⚠️  ALERTE: Aucune connexion libre dans la pool!")
+            
+            return status
+        except Exception as e:
+            logger.error(f"Erreur lors de la vérification de la pool: {e}")
+            return {"status": "error", "message": str(e)}
+    
+    async def health_check(self, auto_reconnect=True):
+        """Vérifie la santé de la connexion BD avec reconnexion automatique si réseau."""
+        try:
+            if self.pool is None:
+                logger.error("❌ Health check échoué: Pool non initialisée")
+                if auto_reconnect and config['host'] != 'localhost':
+                    logger.warning("🔄 Tentative reconnexion automatique...")
+                    return await self.reconnect()
+                return False
+            
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT 1")
+                    result = await cur.fetchone()
+                    
+                    if result:
+                        pool_status = await self.get_pool_status()
+                        logger.info(f"✅ Health check OK - Pool: {pool_status['active_connections']}/{pool_status['total_connections']} connexions actives")
+                        return True
+                    else:
+                        logger.error("❌ Health check échoué: Requête SELECT 1 sans résultat")
+                        return False
+        except Exception as e:
+            logger.error(f"❌ Health check échoué: {e}", exc_info=True)
+            
+            # Détécter les erreurs réseau et reconnecter automatiquement
+            error_msg = str(e).lower()
+            is_network_error = any(err in error_msg for err in ['connection', 'timeout', 'refused', 'lost', 'closed'])
+            
+            if is_network_error and auto_reconnect and config['host'] != 'localhost':
+                logger.warning(f"🌐 Erreur réseau détectée ({error_msg}), tentative reconnexion...")
+                return await self.reconnect()
+            
+            return False
+    
+    async def check_latency(self):
+        """Mesure la latence réseau vers la BD."""
+        import time
+        try:
+            if self.pool is None:
+                return {"status": "disconnected", "latency_ms": None}
+            
+            start = time.time()
+            async with self.pool.acquire() as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute("SELECT 1")
+            latency_ms = (time.time() - start) * 1000
+            
+            status = "good"
+            if latency_ms > 500:
+                status = "slow"
+                logger.warning(f"⚠️  Latence réseau élevée: {latency_ms:.2f}ms")
+            elif latency_ms > 200:
+                status = "moderate"
+                logger.debug(f"Latence réseau: {latency_ms:.2f}ms")
+            else:
+                logger.debug(f"✅ Latence réseau OK: {latency_ms:.2f}ms")
+            
+            return {
+                "status": status,
+                "latency_ms": latency_ms,
+                "host": config['host'],
+                "is_network": config['host'] != 'localhost'
+            }
+        except Exception as e:
+            logger.error(f"❌ Erreur mesure latence: {e}")
+            return {"status": "error", "latency_ms": None}
+    
+    async def diagnose(self):
+        """Diagnostic complet de la BD et de la pool avec latence réseau."""
+        try:
+            health = await self.health_check()
+            pool_status = await self.get_pool_status()
+            latency = await self.check_latency()
+            
+            diagnosis = {
+                "health": health,
+                "pool": pool_status,
+                "latency": latency,
+                "timestamp": datetime.datetime.now().isoformat(),
+                "network_connection": config['host'] != 'localhost'
+            }
+            
+            logger.info(f"📊 Diagnostic BD: {diagnosis}")
+            return diagnosis
+        except Exception as e:
+            logger.error(f"❌ Diagnostic échoué: {e}", exc_info=True)
+            return {"error": str(e)}
 
     async def add_user(self, nom, prenom, email, username,  password, type_compte):
         """Ajoute un utilisateur dans la base de données."""
@@ -108,49 +327,71 @@ class DatabaseManager:
                             total_non_paye += montant
                     return factures, format_montant(total_paye), format_montant(total_non_paye)
                 except Exception as e:
-                    print('get_facture' ,e)
+                    logger.error(f"❌ Erreur get_facture_id: {e}", exc_info=True)
 
     async def verify_user(self, username):
-        """Vérifie si un utilisateur existe avec les informations données."""
+        """Vérifie si un utilisateur existe - retourne toutes les colonnes nécessaires."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
+                logger.debug(f"🔍 Vérification utilisateur: {username}")
                 await cursor.execute(
-                    "SELECT * FROM Account WHERE username = (%s);", username
+                    "SELECT id_compte, nom, prenom, email, username, password, type_compte FROM Account WHERE username = %s", (username,)
                 )
                 result = await cursor.fetchone()
                 return result
 
     async def get_all_user(self):
+        """Récupère tous les non-administrateurs."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
-                await cursor.execute(
-                    "SELECT username, email FROM Account WHERE type_compte != 'Administrateur' ORDER BY username ASC"
-                )
-                resultat = await cursor.fetchall()
-                return resultat
+                try:
+                    logger.debug("📅 Récupération tous utilisateurs")
+                    await cursor.execute(
+                        "SELECT id_compte, username, email, type_compte FROM Account WHERE type_compte != 'Administrateur' ORDER BY username ASC"
+                    )
+                    resultat = await cursor.fetchall()
+                    logger.info(f"✅ {len(resultat)} utilisateurs récupérés")
+                    return resultat
+                except Exception as e:
+                    logger.error(f"❌ Erreur get_all_user: {e}", exc_info=True)
+                    return []
 
     async def get_current_user(self, id_compte):
+        """Récupère l'utilisateur courant par ID."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
-                await cursor.execute(
-                    "SELECT * FROM Account WHERE id_compte = %s",
-                    id_compte
-                )
-                current = await cursor.fetchone()
-                return current
+                try:
+                    logger.debug(f"🔍 Récupération utilisateur ID={id_compte}")
+                    await cursor.execute(
+                        "SELECT id_compte, nom, prenom, email, username, type_compte FROM Account WHERE id_compte = %s",
+                        (id_compte,)
+                    )
+                    current = await cursor.fetchone()
+                    return current
+                except Exception as e:
+                    logger.error(f"❌ Erreur get_current_user: {e}", exc_info=True)
+                    return None
 
     async def get_user(self, username):
+        """Récupère un utilisateur par username."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
-                await cursor.execute(
-                    "SELECT * FROM Account WHERE username = %s",
-                    username
-                )
-                current = await cursor.fetchone()
-                return current
+                try:
+                    logger.debug(f"🔍 Récupération utilisateur: {username}")
+                    await cursor.execute(
+                        "SELECT id_compte, nom, prenom, email, username, password, type_compte FROM Account WHERE username = %s",
+                        (username,)
+                    )
+                    current = await cursor.fetchone()
+                    return current
+                except Exception as e:
+                    logger.error(f"❌ Erreur get_user: {e}", exc_info=True)
+                    return None
 
     async def create_contrat(self, client_id,numero_contrat,  date_contrat, date_debut, date_fin, duree, duree_contrat, categorie,
                              max_retries=3):
+        logger.info(f"📋 Création contrat - client_id={client_id}, ref={numero_contrat}, categorie={categorie}")
+        
         for attempt in range(max_retries + 1):
             try:
                 async with self.lock:
@@ -161,21 +402,23 @@ class DatabaseManager:
                                 (client_id, numero_contrat, date_contrat, date_debut, date_fin, duree, duree_contrat, categorie)
                             )
                             await conn.commit()
-                            return cur.lastrowid
+                            contrat_id = cur.lastrowid
+                            logger.info(f"✅ Contrat créé - ID={contrat_id}")
+                            return contrat_id
 
             except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour create_contrat: {e}")
+                logger.warning(f"⚠️  Tentative {attempt + 1} échouée pour create_contrat: {e}")
                 await conn.rollback()
 
                 if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    logger.error(f"❌ Échec définitif après {max_retries + 1} tentatives pour client_id={client_id}", exc_info=True)
                     raise e
 
                 base_delay = 2 ** attempt
                 jitter = random.uniform(0, 0.1 * base_delay)
                 delay = base_delay + jitter
 
-                print(f"Retry dans {delay:.2f}s...")
+                logger.debug(f"Retry dans {delay:.2f}s...")
                 await asyncio.sleep(delay)
 
         return None
@@ -195,27 +438,35 @@ class DatabaseManager:
                             return cur.lastrowid
 
             except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour create_client: {e}")
+                logger.warning(f"⚠️  Tentative {attempt + 1} échouée pour create_client: {e}")
                 await conn.rollback()
 
                 if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    logger.error(f"❌ Échec définitif après {max_retries + 1} tentatives pour create_client", exc_info=True)
                     raise e
 
                 base_delay = 2 ** attempt
                 jitter = random.uniform(0, 0.1 * base_delay)
                 delay = base_delay + jitter
 
-                print(f"Retry dans {delay:.2f}s...")
+                logger.debug(f"Retry dans {delay:.2f}s...")
                 await asyncio.sleep(delay)
 
         return None
 
-    async def get_all_client(self):
+    async def get_all_client(self, limit=5000):
+        """Récupère tous les clients avec LIMIT pour éviter les surcharges."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute("SELECT DISTINCT nom, email, adresse, date_ajout FROM Client ORDER BY nom ASC")
-                return await cur.fetchall()
+                try:
+                    logger.info(f"📋 Récupération tous clients (limite: {limit})")
+                    await cur.execute(f"SELECT client_id, nom, prenom, email, adresse, date_ajout FROM Client ORDER BY nom ASC LIMIT {int(limit)}")
+                    result = await cur.fetchall()
+                    logger.info(f"✅ {len(result)} clients récupérés")
+                    return result
+                except Exception as e:
+                    logger.error(f"❌ Erreur get_all_client: {e}", exc_info=True)
+                    return []
 
     async def typetraitement(self, categorie, type, max_retries=3):
         for attempt in range(max_retries + 1):
@@ -231,18 +482,18 @@ class DatabaseManager:
                             return cursor.lastrowid
 
             except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour typetraitement: {e}")
+                logger.warning(f"⚠️  Tentative {attempt + 1} échouée pour create_type_traitement: {e}")
                 await conn.rollback()
 
                 if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    logger.error(f"❌ Échec définitif après {max_retries + 1} tentatives pour create_type_traitement", exc_info=True)
                     raise e
 
                 base_delay = 2 ** attempt
                 jitter = random.uniform(0, 0.1 * base_delay)
                 delay = base_delay + jitter
 
-                print(f"Retry dans {delay:.2f}s...")
+                logger.debug(f"Retry dans {delay:.2f}s...")
                 await asyncio.sleep(delay)
 
         return None
@@ -374,9 +625,11 @@ class DatabaseManager:
                                 'etat': statut,
                                 'axe': axe
                             })
+                        logger.info(f"✅ Traitements en cours récupérés - {len(traitements)} items")
                         return traitements
                     except Exception as e:
-                        print('en cours', e)
+                        logger.error(f"❌ Erreur traitement_en_cours: {e}", exc_info=True)
+                        return []
 
     async def traitement_prevision(self, year, month):
         async with self.lock:
@@ -424,6 +677,7 @@ class DatabaseManager:
                             (month,year)
                         )
                         rows = await curseur.fetchall()
+                        logger.debug(f"📝 traitement_prevision - {len(rows)} planning trouvés")
                         for nom, traitement, statut, date_str, idplanning, axe in rows:
                             traitements.append({
                                 "traitement": f'{traitement.partition("(")[0].strip()} pour {nom}',
@@ -431,47 +685,19 @@ class DatabaseManager:
                                 'etat': statut,
                                 'axe': axe
                             })
+                        logger.info(f"✅ Traitements prévision récupérés - {len(traitements)} items")
                         return traitements
                     except Exception as e:
-                        print('Prevision', e)
+                        logger.error(f"❌ Erreur traitement_prevision: {e}", exc_info=True)
+                        return []
 
     import asyncio
     import random
     from typing import Optional
 
-    async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
-        for attempt in range(max_retries + 1):
-            try:
-                async with self.lock:
-                    async with self.pool.acquire() as conn:
-                        async with conn.cursor() as cur:
-                            await cur.execute(
-                                "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
-                                (planning_id, montant, date, etat, axe)
-                            )
-                            await conn.commit()
-                            return cur.lastrowid
-
-            except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
-                await conn.rollback()
-
-                # Si c'est la dernière tentative, on lève l'exception
-                if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
-                    raise e
-
-                # Calcul du délai avec backoff exponentiel + jitter
-                base_delay = 2 ** attempt  # 1s, 2s, 4s, 8s...
-                jitter = random.uniform(0, 0.1 * base_delay)  # Ajoute un peu d'aléatoire
-                delay = base_delay + jitter
-
-                print(f"Retry dans {delay:.2f}s...")
-                await asyncio.sleep(delay)
-
-        return None
-
-    async def update_client(self, client_id, nom, prenom, email, telephone, adresse,nif, stat, categorie, axe, max_retries=3):
+    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, nif, stat, categorie, axe, max_retries=3):
+        logger.info(f"👤 Mise à jour client - ID={client_id}, nom={nom}, email={email}")
+        
         for attempt in range(max_retries + 1):
             try:
                 async with self.pool.acquire() as conn:
@@ -479,27 +705,27 @@ class DatabaseManager:
                         try:
                             await conn.begin()
                             await cur.execute(
-                                "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s,nif=%s, stat=%s, categorie = %s, axe = %s WHERE client_id = %s",
-                                (nom, prenom, email, telephone, adresse,nif,stat, categorie, axe, client_id)
+                                "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, nif = %s, stat = %s, categorie = %s, axe = %s WHERE client_id = %s",
+                                (nom, prenom, email, telephone, adresse, nif, stat, categorie, axe, client_id)
                             )
                             await conn.commit()
+                            logger.info(f"✅ Client mis à jour - ID={client_id}")
                             return True
                         except Exception as e:
+                            logger.warning(f"⚠️  Tentative {attempt + 1} échouée pour update_client: {e}")
                             await conn.rollback()
+                            raise e
 
             except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
-                await conn.rollback()
-
                 if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    logger.error(f"❌ Échec définitif après {max_retries + 1} tentatives pour client_id={client_id}", exc_info=True)
                     raise e
 
                 base_delay = 2 ** attempt
                 jitter = random.uniform(0, 0.1 * base_delay)
                 delay = base_delay + jitter
 
-                print(f"Retry dans {delay:.2f}s...")
+                logger.debug(f"Retry dans {delay:.2f}s...")
                 await asyncio.sleep(delay)
 
         return False
@@ -537,12 +763,14 @@ class DatabaseManager:
 
         return None
     
-    async def get_all_planning(self):
+    async def get_all_planning(self, limit=5000):
+        """Récupère tous les plannings avec LIMIT et avec logging."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    logger.info(f"📅 Récupération tous plannings (limite: {limit})")
                     await cursor.execute(
-                        """SELECT c.nom AS nom_client,
+                        f"""SELECT c.nom AS nom_client,
                                   tt.typeTraitement AS type_traitement,
                                   p.redondance ,
                                   p.planning_id
@@ -557,25 +785,35 @@ class DatabaseManager:
                            JOIN
                               TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
                            ORDER BY
-                              c.nom ASC;"""
+                              c.nom ASC
+                           LIMIT {int(limit)}"""
                     )
-                    return await cursor.fetchall()
+                    result = await cursor.fetchall()
+                    logger.info(f"✅ {len(result)} plannings récupérés")
+                    return result
                 except Exception as e:
-                    print('all planning', e)
+                    logger.error(f"❌ Erreur récupération plannings: {e}", exc_info=True)
+                    return []
 
     async def get_details(self, planning_id):
+        """Récupère les détails d'un planning spécifique."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    logger.debug(f"🔍 Récupération détails planning_id={planning_id}")
                     await cursor.execute("""SELECT
                                                 date_planification, statut
                                             FROM
                                                 PlanningDetails
                                             WHERE
                                                 planning_id = %s""", (planning_id,))
-                    return await cursor.fetchall()
+                    result = await cursor.fetchall()
+                    logger.debug(f"✅ {len(result)} détails trouvés")
+                    return result
                 except Exception as e:
-                    print('details', e)
+                    logger.error(f"❌ Erreur récupération détails: {e}", exc_info=True)
+                    return []
+
 
     async def get_info_planning(self, planning_id, date, max_retries=3):
         for attempt in range(max_retries + 1):
@@ -676,57 +914,30 @@ class DatabaseManager:
                 except Exception as e:
                     await conn.rollback()
 
-    async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
-        for attempt in range(max_retries + 1):
-            try:
-                async with self.lock:
-                    async with self.pool.acquire() as conn:
-                        async with conn.cursor() as cur:
-                            try:
-                                await conn.begin()
-                                await cur.execute(
-                                    "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
-                                    (planning_id, montant, date, etat, axe)
-                                )
-                                await conn.commit()
-                                return cur.lastrowid
-                            except Exception as e:
-                                await conn.rollback()
-
-            except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
-                await conn.rollback()
-
-                if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
-                    raise e
-
-                base_delay = 2 ** attempt
-                jitter = random.uniform(0, 0.1 * base_delay)
-                delay = base_delay + jitter
-
-                print(f"Retry dans {delay:.2f}s...")
-                await asyncio.sleep(delay)
-
-        return None
-    
     async def create_remarque(self,client, planning_details, facture, contenu, probleme, action):
+        logger.info(f"💬 Création remarque - client_id={client}, planning_detail_id={planning_details}, facture_id={facture}")
+        
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
+                    await conn.begin()
                     await cur.execute(
                     "INSERT INTO Remarque (client_id, planning_detail_id, facture_id, contenu, issue, action) VALUES (%s, %s, %s, %s,%s, %s)",
                     (client, planning_details, facture, contenu, probleme, action))
                     await conn.commit()
+                    logger.info(f"✅ Remarque créée - client_id={client}")
                 except Exception as e:
-                    print("remarque",e)
+                    await conn.rollback()
+                    logger.error(f"❌ Erreur création remarque: {e}", exc_info=True)
 
-    async def get_historique_remarque(self, planning_id):
+    async def get_historique_remarque(self, planning_id, limit=1000):
+        """Récupère l'historique des remarques pour un planning avec LIMIT."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
+                    logger.info(f"📜 Récupération historique remarques - planning_id={planning_id}")
                     await cur.execute(
-                        """ SELECT
+                        f""" SELECT
                                 pdl.date_planification AS Date, 
                                 COALESCE(NULLIF(r.contenu, ''), 'Aucune remarque') AS Remarque, 
                                 COALESCE(sa.motif, 'Aucun') AS Avancement, 
@@ -745,18 +956,22 @@ class DatabaseManager:
                                Planning p ON t.traitement_id = p.traitement_id
                             JOIN
                                PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                            JOIN
+                            LEFT JOIN
                                Remarque r ON pdl.planning_detail_id = r.planning_detail_id
                             LEFT JOIN
                                 Signalement sa ON r.planning_detail_id = sa.planning_detail_id AND sa.type = 'Avancement'
                             LEFT JOIN
                                 Signalement sd ON r.planning_detail_id = sd.planning_detail_id AND sd.type = 'Décalage'
                             WHERE
-                                p.planning_id = %s;""", (planning_id,))
-                    return await cur.fetchall()
+                                p.planning_id = %s
+                            LIMIT {int(limit)};""", (planning_id,))
+                    result = await cur.fetchall()
+                    logger.info(f"✅ {len(result)} remarques récupérées")
+                    return result
 
                 except Exception as e:
-                    print('histo remarque',e)
+                    logger.error(f"❌ Erreur historique remarque: {e}", exc_info=True)
+                    return []
 
     async def update_etat_facture(self, facture, reference, payement, etablissement, date, num_cheque):
         async with self.pool.acquire() as conn:
@@ -775,36 +990,42 @@ class DatabaseManager:
                     await conn.commit()
                 except Exception as e:
                     await conn.rollback()
-                    print("update facture", e)
+                    logger.error(f"❌ Erreur mise à jour facture: {e}", exc_info=True)
 
     async def update_etat_planning(self, details_id):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
+                    await conn.begin()
                     await cur.execute(
                     "UPDATE PlanningDetails SET statut = %s WHERE planning_detail_id = %s",('Effectué', details_id))
                     await conn.commit()
                 except Exception as e:
-                    print("update planning",e)
+                    await conn.rollback()
+                    logger.error(f"❌ Erreur mise à jour planning: {e}", exc_info=True)
 
     async def creer_signalment(self,planning_detail, motif, option):
         async with self.pool.acquire() as conn:
             try:
                 async with conn.cursor() as cursor:
+                    await conn.begin()
                     await cursor.execute("""INSERT INTO Signalement (planning_detail_id, motif, type) VALUES (%s, %s, %s)""",
                                    (planning_detail, motif, option))
                     await conn.commit()
             except Exception as e:
-                print('signalement', e)
+                await conn.rollback()
+                logger.error(f"❌ Erreur création signalement: {e}", exc_info=True)
 
-    async def get_historic_par_client(self, nom):
+    async def get_historic_par_client(self, nom, limit=1000):
+        """Récupère l'historique par client - requête corrigée avec GROUP BY valide."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
-                    await cursor.execute(""" SELECT c.nom,
+                    logger.info(f"📊 Récupération historique client - nom={nom}")
+                    await cursor.execute(f""" SELECT c.nom,
                                                 co.duree,
                                                 tt.typeTraitement,
-                                                count(r.remarque_id),
+                                                count(r.remarque_id) as nb_remarques,
                                                 p.planning_id
                                              FROM
                                                 Client c
@@ -818,27 +1039,31 @@ class DatabaseManager:
                                                 Planning p ON t.traitement_id = p.traitement_id
                                              JOIN
                                                 PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                                             JOIN
+                                             LEFT JOIN
                                                 Remarque r ON pdl.planning_detail_id = r.planning_detail_id
                                              WHERE
                                                 c.nom = %s
                                              GROUP BY
-                                                tt.typetraitement
+                                                c.client_id, c.nom, co.duree, tt.typeTraitement, p.planning_id
+                                             LIMIT {int(limit)}
                                                 """, (nom,))
                     result = await cursor.fetchall()
-                    print(result)
+                    logger.info(f"✅ {len(result)} résultats trouvés pour client {nom}")
                     return result
                 except Exception as e:
-                    print('histo',e)
+                    logger.error(f"❌ Erreur historique par client: {e}", exc_info=True)
+                    return []
 
-    async def get_historic(self, categorie):
+    async def get_historic(self, categorie, limit=1000):
+        """Récupère l'historique par catégorie - requête corrigée."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
-                    await cursor.execute(""" SELECT c.nom,
+                    logger.info(f"📈 Récupération historique par catégorie - {categorie}")
+                    await cursor.execute(f""" SELECT c.nom,
                                                 co.duree,
                                                 tt.typeTraitement,
-                                                count(r.remarque_id),
+                                                count(r.remarque_id) as nb_remarques,
                                                 p.planning_id
                                              FROM
                                                 Client c
@@ -852,21 +1077,26 @@ class DatabaseManager:
                                                 Planning p ON t.traitement_id = p.traitement_id
                                              JOIN
                                                 PlanningDetails pdl ON p.planning_id = pdl.planning_id
-                                             JOIN
+                                             LEFT JOIN
                                                 Remarque r ON pdl.planning_detail_id = r.planning_detail_id
                                              WHERE
                                                 tt.categorieTraitement = %s
+                                             GROUP BY
+                                                c.client_id, c.nom, co.duree, tt.typeTraitement, p.planning_id
+                                             LIMIT {int(limit)}
                                                 """, (categorie,))
                     result = await cursor.fetchall()
-                    print(result)
+                    logger.info(f"✅ {len(result)} résultats trouvés pour catégorie {categorie}")
                     return result
                 except Exception as e:
-                    print('histo',e)
+                    logger.error(f"❌ Erreur historique par catégorie: {e}", exc_info=True)
+                    return []
                     
     async def get_current_contrat(self, client, date, traitement):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    logger.debug(f"🔍 get_current_contrat - {client}, {date}, {traitement}")
                     await cursor.execute("""SELECT c.client_id AS id,
                                   c.nom AS nom_client,
                                   c.prenom AS prenom_client,
@@ -899,28 +1129,35 @@ class DatabaseManager:
                            JOIN
                                Facture f ON pld.planning_detail_id = f.planning_detail_id
                            WHERE
-                              c.nom = %s AND co.date_contrat = %s AND tt.TypeTraitement = %s; """, (client, date, traitement))
+                              c.nom = %s AND co.date_contrat = %s AND tt.typeTraitement = %s; """, (client, date, traitement))
                     resultat = await cursor.fetchone()
+                    if resultat:
+                        logger.info(f"✅ Contrat trouvé - {resultat[1]}")
                     return resultat
                 except Exception as e:
-                    print(e)
+                    logger.error(f"❌ Erreur get_current_contrat: {e}", exc_info=True)
+                    return None
 
     async def delete_client(self, id_contrat):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    logger.info(f"📝 Suppression client - id={id_contrat}")
                     await conn.begin() #commencer une transaction
                     await cursor.execute("""DELETE FROM Client where client_id = %s""", (id_contrat,))
                     await conn.commit()
+                    logger.info(f"✅ Client supprimé - id={id_contrat}")
                 except Exception as e:
                     await conn.rollback() #rollback en cas d'erreur
+                    logger.error(f"❌ Erreur delete_client: {e}", exc_info=True)
                     print("Delete",e)
 
     async def get_current_client(self, client, date):
-        print(client, date)
+        """Récupère les infos client avec tous les JOINs nécessaires."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    logger.debug(f"🔍 Récupération client: {client}, date: {date}")
                     await cursor.execute("""SELECT c.client_id AS id,
                                   c.nom AS nom_client,
                                   c.prenom AS prenom_client,
@@ -955,10 +1192,11 @@ class DatabaseManager:
                            WHERE
                               c.nom = %s AND co.date_contrat = %s; """, (client, date))
                     resultat = await cursor.fetchone()
-                    print(resultat)
+                    logger.debug(f"✅ Client trouvé: {resultat[1] if resultat else 'Aucun'}")
                     return resultat
                 except Exception as e:
-                    print(e)
+                    logger.error(f"❌ Erreur get_current_client: {e}", exc_info=True)
+                    return None
                     
     async def get_client(self):
         async with self.pool.acquire() as conn:
@@ -998,6 +1236,7 @@ class DatabaseManager:
         async with self.pool.acquire() as conn :
             async with conn.cursor() as cursor:
                 try:
+                    logger.debug(f"🔍 Traitement par client - client_id={idclient}")
                     await cursor.execute(
                         """SELECT c.nom AS nom_client,
                                   co.date_contrat,
@@ -1021,20 +1260,22 @@ class DatabaseManager:
                               c.client_id = %s;"""
                     , (idclient,))
                     result = await cursor.fetchall()
+                    logger.info(f"✅ Traitements trouvés - {len(result)} items")
                     return result
                 except Exception as e:
-                    print(e)
+                    logger.error(f"❌ Erreur traitement_par_client: {e}", exc_info=True)
+                    return []
 
     import asyncio
     import random
     from typing import Optional
 
-    async def create_facture(self, planning_id, montant, date, axe, etat='Non payé', max_retries=3):
+    async def create_facture(self, planning_detail_id, montant, date, axe, etat='Non payé', max_retries=3):
         """
         Crée une facture avec retry automatique et backoff exponentiel
 
         Args:
-            planning_id: ID du planning
+            planning_detail_id: ID du détail de planning
             montant: Montant de la facture
             date: Date de traitement
             axe: Axe de la facture
@@ -1044,25 +1285,30 @@ class DatabaseManager:
         Returns:
             ID de la facture créée ou None en cas d'échec
         """
+        logger.info(f"📝 Création facture - detail_id={planning_detail_id}, montant={montant}, axe={axe}")
+        
         for attempt in range(max_retries + 1):
             try:
                 async with self.lock:
                     async with self.pool.acquire() as conn:
                         async with conn.cursor() as cur:
+                            await conn.begin()
                             await cur.execute(
                                 "INSERT INTO Facture (planning_detail_id, montant, date_traitement, etat, axe) VALUES (%s, %s, %s, %s, %s)",
-                                (planning_id, montant, date, etat, axe)
+                                (planning_detail_id, montant, date, etat, axe)
                             )
                             await conn.commit()
-                            return cur.lastrowid
+                            facture_id = cur.lastrowid
+                            logger.info(f"✅ Facture créée - ID={facture_id}")
+                            return facture_id
 
             except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour create_facture: {e}")
+                logger.warning(f"⚠️  Tentative {attempt + 1} échouée pour create_facture: {e}")
                 await conn.rollback()
 
                 # Si c'est la dernière tentative, on lève l'exception
                 if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
+                    logger.error(f"❌ Échec définitif après {max_retries + 1} tentatives pour facture detail_id={planning_detail_id}", exc_info=True)
                     raise e
 
                 # Calcul du délai avec backoff exponentiel + jitter
@@ -1070,40 +1316,10 @@ class DatabaseManager:
                 jitter = random.uniform(0, 0.1 * base_delay)  # Ajoute un peu d'aléatoire
                 delay = base_delay + jitter
 
-                print(f"Retry dans {delay:.2f}s...")
+                logger.debug(f"Retry dans {delay:.2f}s...")
                 await asyncio.sleep(delay)
 
         return None
-
-    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, categorie, axe, max_retries=3):
-        for attempt in range(max_retries + 1):
-            try:
-                async with self.pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        await conn.begin()
-                        await cur.execute(
-                            "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, categorie = %s, axe = %s WHERE client_id = %s",
-                            (nom, prenom, email, telephone, adresse, categorie, axe, client_id)
-                        )
-                        await conn.commit()
-                        return True
-
-            except Exception as e:
-                print(f"Tentative {attempt + 1} échouée pour update_client: {e}")
-                await conn.rollback()
-
-                if attempt == max_retries:
-                    print(f"Échec définitif après {max_retries + 1} tentatives")
-                    raise e
-
-                base_delay = 2 ** attempt
-                jitter = random.uniform(0, 0.1 * base_delay)
-                delay = base_delay + jitter
-
-                print(f"Retry dans {delay:.2f}s...")
-                await asyncio.sleep(delay)
-
-        return False
 
     async def un_jour(self, contrat_id):
         async with self.pool.acquire() as conn:
@@ -1114,22 +1330,27 @@ class DatabaseManager:
                     (contrat_id, ))
                 await conn.commit()
 
-    async def get_all_client_name(self):
+    async def get_all_client_name(self, limit=5000):
+        """Récupère tous les noms de clients avec LIMIT pour éviter les surcharges."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
+                    logger.info(f"📋 Récupération liste clients (limite: {limit})")
                     await cur.execute(
-                        """SELECT DISTINCT CONCAT(nom , ' ', prenom) From Client """
+                        f"""SELECT DISTINCT CONCAT(nom , ' ', prenom) as full_name From Client LIMIT {int(limit)}"""
                     )
                     result = await cur.fetchall()
+                    logger.info(f"✅ {len(result)} clients récupérés")
                     return result
                 except Exception as e:
-                    print('error get client ', e)
+                    logger.error(f"❌ Erreur récupération clients: {e}", exc_info=True)
+                    return []
 
     async def get_facture_id(self, client_id, date):
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
+                    logger.debug(f"🔍 get_facture_id - client_id={client_id}, date={date}")
                     await cursor.execute(
                         """SELECT f.facture_id
                            FROM Facture f
@@ -1141,9 +1362,11 @@ class DatabaseManager:
                            AND pd.date_planification = %s;""", (client_id, date)
                     )
                     result = await cursor.fetchone()
+                    logger.debug(f"✅ Facture trouvée: {result}")
                     return result
                 except Exception as e:
-                    print("aaa", e)
+                    logger.error(f"❌ Erreur get_facture_id: {e}", exc_info=True)
+                    return None
 
     async def majMontantEtHistorique(self, facture_id: int, old_amount: float, new_amount: float,
                                      changed_by: str = 'System'):
@@ -1151,8 +1374,7 @@ class DatabaseManager:
         Met à jour le montant d'une facture et enregistre l'ancien/nouveau montant
         dans la table d'historique.
         """
-
-        print("ato")
+        logger.info(f"📝 Maj montant facture - id={facture_id}, {old_amount} → {new_amount}")
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
@@ -1162,7 +1384,6 @@ class DatabaseManager:
                     # 1. Mettre à jour le montant dans la table Facture
                     update_query = "UPDATE Facture SET montant = %s WHERE facture_id = %s;"
                     await cursor.execute(update_query, (new_amount, facture_id))
-                    print('fini')
 
                     # 2. Insérer l'entrée d'historique
                     insert_history_query = """
@@ -1172,17 +1393,16 @@ class DatabaseManager:
                     """
                     await cursor.execute(insert_history_query,
                                          (facture_id, old_amount, new_amount, datetime.datetime.now(), changed_by))
-                    print('fini 2')
 
                     # Valider la transaction
                     await conn.commit()
-                    print("Transaction validée")
+                    logger.info(f"✅ Montant facture mis à jour")
                     return True
 
                 except Exception as e:
                     # Annuler la transaction en cas d'erreur
                     await conn.rollback()
-                    print(f"Erreur lors de la modification de la facture et de l'enregistrement de l'historique : {e}")
+                    logger.error(f"❌ Erreur majMontantEtHistorique: {e}", exc_info=True)
                     return False
 
     #Pour les excels
@@ -1305,9 +1525,10 @@ class DatabaseManager:
                         """
                 await cursor.execute(query, (client_name, year, month))
                 result = await cursor.fetchall()
+                logger.info(f"✅ Données factures récupérées - {len(result)} items")
                 return result
         except Exception as e:
-            print(f"Erreur lors de la récupération des données de facture : {e}")
+            logger.error(f"❌ Erreur obtenirDataFactureClient: {e}", exc_info=True)
             return []
         finally:
             if conn:
@@ -1410,22 +1631,19 @@ class DatabaseManager:
         date = datetime.date.today()
         conn = None
         try:
+            logger.info(f"📝 Abrogation contrat - planning_detail_id={planning_detail_id}")
             conn = await self.pool.acquire()
             # 1. Récupérer les informations initiales pour obtenir planning_id et contrat_id
-            # Passez le pool à get_planning_detail_info
             detail_info = await self.get_planning_detail_info(planning_detail_id)
-            print(detail_info)
             if not detail_info:
-                print(f"Impossible de trouver les informations pour planning_detail_id {planning_detail_id}.")
+                logger.error(f"❌ Planning detail non trouvé: {planning_detail_id}")
                 return False
 
             current_planning_id = detail_info['planning_id']
             current_contrat_id = detail_info['contrat_id']
-
-            print(current_contrat_id, current_planning_id)
+            logger.debug(f"🔍 Contrat={current_contrat_id}, Planning={current_planning_id}")
 
             async with conn.cursor() as cursor:
-                print('suppress')
                 # 2. Supprimer les traitements (PlanningDetails) futurs pour ce planning
                 try:
                     delete_query = """
@@ -1436,10 +1654,9 @@ class DatabaseManager:
                                    """
                     await cursor.execute(delete_query, (current_planning_id, date))
                     deleted_count = cursor.rowcount
+                    logger.debug(f"📝 {deleted_count} PlanningDetails futurs supprimés")
                 except Exception as e:
-                    print(e)
-                print(
-                    f"{deleted_count} traitements futurs (PlanningDetails) associés au planning {current_planning_id} ont été supprimés après le {date}.")
+                    logger.error(f"❌ Erreur suppression PlanningDetails: {e}", exc_info=True)
 
                 # 3. Mettre à jour le statut du contrat
                 update_contract_query = """
@@ -1451,10 +1668,7 @@ class DatabaseManager:
                                         """
                 await conn.begin()
                 await cursor.execute(update_contract_query, (date, current_contrat_id))
-                print('change')
-
-                print(
-                    f"Le contrat {current_contrat_id} a été marqué comme 'Terminé' avec date de fin {date} avec succès.")
+                logger.info(f"✅ Contrat abrogé - id={current_contrat_id}")
                 return True
 
         except Exception as e:
