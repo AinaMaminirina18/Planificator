@@ -1579,6 +1579,11 @@ class Screen(MDApp):
                 # Enregistrer le signalement
                 await self.database.creer_signalment(self.planning_detail[8], motif, self.option.capitalize())
                 
+                # ✅ CORRECTION: Refraîchir les tableaux AVANT de masquer le spinner
+                # Attendre que les modifications soient écrites en BD
+                await asyncio.sleep(0.5)
+                await self.populate_tables()
+                
                 # ✅ CORRECTION: Masquer spinner et afficher succès
                 Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ecran_decalage', show=False), 0)
                 Clock.schedule_once(lambda dt: self.show_dialog('Succès', f"Signalement d'un {self.option.lower()} effectué"), 0)
