@@ -1510,18 +1510,24 @@ class Screen(MDApp):
             from dateutil.relativedelta import relativedelta
 
             try:
-                # ✅ CORRECTION: Ajouter try-catch pour changer/garder redondance
-                if decaler.active:
+                # ✅ CORRECTION: Logique correcte des deux options
+                # Option 1: CHANGER redondance = calculer intervalle et modifier TOUTES les dates futures
+                # Option 2: GARDER redondance = modifier JUSTE la date sélectionnée
+                
+                if decaler.active:  # Changer la redondance
                     try:
-                        date  = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
+                        date = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
                         newdate = abs(relativedelta(self.planning_detail[9], date))
+                        print(f"📅 CHANGER redondance - intervalle: {newdate.months} mois pour TOUTES les dates futures")
                         await self.database.modifier_date_signalement(self.planning_detail[7], self.planning_detail[8], self.option.lower(), newdate.months)
                     except ValueError as e:
                         print(f'❌ Erreur parsing date: {e}')
                         raise
-                elif garder.active:
+                elif garder.active:  # Garder la redondance
+                    print(f"🔄 GARDER redondance - modifier JUSTE cette date")
                     await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date_decalage))
 
+                # Enregistrer le signalement
                 await self.database.creer_signalment(self.planning_detail[8], motif, self.option.capitalize())
                 
                 # ✅ CORRECTION: Masquer spinner et afficher succès
