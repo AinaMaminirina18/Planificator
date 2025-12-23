@@ -2203,30 +2203,40 @@ class Screen(MDApp):
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
-        print(row_value)
+        print(f"🔹 row_pressed_client - client sélectionné: {row_value}")
         
         # ✅ CORRECTION: Récupérer la date du contrat du client d'abord
         # row_value = (client_id, nom, prenom, email, adresse, date_ajout)
         async def current_client_info_async(nom_client):
             try:
                 # Étape 1: Récupérer la date du contrat actif/récent
+                print(f"🔍 Cherche contrat pour: {nom_client}")
                 contrat_date = await self.database.get_latest_contract_date_for_client(nom_client)
+                print(f"📅 Date contrat trouvée: {contrat_date}")
                 if not contrat_date:
                     print(f"⚠️ Aucun contrat trouvé pour {nom_client}")
                     return
                 # Étape 2: Récupérer les infos complètes du client avec cette date
+                print(f"📥 Charger infos client pour {nom_client}, date: {contrat_date}")
                 self.current_client = await self.database.get_current_client(nom_client, contrat_date)
+                print(f"✅ current_client chargé: {self.current_client is not None}")
+                if self.current_client:
+                    print(f"   Nom: {self.current_client[1]} {self.current_client[2]}")
             except Exception as e:
                 print(f"❌ Erreur row_pressed_client: {e}")
-                print(e)
+                import traceback
+                traceback.print_exc()
 
         asyncio.run_coroutine_threadsafe(current_client_info_async(row_value[1]), self.loop)
 
         def maj_ecran():
+            print(f"🎨 maj_ecran - current_client: {self.current_client is not None}")
             if not self.current_client:
+                print("⚠️ current_client est None! Attendre plus...")
                 toast('Veuillez réessayer dans quelques secondes')
                 return
             else:
+                print(f"✨ Affichage des infos client")
                 if self.current_client[3] == 'Particulier':
                     nom = self.current_client[1] + ' ' + self.current_client[2]
                 else:
@@ -2244,8 +2254,10 @@ class Screen(MDApp):
                 self.popup.get_screen('option_client').ids.type_traitement.text = f'Type de traitement : {self.current_client[5]}'
                 self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
 
-        Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'))
-        Clock.schedule_once(lambda x: maj_ecran(), 0)
+        # ⏱️ TIMING FIX: Ouvrir fenêtre après 0.1s (laisser async commencer)
+        # Afficher infos après 0.8s (laisser requête terminer)
+        Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'), 0.1)
+        Clock.schedule_once(lambda x: maj_ecran(), 0.8)
 
     @mainthread
     def tableau_planning(self, place, result, dt=None):
