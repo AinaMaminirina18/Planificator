@@ -196,6 +196,7 @@ class Screen(MDApp):
         screen.add_widget(Builder.load_file('screen/main.kv'))
         screen.add_widget(Builder.load_file('screen/Signup.kv'))
         screen.add_widget(Builder.load_file('screen/Login.kv'))
+        screen.current = 'before login'
         return screen
 
     def login(self):
@@ -329,6 +330,9 @@ class Screen(MDApp):
         async def create():
             self.id_traitement = []
             try:
+                # Afficher un spinner pendant la création
+                Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'contrat', show=True), 0)
+                
                 self.traitement, self.categorie_trait = self.get_trait_from_form()
 
                 client = await self.database.create_client(
@@ -354,13 +358,19 @@ class Screen(MDApp):
                     traitement_id = await self.database.creation_traitement(self.contrat, type_traitement)
                     self.id_traitement.append(traitement_id)
 
+                Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'contrat', show=False), 0)
                 Clock.schedule_once(lambda dt: self.dismiss_popup(), 0)
                 Clock.schedule_once(lambda dt: self.fermer_ecran(), 0)
                 Clock.schedule_once(lambda dt: maj(), 0)
                 Clock.schedule_once(lambda dt: self.fenetre_contrat('Ajout du planning', 'ajout_planning'), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Succès', 'Client et contrat créés avec succès'), 0)
 
             except Exception as e:
-                print(f"Une erreur inattendue est survenue lors de la création du contrat : {e}")
+                Clock.schedule_once(lambda dt: self.loading_spinner('Sidebar', 'contrat', show=False), 0)
+                print(f"❌ Erreur création contrat : {e}")
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur création contrat: {str(e)}'), 0)
 
         asyncio.run_coroutine_threadsafe(create(), self.loop)
 
@@ -398,15 +408,15 @@ class Screen(MDApp):
                 self.fenetre_contrat('Ajout de la facture','ajout_facture')
                 self.traitement.pop(0)
             else:
-                self.show_dialog('Erreur', 'Mot non reconnu comme mois, veuillez verifier')
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Mot non reconnu comme mois, veuillez verifier'), 0)
 
         elif not self.traitement:
             self.dismiss_popup()
             self.fermer_ecran()
-            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
+            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 0.5)
 
             self.clear_fields('new_contrat')
-            self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré')
+            Clock.schedule_once(lambda dt: self.show_dialog('Enregistrement réussie', 'Le contrat a été bien enregistré'), 0)
             self.remove_tables('contrat')
 
         else:
@@ -439,12 +449,37 @@ class Screen(MDApp):
             int_red = 12
 
         async def save():
-            debut = datetime.strptime(self.verifier_mois(mois_debut), "%B").month
-            fin = datetime.strptime(self.verifier_mois(mois_fin), "%B").month if mois_fin != 'Indéterminée' else 0
             try:
-                if int_red == 12:
+                # ✅ CORRECTION: Vérifier que verifier_mois ne retourne pas 'Erreur'
+                mois_debut_verif = self.verifier_mois(mois_debut)
+                if mois_debut_verif == 'Erreur':
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Mois de début invalide'), 0)
+                    return
+                
+                debut = datetime.strptime(mois_debut_verif, "%B").month
+                
+                # ✅ CORRECTION: Vérifier mois_fin aussi
+                fin = 0
+                if mois_fin != 'Indéterminée':
+                    mois_fin_verif = self.verifier_mois(mois_fin)
+                    if mois_fin_verif == 'Erreur':
+                        Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Mois de fin invalide'), 0)
+                        return
+                    fin = datetime.strptime(mois_fin_verif, "%B").month
+                
+                # ✅ CORRECTION: Vérifier que montant n'est pas vide
+                if not montant:
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Le montant est obligatoire'), 0)
+                    return
+                
+                # ✅ CORRECTION: Afficher spinner pendant la création
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_planning', show=True), 0)
+                
+                # ✅ CORRECTION: Vérifier que self.contrat n'est pas None avant utilisation
+                if int_red == 12 and self.contrat:
                     await self.database.un_jour(self.contrat)
                     self.contrat = None
+                
                 planning = await self.database.create_planning(self.id_traitement[0],
                                                                self.reverse_date(date_debut),
                                                                debut,
@@ -463,12 +498,17 @@ class Screen(MDApp):
                                                            axe_client)
 
                     except Exception as e:
-                        print("enregistrement planning detail ", e)
+                        print(f"❌ Erreur enregistrement planning detail: {e}")
 
                 self.id_traitement.pop(0)
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_planning', show=False), 0)
 
             except Exception as e:
-                print('eto', e)
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_planning', show=False), 0)
+                print(f"❌ Erreur save_planning: {e}")
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur planning: {str(e)}'), 0)
 
         asyncio.run_coroutine_threadsafe(save(), self.loop)
         self.gestion_planning()
@@ -518,31 +558,39 @@ class Screen(MDApp):
         is_valid, valid_password = vp.get_valid_password(nom, prenom, password, confirm)
 
         if not all([nom, prenom, email, username, password, confirm]):
-            Clock.schedule_once(partial(self.show_dialog, "Erreur", "Veuillez compléter tous les champs."))
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Veuillez completer tous les champs."), 0)
             return
 
         if not is_valid_email(email):
-            Clock.schedule_once(partial(self.show_dialog, 'Erreur', 'Veuillez vérifier votre adresse email.'))
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez verifier votre adresse email.'), 0)
             return
 
         if not is_valid:
-            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password))
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", valid_password), 0)
             return
+
+        # ✅ Afficher spinner pendant modification
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=True), 0)
 
         async def update_user_task():
             try:
                 await self.database.update_user(nom, prenom, email, username, valid_password, self.compte[0])
 
                 def _post_update_ui_actions():
-                    self.show_dialog("Succès", "Les modifications ont été enregistrées avec succès !")
-                    self.clear_fields('modif_info_compte')
-                    self.current_compte()
-                    self.dismiss_popup()
-                    self.fermer_ecran()
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog("Succes", "Les modifications ont ete enregistrees avec succes !"), 0)
+                    Clock.schedule_once(lambda dt: self.clear_fields('modif_info_compte'), 0.2)
+                    Clock.schedule_once(lambda dt: self.current_compte(), 0.2)
+                    Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.3)
+                    Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.3)
 
-                Clock.schedule_once(lambda dt: _post_update_ui_actions(), 0)
+                _post_update_ui_actions()
             except Exception as error:
-                print(error)
+                print(f'❌ Erreur update_account: {error}')
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog("Erreur", f'Modification echouee: {str(error)}'), 0)
 
         asyncio.run_coroutine_threadsafe(update_user_task(), self.loop)
 
@@ -562,48 +610,68 @@ class Screen(MDApp):
 
     async def supprimer_client(self):
         try:
+            # ✅ Afficher spinner pendant suppression
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'planning', show=True), 0)
+            
             await self.database.delete_client(self.current_client[0])
-            await asyncio.sleep(2)
+            
+            # ✅ CORRECTION: Utiliser Clock au lieu de asyncio.sleep() pour ne pas bloquer l'event loop
+            await asyncio.sleep(0.5)
+            
             await self.populate_tables()
-            Clock.schedule_once(lambda dt: self.remove_tables('contrat'))
-
-            Clock.schedule_once(lambda dt: self.show_dialog('Suppression réussi', 'Le client abien été supprimé'), 0)
-
+            
+            Clock.schedule_once(lambda dt: self.remove_tables('contrat'), 0)
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'planning', show=False), 0)
+            Clock.schedule_once(lambda dt: self.show_dialog('Suppression reussi', 'Le client a bien ete supprime'), 0)
 
         except Exception as e:
-            print('suppression', e)
+            print(f'❌ Erreur suppression client: {e}')
+            import traceback
+            traceback.print_exc()
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'planning', show=False), 0)
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Suppression echouee: {str(e)}'), 0)
 
     def delete_client(self):
         self.fermer_ecran()
         self.dismiss_popup()
         place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
         place.clear_widgets()
+        
+        # ✅ Afficher spinner immediatement
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'planning', show=True), 0)
 
         def dlt():
             asyncio.run_coroutine_threadsafe(self.supprimer_client(), self.loop)
 
-        Clock.schedule_once(lambda dt: dlt(),0)
+        Clock.schedule_once(lambda dt: dlt(), 0.1)
 
     def delete_account(self, admin_password):
         import verif_password as vp
 
         if vp.reverse(admin_password,self.compte[5]):
+            # ✅ Afficher spinner pendant suppression
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=True), 0)
+            
             async def suppression():
                 try:
                     await self.database.delete_user(self.not_admin[3])
-                    Clock.schedule_once(lambda dt: self.dismiss_popup())
-                    Clock.schedule_once(lambda dt: self.fermer_ecran())
-                    Clock.schedule_once(lambda dt: self.show_dialog('', 'Suppression du compte réussie'))
-                    Clock.schedule_once(lambda dt: self.remove_tables('compte'))
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.1)
+                    Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.1)
+                    Clock.schedule_once(lambda dt: self.show_dialog('', 'Suppression du compte reussie'), 0.2)
+                    Clock.schedule_once(lambda dt: self.remove_tables('compte'), 0.5)
 
                 except Exception as error:
-                    erreur = error
-                    Clock.schedule_once(lambda dt : self.show_dialog('Erreur', f'{erreur}'))
+                    print(f'❌ Erreur delete_account: {error}')
+                    import traceback
+                    traceback.print_exc()
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Suppression echouee: {str(error)}'), 0)
 
             asyncio.run_coroutine_threadsafe(suppression(), self.loop)
         else:
             self.popup.get_screen('suppression_compte').ids.admin_password.helper_text = 'Verifier le mot de passe'
-            self.show_dialog('Erreur', f"Le mot de passe n'est pas correct")
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f"Le mot de passe n'est pas correct"), 0)
 
     def get_trait_from_form(self):
 
@@ -788,7 +856,13 @@ class Screen(MDApp):
         self.dialogue.dismiss()
 
     def reverse_date(self, ex_date):
-        y, m, d = str(ex_date).split('-')
+        if not ex_date:
+            return 'N/A'
+        date_str = str(ex_date).strip()
+        parts = date_str.split('-')
+        if len(parts) != 3:
+            return date_str  # Return as-is if format is unexpected
+        y, m, d = parts
         date = f'{d}-{m}-{y}'
         return date
 
@@ -863,76 +937,154 @@ class Screen(MDApp):
     def changer_date(self):
         date = self.popup.get_screen('modif_date').ids.date_decalage.text
 
-        async def modifier(date):
-            await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date))
-            date = ''
+        if not date:
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Aucune date est choisie'), 0)
+            return
 
+        # ✅ Afficher spinner pendant modification
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_date', show=True), 0)
 
-        if date:
-            self.dismiss_popup()
-            self.fermer_ecran()
+        async def modifier(date_val):
+            try:
+                await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date_val))
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_date', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Succès', 'Date modifiée avec succès'), 0)
+                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
+                Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
+                Clock.schedule_once(lambda dt: self.remove_tables('planning'), 0.6)
+            except Exception as e:
+                print(f'❌ Erreur changer_date: {e}')
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_date', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Modification échouée: {str(e)}'), 0)
 
-            asyncio.run_coroutine_threadsafe(modifier(date), self.loop)
-            Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
-        else:
-            self.show_dialog('Erreur', 'Aucune date est choisie')
+        asyncio.run_coroutine_threadsafe(modifier(date), self.loop)
 
     def changer_prix(self):
+        # ✅ CORRECTION: Récupérer et valider les données
         old_price = self.popup.get_screen('modif_prix').ids.prix_init.text
         new_price = self.popup.get_screen('modif_prix').ids.new_price.text
 
-        async def changer(old, new):
-            print(self.current_client)
-            try:
-                print(self.date)
-                facture_id = await self.database.get_facture_id(self.current_client[0],self.date)
-                await self.database.majMontantEtHistorique(facture_id, int(old), int(new))
-            except Exception as e:
-                print('Maj prix',e)
-            Clock.schedule_once(lambda dt: self.show_dialog('Avertissement', 'Changement réussie'), .1)
+        # ✅ CORRECTION: Validation du champ nouveau prix
+        if not new_price or not new_price.strip():
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez entrer un nouveau prix'), 0)
+            return
+        
+        # ✅ CORRECTION: Vérifier que self.date et self.current_client sont définis
+        if not hasattr(self, 'date') or not self.date:
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Date non définie'), 0)
+            return
+        
+        if not hasattr(self, 'current_client') or not self.current_client:
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Client non défini'), 0)
+            return
 
-        if not new_price:
-            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Champ vide'))
-        else:
-            Clock.schedule_once(lambda dt :self.dismiss_popup())
-            Clock.schedule_once(lambda dt :self.fermer_ecran())
-            asyncio.run_coroutine_threadsafe(changer(old_price.rstrip('Ar').replace(' ',''), new_price.rstrip('Ar').replace(' ', '') if 'Ar' in new_price else new_price.replace(' ', '')), self.loop)
+        # ✅ Afficher spinner pendant modification
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=True), 0)
+
+        async def changer(old, new):
+            try:
+                # ✅ CORRECTION: Valider que old et new sont des nombres
+                try:
+                    old_val = int(old) if old else 0
+                    new_val = int(new)
+                except ValueError as e:
+                    raise ValueError(f"Prix invalide: {e}")
+                
+                facture_id = await self.database.get_facture_id(self.current_client[0], self.date)
+                
+                if not facture_id:
+                    raise ValueError("Facture non trouvée")
+                
+                await self.database.majMontantEtHistorique(facture_id, old_val, new_val)
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Succès', 'Changement de prix réussi'), 0)
+                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
+                Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
+                Clock.schedule_once(lambda dt: self.remove_tables('facture'), 0.6)
+            except Exception as e:
+                print(f'❌ Erreur changer_prix: {e}')
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Modification de prix échouée: {str(e)}'), 0)
+
+        # ✅ CORRECTION: Nettoyer les prix de manière cohérente
+        old_clean = old_price.rstrip('Ar').replace(' ', '').strip()
+        new_clean = new_price.rstrip('Ar').replace(' ', '').strip()
+        
+        asyncio.run_coroutine_threadsafe(changer(old_clean, new_clean), self.loop)
 
     def screen_modifier_prix(self, table, row):
-        row_num = int(row.index / len(table.column_data))
-        row_data = table.row_data[row_num]
-
-        index_global = (self.page - 1) * 5 + row_num
-        row_value = None
-        print(index_global)
-
-        if 0 <= index_global < len(table.row_data):
-            row_value = table.row_data[index_global]
+        # ✅ CORRECTION: Récupérer correctement les données de la ligne cliquée
+        try:
+            # Récupérer le numéro de ligne
+            row_num = int(row.index / len(table.column_data))
+            
+            # ✅ CORRECTION: Vérifier que row_num est valide
+            if row_num < 0 or row_num >= len(table.row_data):
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Ligne invalide'), 0)
+                return
+                
+            row_value = table.row_data[row_num]
+            
+            # ✅ CORRECTION: Vérifier que row_value est valide
+            if not row_value or len(row_value) < 2:
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Données de ligne invalides'), 0)
+                return
+            
+            # ✅ CORRECTION: Stocker les données avant ouverture du dialog
             self.date = self.reverse_date(row_value[0])
-
-            print(row_value)
-
-        self.popup.get_screen('modif_prix').ids.prix_init.text = row_value[1]
-
-        from kivymd.uix.dialog import MDDialog
-
-        self.fermer_ecran()
-        self.dismiss_popup()
-
-        self.popup.current = 'modif_prix'
-        acceuil = MDDialog(
-            md_bg_color='#56B5FB',
-            type='custom',
-            size_hint=(.5, .5),
-            content_cls=self.popup,
-            auto_dismiss=False
-        )
-
-        self.popup.height = '300dp'
-        self.popup.width = '600dp'
-
-        self.dialog = acceuil
-        self.dialog.bind(on_dismiss=self.dismiss_popup)
+            prix_initial = row_value[1]
+            
+            # ✅ CORRECTION: Afficher spinner pendant ouverture
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=True), 0.1)
+            
+            # ✅ CORRECTION: Attendre un peu puis ouvrir le dialog
+            def ouvrir_dialog(dt):
+                try:
+                    self.popup.get_screen('modif_prix').ids.prix_init.text = prix_initial
+                    self.popup.get_screen('modif_prix').ids.new_price.text = ''
+                    
+                    from kivymd.uix.dialog import MDDialog
+                    
+                    self.fermer_ecran()
+                    self.dismiss_popup()
+                    
+                    self.popup.current = 'modif_prix'
+                    acceuil = MDDialog(
+                        md_bg_color='#56B5FB',
+                        type='custom',
+                        size_hint=(.5, .5),
+                        content_cls=self.popup,
+                        auto_dismiss=False
+                    )
+                    
+                    self.popup.height = '300dp'
+                    self.popup.width = '600dp'
+                    
+                    # ✅ CORRECTION: Stocker le dialog et masquer spinner
+                    self.dialog = acceuil
+                    self.dialog.bind(on_dismiss=self.dismiss_popup)
+                    
+                    # ✅ CORRECTION: Masquer spinner après affichage du dialog
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
+                except Exception as e:
+                    print(f'❌ Erreur ouverture dialog prix: {e}')
+                    import traceback
+                    traceback.print_exc()
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur ouverture dialog: {str(e)}'), 0)
+            
+            Clock.schedule_once(ouvrir_dialog, 0.2)
+            
+        except Exception as e:
+            print(f'❌ Erreur screen_modifier_prix: {e}')
+            import traceback
+            traceback.print_exc()
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur accès ligne: {str(e)}'), 0)
 
         self.dialog.open()
         self.popup.get_screen('modif_prix').ids.new_price.text = ''
@@ -961,21 +1113,28 @@ class Screen(MDApp):
         self.dialog.bind(on_dismiss=self.dismiss_popup)
         self.popup.get_screen('facture').ids.titre.text = f'Les factures de {self.current_client[1]} pour {self.current_client[5]}'
 
-        def recup():
-            asyncio.run_coroutine_threadsafe(self.recuperer_donnée(place), self.loop)
+        # ✅ Afficher spinner immediatement
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'facture', show=True), 0)
 
-        Clock.schedule_once(lambda dt: recup(), 0.5)
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'facture'), 0)
+        def recup():
+            asyncio.run_coroutine_threadsafe(self.recuperer_donnee(place), self.loop)
+
+        Clock.schedule_once(lambda dt: recup(), 0.2)
 
         self.dialog.open()
 
-    async def recuperer_donnée(self, place):
+    async def recuperer_donnee(self, place):
         try:
             facture, paye, non_paye = await self.database.get_facture(self.current_client[0], self.current_client[5])
-            Clock.schedule_once(lambda dt: self.afficher_tableau_facture(place, facture, paye, non_paye), 0.5)
+            Clock.schedule_once(lambda dt: self.afficher_tableau_facture(place, facture, paye, non_paye), 0.2)
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'facture', show=False), 0.3)
 
         except Exception as e:
-            print('recup don', e)
+            print(f'❌ Erreur recuperation factures: {e}')
+            import traceback
+            traceback.print_exc()
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'facture', show=False), 0)
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur chargement factures: {str(e)}'), 0)
 
     def afficher_tableau_facture(self, place, result, paye, non_paye):
         if result:
@@ -1249,14 +1408,16 @@ class Screen(MDApp):
 
     def enregistrer_client(self,nom, prenom, email, telephone, adresse, date_ajout, categorie_client, axe , nif, stat):
         if not nom or not prenom or not email or not telephone or not adresse or not date_ajout or not axe:
-            self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez remplir tous les champs'), 0)
+            return
         if categorie_client == 'Société' and (not nif or not stat):
-            self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
-        else:
-            self.popup.get_screen('save_info_client').ids.titre.text = f'Enregistrement des informations sur {nom.capitalize()}'
-            self.dismiss_popup()
-            self.fermer_ecran()
-            self.fenetre_contrat('', 'save_info_client')
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez remplir tous les champs'), 0)
+            return
+        # ✅ Validation reussie - continuer
+        self.popup.get_screen('save_info_client').ids.titre.text = f'Enregistrement des informations sur {nom.capitalize()}'
+        self.dismiss_popup()
+        self.fermer_ecran()
+        self.fenetre_contrat('', 'save_info_client')
 
     def enregistrer_contrat(self, numero_contrat, date_contrat, date_debut, date_fin, duree_contrat, categorie_contrat):
         dératisation = self.popup.get_screen('new_contrat').ids.deratisation.active
@@ -1268,14 +1429,14 @@ class Screen(MDApp):
         anti_termite = self.popup.get_screen('new_contrat').ids.anti_ter.active
 
         if not dératisation and not désinfection and not désinsectisation and not nettoyage and not fumigation and not ramassage and not anti_termite:
-            self.show_dialog("Erreur", "Veuillez choisir au moins un traitement")
+            Clock.schedule_once(lambda dt: self.show_dialog("Erreur", "Veuillez choisir au moins un traitement"), 0)
             return
 
         if not numero_contrat or not date_contrat or not date_debut or not duree_contrat or not categorie_contrat:
-            self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez remplir tous les champs'), 0)
             return
         if duree_contrat == 'Déterminée' and not date_fin:
-            self.show_dialog('Erreur', 'Veuillez remplir tous les champs')
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez remplir tous les champs'), 0)
             return
         else:
             self.dismiss_popup()
@@ -1296,37 +1457,68 @@ class Screen(MDApp):
             if client_data:
                 Clock.schedule_once(lambda dt: self.update_client_table_and_switch(place, client_data), 0.1)
             else:
-                self.show_dialog('Information', 'Aucun client trouvé.')
+                Clock.schedule_once(lambda dt: self.show_dialog('Information', 'Aucun client trouvé.'), 0)
 
         except Exception as e:
             print(f"Erreur lors de la récupération des clients: {e}")
-            self.show_dialog('Erreur', 'Une erreur est survenue lors du chargement des clients.')
+            import traceback
+            traceback.print_exc()
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Une erreur est survenue lors du chargement des clients.'), 0)
 
     def signaler(self):
+        # ✅ CORRECTION: Valider les champs obligatoires
         motif = self.popup.get_screen('ecran_decalage').ids.motif.text
         date_decalage = self.popup.get_screen('ecran_decalage').ids.date_decalage.text
         decaler = self.popup.get_screen('ecran_decalage').ids.changer
         garder = self.popup.get_screen('ecran_decalage').ids.garder
+        
+        # ✅ CORRECTION: Vérifier que motif n'est pas vide
+        if not motif:
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez entrer un motif'), 0)
+            return
+        
+        # ✅ CORRECTION: Vérifier que date_decalage n'est pas vide
+        if not date_decalage:
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Veuillez sélectionner une date'), 0)
+            return
+        
+        # ✅ CORRECTION: Afficher spinner pendant enregistrement
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ecran_decalage', show=True), 0)
 
         self.fermer_ecran()
         self.dismiss_popup()
+        
         async def enregistrer_signalment():
             from dateutil.relativedelta import relativedelta
 
             try:
+                # ✅ CORRECTION: Ajouter try-catch pour changer/garder redondance
                 if decaler.active:
-                    date  = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
-                    newdate = abs(relativedelta(self.planning_detail[9], date))
-                    await self.database.modifier_date_signalement(self.planning_detail[7], self.planning_detail[8], self.option.lower(), newdate.months)
+                    try:
+                        date  = datetime.strptime(self.reverse_date(date_decalage), '%Y-%m-%d')
+                        newdate = abs(relativedelta(self.planning_detail[9], date))
+                        await self.database.modifier_date_signalement(self.planning_detail[7], self.planning_detail[8], self.option.lower(), newdate.months)
+                    except ValueError as e:
+                        print(f'❌ Erreur parsing date: {e}')
+                        raise
                 elif garder.active:
                     await self.database.modifier_date(self.planning_detail[8], self.reverse_date(date_decalage))
 
                 await self.database.creer_signalment(self.planning_detail[8], motif, self.option.capitalize())
-                Clock.schedule_once(lambda dt: self.show_dialog('', f"Signalement d'un {self.option.lower()} effectué"))
-                Clock.schedule_once(lambda dt: self.clear_fields('signalement'))
+                
+                # ✅ CORRECTION: Masquer spinner et afficher succès
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ecran_decalage', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Succès', f"Signalement d'un {self.option.lower()} effectué"), 0)
+                Clock.schedule_once(lambda dt: self.clear_fields('signalement'), 0.5)
+                Clock.schedule_once(lambda dt: self.remove_tables('planning'), 0.6)
 
             except Exception as e:
-                print('enregistrement',e)
+                print(f'❌ Erreur enregistrement signalement: {e}')
+                import traceback
+                traceback.print_exc()
+                # ✅ CORRECTION: Masquer spinner et afficher erreur
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ecran_decalage', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Enregistrement échoué: {str(e)}'), 0)
 
         asyncio.run_coroutine_threadsafe(enregistrer_signalment(), self.loop)
 
@@ -2244,76 +2436,97 @@ class Screen(MDApp):
         self.on_check_press(False)
 
     def create_remarque(self):
-        screen = self.popup.get_screen('ajout_remarque')
-        remarque = screen.ids.remarque.text
-        probleme = screen.ids.probleme.text
-        action = screen.ids.action.text
-        numero = screen.ids.numero_facture.text
-        descri = screen.ids.date_payement.text
-        etab = screen.ids.etablissement.text
-        num_cheque = screen.ids.num_cheque.text
-        paye = bool(screen.ids.paye_facture.active)
-        cheque = bool(screen.ids.cheque.active)
-        espece = bool(screen.ids.espece.active)
-        virement = bool(screen.ids.virement.active)
-        mobile = bool(screen.ids.mobile_money.active)
-        payement = None
+        try:
+            screen = self.popup.get_screen('ajout_remarque')
+            remarque = screen.ids.remarque.text
+            probleme = screen.ids.probleme.text
+            action = screen.ids.action.text
+            numero = screen.ids.numero_facture.text
+            descri = screen.ids.date_payement.text
+            etab = screen.ids.etablissement.text
+            num_cheque = screen.ids.num_cheque.text
+            paye = bool(screen.ids.paye_facture.active)
+            cheque = bool(screen.ids.cheque.active)
+            espece = bool(screen.ids.espece.active)
+            virement = bool(screen.ids.virement.active)
+            mobile = bool(screen.ids.mobile_money.active)
+            payement = None
 
-        if paye:
-            if not espece and not cheque and not virement and not mobile:
-                self.show_dialog('Attention', 'Veuillez choisir une mode de payement')
-                return
-            if not numero or not descri:
-                self.show_dialog('Attention', 'Veuillez remplir tous les champs')
-                return
-            if cheque:
-                if not etab or not num_cheque:
-                    self.show_dialog('Attention', 'Veuillez remplir tous les champs')
+            if paye:
+                if not espece and not cheque and not virement and not mobile:
+                    Clock.schedule_once(lambda dt: self.show_dialog('Attention', 'Veuillez choisir une mode de payement'), 0)
                     return
+                if not numero or not descri:
+                    Clock.schedule_once(lambda dt: self.show_dialog('Attention', 'Veuillez remplir tous les champs'), 0)
+                    return
+                if cheque:
+                    if not etab or not num_cheque:
+                        Clock.schedule_once(lambda dt: self.show_dialog('Attention', 'Veuillez remplir tous les champs'), 0)
+                        return
 
-        self.dismiss_popup()
-        self.fermer_ecran()
-        print(remarque, action, probleme)
+            self.dismiss_popup()
+            self.fermer_ecran()
+            
+            # ✅ Afficher spinner pendant enregistrement
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_remarque', show=True), 0)
 
-        remarque_db = remarque if remarque else None
-        probleme_db = probleme if probleme else None
-        action_db = action if action else None
+            remarque_db = remarque if remarque else None
+            probleme_db = probleme if probleme else None
+            action_db = action if action else None
 
-        async def remarque(etat_paye):
-            try:
-                await self.database.create_remarque(self.planning_detail[5],
-                                                    self.planning_detail[8],
-                                                    self.planning_detail[6],
-                                                    remarque_db,
-                                                    probleme_db,
-                                                    action_db)
-                await self.database.update_etat_planning(self.planning_detail[8])
-                bnk = None
-                numero_cheque = None
-                if etat_paye:
-                    if cheque:
-                        payement = 'Chèque'
-                        bnk = etab
-                        numero_cheque = num_cheque
-                    if espece:
-                        payement = "Espèce"
-                    if virement:
-                        payement = 'Virement'
-                    if mobile:
-                        payement = 'Mobile Money'
+            async def remarque_async(etat_paye):
+                try:
+                    # ✅ Créer la remarque
+                    await self.database.create_remarque(self.planning_detail[5],
+                                                        self.planning_detail[8],
+                                                        self.planning_detail[6],
+                                                        remarque_db,
+                                                        probleme_db,
+                                                        action_db)
+                    
+                    # ✅ CORRECTION: Marquer comme effectué et vérifier le résultat
+                    update_success = await self.database.update_etat_planning(self.planning_detail[8])
+                    if not update_success:
+                        logger.warning(f"⚠️ Impossible de marquer planning {self.planning_detail[8]} comme effectué")
+                    
+                    bnk = None
+                    numero_cheque_val = None
+                    if etat_paye:
+                        if cheque:
+                            payement = 'Cheque'
+                            bnk = etab
+                            numero_cheque_val = num_cheque
+                        if espece:
+                            payement = "Espece"
+                        if virement:
+                            payement = 'Virement'
+                        if mobile:
+                            payement = 'Mobile Money'
 
-                    await self.database.update_etat_facture(self.planning_detail[6], numero, payement, bnk, self.reverse_date(descri), numero_cheque )
+                        await self.database.update_etat_facture(self.planning_detail[6], numero, payement, bnk, self.reverse_date(descri), numero_cheque_val)
 
-                Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'))
-                Clock.schedule_once(lambda dt: self.fermer_ecran())
-                Clock.schedule_once(lambda dt: self.dismiss_popup())
-                Clock.schedule_once(lambda dt: self.clear_remarque_fields(screen))
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_remarque', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'), 0)
+                    Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
+                    Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
+                    Clock.schedule_once(lambda dt: self.clear_remarque_fields(screen), 0.5)
+                    # ✅ CORRECTION: Augmenter le délai à 0.8s pour laisser le temps à la BD de committer
+                    Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 0.8)
 
-            except Exception as e:
-                print('remarque tsy db',e)
-        asyncio.run_coroutine_threadsafe(remarque(paye), self.loop)
+                except Exception as e:
+                    print(f'❌ Erreur creation remarque: {e}')
+                    import traceback
+                    traceback.print_exc()
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_remarque', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Enregistrement échoué: {str(e)}'), 0)
 
-        Clock.schedule_once(lambda dt: asyncio.run_coroutine_threadsafe(self.populate_tables(), self.loop), 2)
+            asyncio.run_coroutine_threadsafe(remarque_async(paye), self.loop)
+
+        except Exception as e:
+            print(f'❌ Erreur create_remarque: {e}')
+            import traceback
+            traceback.print_exc()
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur validation: {str(e)}'), 0)
 
     def clear_remarque_fields(self, screen):
         """Nettoie les champs du formulaire"""
@@ -2506,16 +2719,34 @@ class Screen(MDApp):
         self.popup.get_screen('compte_abt').ids['email'].text = f'Email : {compte[3]}'
 
     def row_pressed_compte(self, table, row):
-        row_num = int(row.index / len(table.column_data))
-        row_data = table.row_data[row_num]
+        try:
+            row_num = int(row.index / len(table.column_data))
+            row_data = table.row_data[row_num]
+            
+            # ✅ Afficher spinner pendant chargement
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=True), 0)
 
-        async def about():
-            self.not_admin = await self.database.get_user(row_data[0])
-            Clock.schedule_once(lambda dt: self.dismiss_popup())
-            Clock.schedule_once(lambda dt: self.maj_compte(self.not_admin))
-            Clock.schedule_once(lambda dt: self.fenetre_account('', 'compte_abt'))
+            async def about():
+                try:
+                    self.not_admin = await self.database.get_user(row_data[0])
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.dismiss_popup(), 0)
+                    Clock.schedule_once(lambda dt: self.maj_compte(self.not_admin), 0)
+                    Clock.schedule_once(lambda dt: self.fenetre_account('', 'compte_abt'), 0)
+                except Exception as e:
+                    print(f'❌ Erreur chargement compte: {e}')
+                    import traceback
+                    traceback.print_exc()
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'compte', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur chargement: {str(e)}'), 0)
 
-        asyncio.run_coroutine_threadsafe(about(), self.loop)
+            asyncio.run_coroutine_threadsafe(about(), self.loop)
+        
+        except Exception as e:
+            print(f'❌ Erreur row_pressed_compte: {e}')
+            import traceback
+            traceback.print_exc()
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur: {str(e)}'), 0)
 
     def suppression_compte(self, username):
         nom = username.split(' ')
@@ -2587,16 +2818,24 @@ class Screen(MDApp):
         stat_bd = stat if stat else 0
 
         if btn.opacity == 1:
+            # ✅ Afficher spinner pendant modification
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_client', show=True), 0)
+            
             async def save():
                 try:
-                    Clock.schedule_once(lambda x: self.show_dialog('Enregistrements réussie', 'Les modifications sont enregistrer'))
-                    Clock.schedule_once(lambda x: self.dismiss_popup())
-                    Clock.schedule_once(lambda x: self.fermer_ecran())
-                    await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, nif,stat, categorie, axe)
-                    Clock.schedule_once(lambda c: self.remove_tables('contrat'))
+                    await self.database.update_client(self.current_client[0], nom, prenom, email, telephone, adresse, nif, stat, categorie, axe)
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_client', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('Enregistrements reussie', 'Les modifications sont enregistrees'), 0)
+                    Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
+                    Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
+                    Clock.schedule_once(lambda dt: self.remove_tables('contrat'), 0.6)
                     self.current_client = None
                 except Exception as e:
-                    print(e)
+                    print(f'❌ Erreur enregistrer_modif_client: {e}')
+                    import traceback
+                    traceback.print_exc()
+                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_client', show=False), 0)
+                    Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Modification echouee: {str(e)}'), 0)
 
             asyncio.run_coroutine_threadsafe(save(), self.loop)
 
@@ -2613,47 +2852,120 @@ class Screen(MDApp):
         self.fenetre_contrat('', 'suppression_contrat')
 
     async def populate_tables(self):
-        data_current = []
-        data_next = []
-        home = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home')
-        now = datetime.now()
-
-        data_en_cours, data_prevision = await asyncio.gather(self.database.traitement_en_cours(now.year, now.month),self.database.traitement_prevision(now.year, now.month))
-
-        data_current = []
-        check = []
-        for i in data_en_cours:
-            color = self.color_map.get(i['etat'], "000000")
-            check.append((self.reverse_date(i['date']), i['traitement'], i['etat'], i['axe']))
-            data_current.append((f"[color={color}]{self.reverse_date(i['date'])}[/color]", f"[color={color}]{i['traitement']}[/color]", f"[color={color}]{i['etat']}[/color]",  f"[color={color}]{i['axe']}[/color]"))
-
-        for i in data_prevision:
-            traitement_a_verifier = i['traitement']
-
-            traitement_existe = any(item[1] == traitement_a_verifier for item in check)
-
-            if not traitement_existe:
-                row = (self.reverse_date(i["date"]), i["traitement"], i['etat'], i['axe'])
-                data_next.append(row)
-
-        Clock.schedule_once(lambda dt: self.home_tables(data_current, data_next, home))
-        print('current', check)
-        print('next' ,data_next)
-
-    def home_tables(self, current, next, home):
-
-        def _():
-            self.table_en_cours.row_data = current
-            self.table_prevision.row_data = next
-
-        if self.table_en_cours.parent and self.table_prevision.parent:
-            self.table_en_cours.parent.remove_widget(self.table_en_cours)
-            self.table_prevision.parent.remove_widget(self.table_prevision)
-
-        home.ids.box_current.add_widget(self.table_en_cours)
-        home.ids.box_next.add_widget(self.table_prevision)
-
-        Clock.schedule_once(lambda dt :_(),.2)
+        """Charge les tableaux Home depuis la BD avec gestion d'erreur complète"""
+        try:
+            data_current = []
+            data_next = []
+            
+            # Vérifier que Home existe avant de continuer
+            try:
+                home = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('Home')
+                if not home:
+                    print('❌ ERREUR: Écran Home introuvable')
+                    return
+            except Exception as e:
+                print(f'❌ ERREUR: Impossible d\'accéder à Home: {e}')
+                return
+            
+            now = datetime.now()
+            
+            # Récupère les données de la BD
+            try:
+                data_en_cours, data_prevision = await asyncio.gather(
+                    self.database.traitement_en_cours(now.year, now.month),
+                    self.database.traitement_prevision(now.year, now.month)
+                )
+            except Exception as e:
+                print(f'❌ ERREUR BD populate_tables: {e}')
+                Clock.schedule_once(
+                    lambda dt: self.show_dialog('Erreur', 'Erreur lors du chargement des données')
+                )
+                return
+            
+            # Traite les données
+            data_current = []
+            check = []
+            for i in data_en_cours:
+                try:
+                    color = self.color_map.get(i['etat'], "000000")
+                    check.append((self.reverse_date(i['date']), i['traitement'], i['etat'], i['axe']))
+                    data_current.append((
+                        f"[color={color}]{self.reverse_date(i['date'])}[/color]",
+                        f"[color={color}]{i['traitement']}[/color]",
+                        f"[color={color}]{i['etat']}[/color]",
+                        f"[color={color}]{i['axe']}[/color]"
+                    ))
+                except Exception as e:
+                    print(f'⚠️ ERREUR traitement en_cours: {e}')
+                    continue
+            
+            for i in data_prevision:
+                try:
+                    traitement_a_verifier = i['traitement']
+                    traitement_existe = any(item[1] == traitement_a_verifier for item in check)
+                    
+                    if not traitement_existe:
+                        row = (self.reverse_date(i["date"]), i["traitement"], i['etat'], i['axe'])
+                        data_next.append(row)
+                except Exception as e:
+                    print(f'⚠️ ERREUR traitement prévision: {e}')
+                    continue
+            
+            print(f'✅ populate_tables: {len(data_current)} en cours, {len(data_next)} à venir')
+            
+            # Appelle home_tables avec gestion d'erreur
+            Clock.schedule_once(lambda dt: self._safe_home_tables(data_current, data_next, home))
+            
+        except Exception as e:
+            print(f'❌ ERREUR CRITIQUE populate_tables: {e}')
+            import traceback
+            traceback.print_exc()
+    
+    def _safe_home_tables(self, current, next, home):
+        """Affiche les tableaux avec gestion d'erreur complète"""
+        try:
+            if not home:
+                print('❌ ERREUR: home est None')
+                return
+            
+            if not hasattr(home.ids, 'box_current') or not hasattr(home.ids, 'box_next'):
+                print('❌ ERREUR: box_current ou box_next introuvable')
+                return
+            
+            def update_data():
+                try:
+                    self.table_en_cours.row_data = current
+                    self.table_prevision.row_data = next
+                    print('✅ Tableaux mis à jour avec succès')
+                except Exception as e:
+                    print(f'❌ ERREUR mise à jour row_data: {e}')
+            
+            # Nettoie les anciens tableaux
+            try:
+                if self.table_en_cours.parent:
+                    self.table_en_cours.parent.remove_widget(self.table_en_cours)
+                if self.table_prevision.parent:
+                    self.table_prevision.parent.remove_widget(self.table_prevision)
+                print('✅ Anciens tableaux supprimés')
+            except Exception as e:
+                print(f'⚠️ ERREUR suppression anciens tableaux: {e}')
+            
+            # Ajoute les nouveaux tableaux
+            try:
+                home.ids.box_current.add_widget(self.table_en_cours)
+                home.ids.box_next.add_widget(self.table_prevision)
+                print('✅ Nouveaux tableaux ajoutés')
+            except Exception as e:
+                print(f'❌ ERREUR ajout nouveaux tableaux: {e}')
+                return
+            
+            # Met à jour les données
+            Clock.schedule_once(lambda dt: update_data(), .2)
+            
+        except Exception as e:
+            print(f'❌ ERREUR CRITIQUE home_tables: {e}')
+            import traceback
+            traceback.print_exc()
 
     def generer_excel(self):
         screen = self.popup.get_screen('rendu_planning')
@@ -2723,21 +3035,29 @@ class Screen(MDApp):
         return future.result()  # attend et renvoie la vraie valeur
 
     def resilier_contrat(self):
+        # ✅ Afficher spinner pendant resiliation
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'contrat', show=True), 0)
+        
         async def get_data():
             try:
                 id, datee = await self.database.get_planningdetails_id(self.current_client[13])
                 print(id, datee)
                 await self.database.abrogate_contract(id)
-                await asyncio.sleep(2)
+                # ✅ CORRECTION: Ne pas utiliser asyncio.sleep(), utiliser Clock.schedule
+                await asyncio.sleep(0.5)
                 await self.populate_tables()
                 await self.get_client()
                 await self.all_clients()
-                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
-                Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
-                Clock.schedule_once(lambda dt: self.show_dialog('Operation effectué', 'Le contrat à été resilié'), 0.5)
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'contrat', show=False), 0)
+                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.1)
+                Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.1)
+                Clock.schedule_once(lambda dt: self.show_dialog('Operation effectue', 'Le contrat a ete resilie'), 0.2)
             except Exception as e:
-                Clock.schedule_once(lambda dt: self.show_dialog('erreur', 'Il y a eu une erreur'))
-                print('Resil', e)
+                print(f'❌ Erreur resilier_contrat: {e}')
+                import traceback
+                traceback.print_exc()
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'contrat', show=False), 0)
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Resiliation echouee: {str(e)}'), 0)
 
         asyncio.run_coroutine_threadsafe(get_data(), self.loop)
 
