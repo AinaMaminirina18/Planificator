@@ -1129,6 +1129,14 @@ class Screen(MDApp):
         place.clear_widgets()
         self.dialog = acceuil
         self.dialog.bind(on_dismiss=self.dismiss_popup)
+        
+        # ✅ CORRECTION: Vérifier que current_client n'est pas None
+        if self.current_client is None:
+            print(f"❌ Erreur afficher_facture: current_client est None")
+            self.show_dialog('Erreur', 'Erreur: Client non sélectionné')
+            acceuil.dismiss()
+            return
+        
         self.popup.get_screen('facture').ids.titre.text = f'Les factures de {self.current_client[1]} pour {self.current_client[5]}'
 
         # ✅ Afficher spinner immediatement
@@ -2575,9 +2583,11 @@ class Screen(MDApp):
                 for i in result:
                     if None not in i:
                         datas.append(i)
-                        id_planning.append(i[4])
+                        id_planning.append(i[4])  # Ajoute planning_id
                     else:
+                        # ✅ CORRECTION: Ajouter un élément vide à id_planning aussi
                         datas.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
+                        id_planning.append(None)  # Garder la synchronisation
 
                 Clock.schedule_once(lambda dt: self.tableau_historic(place, datas, id_planning))
 
@@ -2615,7 +2625,8 @@ class Screen(MDApp):
         btn_next.bind(on_press=partial(on_press_page,  'plus'))
 
         self.historique.row_data = row_data
-        self.historique.bind(on_row_press=lambda instance, row: self.row_pressed_histo(instance, row, planning_id))
+        # ✅ CORRECTION: Utiliser partial pour capturer planning_id correctement
+        self.historique.bind(on_row_press=partial(self.row_pressed_histo, planning_id=planning_id))
         place.add_widget(self.historique)
 
     def row_pressed_histo(self, table, row, planning_id):
@@ -2627,6 +2638,22 @@ class Screen(MDApp):
             row_value = table.row_data[index_global]
 
         if row_value[0] == 'Aucun':
+            return
+
+        # ✅ CORRECTION: Vérifier que row_num est dans les limites et que planning_id n'est pas None
+        if not isinstance(planning_id, list):
+            print(f"❌ Erreur: planning_id n'est pas une liste: {type(planning_id)}")
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Erreur: Historique non disponible'), 0)
+            return
+        
+        if row_num >= len(planning_id):
+            print(f"❌ Erreur: row_num={row_num} hors limites de planning_id (len={len(planning_id)})")
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Erreur: Historique non disponible'), 0)
+            return
+        
+        if planning_id[row_num] is None:
+            print(f"❌ Erreur: planning_id[{row_num}] est None")
+            Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Erreur: Cet historique n\'a pas de planning associé'), 0)
             return
 
         place = self.popup.get_screen('histo_remarque').ids.tableau_rem_histo
