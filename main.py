@@ -2204,13 +2204,27 @@ class Screen(MDApp):
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
         print(row_value)
-        # ✅ CORRECTION: Passer le nom du client, pas le contrat date
-        # On va d'abord récupérer son dernier contrat
-        asyncio.run_coroutine_threadsafe(self.current_client_info(row_value[1], row_value[0]), self.loop)
+        
+        # ✅ CORRECTION: Récupérer la date du contrat du client d'abord
+        # row_value = (client_id, nom, prenom, email, adresse, date_ajout)
+        async def current_client_info_async(nom_client):
+            try:
+                # Étape 1: Récupérer la date du contrat actif/récent
+                contrat_date = await self.database.get_latest_contract_date_for_client(nom_client)
+                if not contrat_date:
+                    logger.warning(f"⚠️ Aucun contrat trouvé pour {nom_client}")
+                    return
+                # Étape 2: Récupérer les infos complètes du client avec cette date
+                self.current_client = await self.database.get_current_client(nom_client, contrat_date)
+            except Exception as e:
+                logger.error(f"❌ Erreur row_pressed_client: {e}", exc_info=True)
+                print(e)
+
+        asyncio.run_coroutine_threadsafe(current_client_info_async(row_value[1]), self.loop)
 
         def maj_ecran():
             if not self.current_client:
-                toast('Veuillez r&essayer dans quelques secondes')
+                toast('Veuillez réessayer dans quelques secondes')
                 return
             else:
                 if self.current_client[3] == 'Particulier':

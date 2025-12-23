@@ -1155,6 +1155,31 @@ class DatabaseManager:
                     logger.error(f"❌ Erreur delete_client: {e}", exc_info=True)
                     print("Delete",e)
 
+    async def get_latest_contract_date_for_client(self, client_name):
+        """Récupère la date du contrat ACTIF/PLUS RÉCENT du client."""
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    logger.debug(f"🔍 Recherche dernier contrat pour: {client_name}")
+                    await cursor.execute("""
+                        SELECT co.date_contrat
+                        FROM Client c
+                        JOIN Contrat co ON c.client_id = co.client_id
+                        WHERE c.nom = %s
+                        ORDER BY co.date_contrat DESC
+                        LIMIT 1
+                    """, (client_name,))
+                    resultat = await cursor.fetchone()
+                    if resultat:
+                        logger.debug(f"✅ Date contrat trouvée: {resultat[0]}")
+                        return resultat[0]
+                    else:
+                        logger.warning(f"⚠️ Aucun contrat trouvé pour {client_name}")
+                        return None
+                except Exception as e:
+                    logger.error(f"❌ Erreur get_latest_contract_date: {e}", exc_info=True)
+                    return None
+
     async def get_current_client(self, client, date):
         """Récupère les infos client avec tous les JOINs nécessaires."""
         async with self.pool.acquire() as conn:
