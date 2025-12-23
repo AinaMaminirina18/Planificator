@@ -436,6 +436,7 @@ class Screen(MDApp):
         mois_fin = self.popup.get_screen('ajout_planning').ids.mois_fin.text
         date_prevu = self.popup.get_screen('ajout_planning').ids.date_prevu.text
         fréquence = self.popup.get_screen('ajout_planning').ids.red_trait.text
+        duree_contrat = self.popup.get_screen('new_contrat').ids.duree_new_contrat.text
         date_debut = self.popup.get_screen('new_contrat').ids.debut_new_contrat.text
         temp = date_debut.split('-')
         date = datetime.strptime(f'{temp[0]}-{temp[1]}-{temp[2]}', "%d-%m-%Y")
@@ -443,7 +444,11 @@ class Screen(MDApp):
 
         montant = self.popup.get_screen('ajout_facture').ids.montant.text
         axe_client = self.popup.get_screen('ajout_facture').ids.axe_client.text
-        if fréquence != 'une seule fois':
+        
+        # ✅ CORRECTION: Si durée est Indéterminée, forcer la génération sur 12 mois
+        if duree_contrat == 'Indéterminée':
+            int_red = 12
+        elif fréquence != 'une seule fois':
             int_red = fréquence.split(" ")[0]
         else:
             int_red = 12
@@ -459,6 +464,7 @@ class Screen(MDApp):
                 debut = datetime.strptime(mois_debut_verif, "%B").month
                 
                 # ✅ CORRECTION: Vérifier mois_fin aussi
+                # Si mois_fin est 'Indéterminée', fin = 0 (valeur spéciale pour indiquer pas de fin)
                 fin = 0
                 if mois_fin != 'Indéterminée':
                     mois_fin_verif = self.verifier_mois(mois_fin)
@@ -466,6 +472,11 @@ class Screen(MDApp):
                         Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Mois de fin invalide'), 0)
                         return
                     fin = datetime.strptime(mois_fin_verif, "%B").month
+                else:
+                    # ✅ CORRECTION: Si duree est Déterminée mais mois_fin est Indéterminée = incohérence
+                    if duree_contrat == 'Déterminée':
+                        Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Si durée est déterminée, mois de fin est obligatoire'), 0)
+                        return
                 
                 # ✅ CORRECTION: Vérifier que montant n'est pas vide
                 if not montant:
