@@ -2043,17 +2043,30 @@ class Screen(MDApp):
             # ✅ CORRECTION: Passer row_value[0] (nom_client) au lieu de client_id[row_num]
             asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, row_value[0]), self.loop)
 
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'),0.5)
-        Clock.schedule_once(lambda dt: maj_ecran(),0)
+        # ✅ CORRECTION: Loading spinner AVANT le chargement (délai 0), puis chargement après (délai 0.5s)
+        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'), 0)
+        Clock.schedule_once(lambda dt: maj_ecran(), 0.5)
 
     async def liste_traitement_par_client(self, place, nom_client):
         try:
+            # ⏱️ Petite attente pour laisser le loading spinner s'afficher
+            await asyncio.sleep(0.3)
             result = await self.database.traitement_par_client(nom_client)
             if result:
                 Clock.schedule_once(lambda dt : self.show_about_treatment(place, result), 0.1)
+            else:
+                # ✅ Si pas de résultat, arrêter le loading et afficher message
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'all_treatment'), 0)
+                from kivymd.uix.label import MDLabel
+                label = MDLabel(
+                    text="Aucun traitement trouvé pour ce client",
+                    halign="center"
+                )
+                Clock.schedule_once(lambda dt: place.add_widget(label) if place.parent else None, 0.1)
 
         except Exception as e:
             print('erreur get traitement'+ str(e))
+            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'all_treatment'), 0)
 
     def show_about_treatment(self, place, data):
         from kivymd.uix.label import MDLabel

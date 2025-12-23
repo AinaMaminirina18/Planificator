@@ -1260,33 +1260,62 @@ class DatabaseManager:
                 except Exception as e:
                     print(e)
                     
-    async def traitement_par_client(self, idclient):
+    async def traitement_par_client(self, nom_client_ou_id):
+        """Récupère tous les traitements d'un client (par nom ou ID)"""
         async with self.pool.acquire() as conn :
             async with conn.cursor() as cursor:
                 try:
-                    logger.debug(f"🔍 Traitement par client - client_id={idclient}")
-                    await cursor.execute(
-                        """SELECT c.nom AS nom_client,
-                                  co.date_contrat,
-                                  tt.typeTraitement AS type_traitement,
-                                  co.duree_contrat AS duree_contrat,
-                                  co.date_debut AS debut_contrat,
-                                  co.date_fin AS fin_contrat,
-                                  c.categorie AS categorie,
-                                  p.redondance
-                           FROM
-                              Client c
-                           JOIN
-                              Contrat co ON c.client_id = co.client_id
-                           JOIN
-                              Traitement t ON co.contrat_id = t.contrat_id
-                           JOIN
-                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
-                           JOIN
-                              Planning p ON t.traitement_id = p.traitement_id
-                           WHERE
-                              c.client_id = %s;"""
-                    , (idclient,))
+                    # ✅ CORRECTION: Accepter SOIT un nom (string) SOIT un ID (int)
+                    if isinstance(nom_client_ou_id, str):
+                        # Si c'est un string, chercher par nom
+                        logger.debug(f"🔍 Traitement par client - nom='{nom_client_ou_id}'")
+                        sql = """SELECT c.nom AS nom_client,
+                                        co.date_contrat,
+                                        tt.typeTraitement AS type_traitement,
+                                        co.duree_contrat AS duree_contrat,
+                                        co.date_debut AS debut_contrat,
+                                        co.date_fin AS fin_contrat,
+                                        c.categorie AS categorie,
+                                        p.redondance
+                                 FROM
+                                    Client c
+                                 JOIN
+                                    Contrat co ON c.client_id = co.client_id
+                                 JOIN
+                                    Traitement t ON co.contrat_id = t.contrat_id
+                                 JOIN
+                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                 JOIN
+                                    Planning p ON t.traitement_id = p.traitement_id
+                                 WHERE
+                                    c.nom = %s;"""
+                        param = nom_client_ou_id
+                    else:
+                        # Si c'est un nombre, chercher par ID
+                        logger.debug(f"🔍 Traitement par client - client_id={nom_client_ou_id}")
+                        sql = """SELECT c.nom AS nom_client,
+                                        co.date_contrat,
+                                        tt.typeTraitement AS type_traitement,
+                                        co.duree_contrat AS duree_contrat,
+                                        co.date_debut AS debut_contrat,
+                                        co.date_fin AS fin_contrat,
+                                        c.categorie AS categorie,
+                                        p.redondance
+                                 FROM
+                                    Client c
+                                 JOIN
+                                    Contrat co ON c.client_id = co.client_id
+                                 JOIN
+                                    Traitement t ON co.contrat_id = t.contrat_id
+                                 JOIN
+                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                 JOIN
+                                    Planning p ON t.traitement_id = p.traitement_id
+                                 WHERE
+                                    c.client_id = %s;"""
+                        param = nom_client_ou_id
+                    
+                    await cursor.execute(sql, (param,))
                     result = await cursor.fetchall()
                     logger.info(f"✅ Traitements trouvés - {len(result)} items")
                     return result
