@@ -1241,6 +1241,10 @@ class Screen(MDApp):
     def fenetre_client(self, titre, ecran):
         from kivymd.uix.dialog import MDDialog
 
+        # ✅ CORRECTION: Supprimer l'ancien parent du popup si existant
+        if self.popup.parent:
+            self.popup.parent.remove_widget(self.popup)
+        
         self.popup.current = 'vide'
         self.popup.current = ecran
         client = MDDialog(
@@ -2200,7 +2204,9 @@ class Screen(MDApp):
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
         print(row_value)
-        asyncio.run_coroutine_threadsafe(self.current_client_info(row_value[0], row_value[3]),self.loop)
+        # ✅ CORRECTION: Passer le nom du client, pas le contrat date
+        # On va d'abord récupérer son dernier contrat
+        asyncio.run_coroutine_threadsafe(self.current_client_info(row_value[1], row_value[0]), self.loop)
 
         def maj_ecran():
             if not self.current_client:
