@@ -465,12 +465,23 @@ class DatabaseManager:
         return None
 
     async def get_all_client(self, limit=5000):
-        """Récupère tous les clients avec LIMIT pour éviter les surcharges."""
+        """Récupère tous les clients avec leur date de contrat le plus récent."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     logger.info(f"📋 Récupération tous clients (limite: {limit})")
-                    await cur.execute(f"SELECT client_id, nom, prenom, email, adresse, date_ajout FROM Client ORDER BY nom ASC LIMIT {int(limit)}")
+                    await cur.execute(f"""
+                        SELECT c.client_id, 
+                               CONCAT(c.nom, ' ', c.prenom) AS nom_complet,
+                               c.email, 
+                               c.adresse,
+                               COALESCE(MAX(co.date_contrat), '') AS date_contrat
+                        FROM Client c
+                        LEFT JOIN Contrat co ON c.client_id = co.client_id
+                        GROUP BY c.client_id, c.nom, c.prenom, c.email, c.adresse
+                        ORDER BY c.nom ASC 
+                        LIMIT {int(limit)}
+                    """)
                     result = await cur.fetchall()
                     logger.info(f"✅ {len(result)} clients récupérés")
                     return result

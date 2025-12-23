@@ -2180,7 +2180,7 @@ class Screen(MDApp):
             self.liste_client.parent.remove_widget(self.liste_client)
 
         if client_data:
-            row_data = [(i[0], i[1], i[2], self.reverse_date(i[3])) for i in client_data]
+            row_data = [(i[1], i[2], i[3], self.reverse_date(i[4])) for i in client_data]
 
             pagination = self.liste_client.pagination
 
