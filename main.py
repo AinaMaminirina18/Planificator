@@ -1579,6 +1579,9 @@ class Screen(MDApp):
                 # Enregistrer le signalement
                 await self.database.creer_signalment(self.planning_detail[8], motif, self.option.capitalize())
                 
+                # ✅ CORRECTION: Recharger planning_detail pour voir les changements
+                self.planning_detail = await self.database.get_info_planning(self.planning_detail[7], self.reverse_date(self.planning_detail[9]))
+                
                 # ✅ CORRECTION: Refraîchir les tableaux AVANT de masquer le spinner
                 # Attendre que les modifications soient écrites en BD
                 await asyncio.sleep(0.5)

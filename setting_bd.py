@@ -1430,6 +1430,7 @@ class DatabaseManager:
         """
         Met à jour le montant d'une facture et enregistre l'ancien/nouveau montant
         dans la table d'historique.
+        ✅ CORRECTION: Change AUSSI tous les prix futurs du MÊME traitement/client
         """
         logger.info(f"📝 Maj montant facture - id={facture_id}, {old_amount} → {new_amount}")
         async with self.pool.acquire() as conn:
@@ -1438,11 +1439,27 @@ class DatabaseManager:
                     # Commencer une transaction explicite
                     await conn.begin()
 
-                    # 1. Mettre à jour le montant dans la table Facture
+                    # 0. Récupérer la facture pour connaître la date et le traitement
+                    await cursor.execute("""
+                        SELECT f.facture_id, pdl.date_planification, pdl.planning_detail_id, p.planning_id
+                        FROM Facture f
+                        JOIN PlanningDetails pdl ON f.planning_detail_id = pdl.planning_detail_id
+                        JOIN Planning p ON pdl.planning_id = p.planning_id
+                        WHERE f.facture_id = %s
+                    """, (facture_id,))
+                    current_facture = await cursor.fetchone()
+                    
+                    if not current_facture:
+                        raise ValueError(f"Facture {facture_id} non trouvée")
+                    
+                    current_date = current_facture[1]
+                    planning_id = current_facture[3]
+                    
+                    # 1. Mettre à jour le montant de LA facture actuelle
                     update_query = "UPDATE Facture SET montant = %s WHERE facture_id = %s;"
                     await cursor.execute(update_query, (new_amount, facture_id))
 
-                    # 2. Insérer l'entrée d'historique
+                    # 2. Insérer l'entrée d'historique pour la facture actuelle
                     insert_history_query = """
                         INSERT INTO Historique_prix
                         (facture_id, old_amount, new_amount, change_date, changed_by)
@@ -1451,9 +1468,33 @@ class DatabaseManager:
                     await cursor.execute(insert_history_query,
                                          (facture_id, old_amount, new_amount, datetime.datetime.now(), changed_by))
 
+                    # ✅ CORRECTION: Mettre à jour TOUS les prix futurs du MÊME planning
+                    # Récupérer toutes les factures du même planning après cette date
+                    await cursor.execute("""
+                        SELECT f.facture_id, f.montant
+                        FROM Facture f
+                        JOIN PlanningDetails pdl ON f.planning_detail_id = pdl.planning_detail_id
+                        WHERE pdl.planning_id = %s 
+                        AND pdl.date_planification > %s
+                    """, (planning_id, current_date))
+                    future_factures = await cursor.fetchall()
+                    
+                    # Mettre à jour chaque facture future
+                    for future_facture_id, future_montant in future_factures:
+                        await cursor.execute(
+                            "UPDATE Facture SET montant = %s WHERE facture_id = %s;",
+                            (new_amount, future_facture_id)
+                        )
+                        # Enregistrer dans l'historique
+                        await cursor.execute(
+                            insert_history_query,
+                            (future_facture_id, future_montant, new_amount, datetime.datetime.now(), f"{changed_by} (update massif)")
+                        )
+                    
+                    logger.info(f"✅ Montant facture mis à jour + {len(future_factures)} factures futures")
+
                     # Valider la transaction
                     await conn.commit()
-                    logger.info(f"✅ Montant facture mis à jour")
                     return True
 
                 except Exception as e:
