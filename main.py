@@ -130,7 +130,7 @@ class Screen(MDApp):
             use_pagination=True,
             elevation=0,
             column_data=[
-                ("Date du contrat", dp(40)),
+                ("Date du traitement", dp(40)),
                 ("Type de traitement", dp(50)),
                 ("Fréquence", dp(40)),
             ],
