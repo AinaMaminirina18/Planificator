@@ -2409,7 +2409,9 @@ class Screen(MDApp):
                     date = self.reverse_date(item[0]) if item[0] is not None else "N/A"
                     etat = item[1] if item[1] is not None else "N/A"
 
-                    row_data.append((date, f'{mois + 1}e mois' , etat))
+                    # ✅ Format mois: 1='1er mois', 2='2e mois', 3='3e mois', etc.
+                    mois_display = f'{mois + 1}er mois' if mois == 0 else f'{mois + 1}e mois'
+                    row_data.append((date, mois_display , etat))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
@@ -2524,29 +2526,37 @@ class Screen(MDApp):
             self.popup.get_screen('modif_date').ids.date_decalage.text = ''
             self.modifier_date()
         else:
-            Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'))
-            Clock.schedule_once(lambda dt: maj_ui())
+            # ⏱️ CORRECTION: Attendre que self.planning_detail soit chargé (0.5s) AVANT d'appeler maj_ui()
+            Clock.schedule_once(lambda dt: self.fenetre_planning('', 'selection_element_tableau'), 0)
+            Clock.schedule_once(lambda dt: self.maj_ui(row_value), 0.5)
 
-        def maj_ui():
-            try:
-                print('Maj ui', self.planning_detail)
-                titre = self.planning_detail[1].split(' ')
-                self.popup.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
-                self.popup.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
-                self.popup.get_screen('option_decalage').ids.client.text = f'Client: {self.planning_detail[0]}'
+    def maj_ui(self, row_value):
+        """Affiche les infos du planning dans la fenêtre"""
+        try:
+            if not self.planning_detail:
+                print('⚠️ planning_detail n\'est pas encore chargé')
+                return
+            
+            print('Maj ui', self.planning_detail)
+            titre = self.planning_detail[1].split(' ')
+            self.popup.get_screen('selection_element_tableau').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+            self.popup.get_screen('ajout_remarque').ids['titre'].text = f'{titre[0]} pour {self.planning_detail[0]}'
+            self.popup.get_screen('option_decalage').ids.client.text = f'Client: {self.planning_detail[0]}'
 
-                self.popup.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
+            self.popup.get_screen('selection_element_tableau').ids['contrat'].text = f'Contrat du {self.reverse_date(self.planning_detail[3])} au {self.planning_detail[4]}'
 
-                self.popup.get_screen('selection_element_tableau').ids['mois'].text = f'Date du traitement : {row_value[0]}'
-                self.popup.get_screen('ajout_remarque').ids['date'].text = f'Date du traitement : {row_value[0]}'
+            self.popup.get_screen('selection_element_tableau').ids['mois'].text = f'Date du traitement : {row_value[0]}'
+            self.popup.get_screen('ajout_remarque').ids['date'].text = f'Date du traitement : {row_value[0]}'
 
-                self.popup.get_screen('selection_element_tableau').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
-                self.popup.get_screen('ajout_remarque').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
+            self.popup.get_screen('selection_element_tableau').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
+            self.popup.get_screen('ajout_remarque').ids['mois_trait'].text = f'Mois du traitement: {row_value[1]}'
 
-                self.popup.get_screen('ajout_remarque').ids['duree'].text = f'Durée total du traitement : {self.planning_detail[2]}'
+            self.popup.get_screen('ajout_remarque').ids['duree'].text = f'Durée total du traitement : {self.planning_detail[2]}'
 
-            except Exception as e:
-                print( 'affichage detail ',e)
+        except Exception as e:
+            print(f'❌ affichage detail: {e}')
+            import traceback
+            traceback.print_exc()
 
     def afficher_ecran_remarque(self):
         self.fenetre_planning('', 'ajout_remarque')
@@ -2668,13 +2678,11 @@ class Screen(MDApp):
             try:
                 result = await self.database.get_historic(categorie)
                 for i in result:
+                    # ✅ CORRECTION: Ne garder que les lignes COMPLÈTES (pas de None)
+                    # Si une ligne a None, elle n'a pas de remarque valide → ignorer
                     if None not in i:
                         datas.append(i)
                         id_planning.append(i[4])  # Ajoute planning_id
-                    else:
-                        # ✅ CORRECTION: Ajouter un élément vide à id_planning aussi
-                        datas.append(('Aucun', 'Aucun', 'Aucun', 'Aucun'))
-                        id_planning.append(None)  # Garder la synchronisation
 
                 Clock.schedule_once(lambda dt: self.tableau_historic(place, datas, id_planning))
 
