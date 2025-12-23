@@ -2035,7 +2035,8 @@ class Screen(MDApp):
         self.client_name = row_value[0]
 
         def maj_ecran():
-            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, client_id[row_num]), self.loop)
+            # ✅ CORRECTION: Passer row_value[0] (nom_client) au lieu de client_id[row_num]
+            asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, row_value[0]), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner(self.popup,'all_treatment'),0.5)
         Clock.schedule_once(lambda dt: maj_ecran(),0)
@@ -2066,18 +2067,24 @@ class Screen(MDApp):
         row_data = []
         for item in data:
             try:
-                if len(item) >= 3:
+                if len(item) >= 8:  # Vérifier qu'on a assez d'éléments
+                    nom_client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[2] if item[2] is not None else "N/A"
-                    fréquence = item[7] if item[7] is not None else "N/A"
+                    redondance = item[7] if item[7] is not None else "N/A"
 
                     # ✅ Format redondance: 0='1 jour', 1='1 mois', 2='2 mois', etc.
-                    display_freq = '1 jour' if item[7] == 0 else f'{fréquence} mois'
+                    if redondance == 0:
+                        display_freq = '1 jour'
+                    else:
+                        display_freq = f'{redondance} mois'
+                    
+                    print(f"📋 Traitement {nom_client}: {date} - {traitement} ({display_freq})")
                     row_data.append((date, traitement, display_freq))
                 else:
-                    print(f"Warning: Planning item doesn't have enough elements: {item}")
+                    print(f"⚠️ Item insuffisant: {item}")
             except Exception as e:
-                print(f"Error processing planning item: {e}")
+                print(f"❌ Erreur traitement: {e}")
 
             try:
                 self.all_treat.row_data = row_data
@@ -2090,13 +2097,11 @@ class Screen(MDApp):
                 self.page = 1
 
                 def on_press_page(direction, instance=None):
-                    print(direction)
                     max_page = (len(row_data) - 1) // 5 + 1
                     if direction == 'moins' and self.page > 1:
                         self.page -= 1
                     elif direction == 'plus' and self.page < max_page:
                         self.page += 1
-                    print(self.page)
 
                 btn_prev.bind(on_press=partial(on_press_page, 'moins'))
                 btn_next.bind(on_press=partial(on_press_page, 'plus'))
