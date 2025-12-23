@@ -52,7 +52,7 @@ class Screen(MDApp):
         self.color_map = {
             "Effectué": '008000',
             "À venir": 'ff0000',
-            "Résilié": 'FFA500'
+            "Classé sans suite": 'FFA500'
         }
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
@@ -2600,9 +2600,6 @@ class Screen(MDApp):
 
             self.dismiss_popup()
             self.fermer_ecran()
-            
-            # ✅ Afficher spinner pendant enregistrement
-            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_remarque', show=True), 0)
 
             remarque_db = remarque if remarque else None
             probleme_db = probleme if probleme else None
@@ -2639,7 +2636,6 @@ class Screen(MDApp):
 
                         await self.database.update_etat_facture(self.planning_detail[6], numero, payement, bnk, self.reverse_date(descri), numero_cheque_val)
 
-                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_remarque', show=False), 0)
                     Clock.schedule_once(lambda dt: self.show_dialog('', 'Enregistrement réussi'), 0)
                     Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
                     Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
