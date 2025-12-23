@@ -2135,13 +2135,9 @@ class Screen(MDApp):
 
     def row_pressed_contrat(self, table, row):
         row_num = int(row.index / len(table.column_data))
-        row_data = table.row_data[row_num]
-
-        self.dismiss_popup()
-        self.fermer_ecran()
-        self.fenetre_contrat('', 'option_contrat')
-
+        # ✅ CORRECTION: Calculer index_global en tenant compte de la pagination (4 par page)
         index_global = (self.page - 1) * 4 + row_num
+        row_value = None
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
@@ -2203,7 +2199,7 @@ class Screen(MDApp):
 
             def on_press_page(direction, instance=None):
                 print(direction)
-                max_page = (len(row_data) - 1) // 5 + 1
+                max_page = (len(row_data) - 1) // 8 + 1
                 if direction == 'moins' and self.main_page > 1:
                     self.main_page -= 1
                 elif direction == 'plus' and self.main_page < max_page:
@@ -2263,7 +2259,7 @@ class Screen(MDApp):
 
     def row_pressed_client(self, table, row):
         row_num = int(row.index / len(table.column_data))
-        row_data = table.row_data[row_num]
+        # ✅ CORRECTION: Calculer index_global en tenant compte de la pagination (8 par page)
         index_global = (self.main_page - 1) * 8 + row_num
         row_value = None
 
