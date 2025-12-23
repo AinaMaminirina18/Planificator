@@ -1166,37 +1166,36 @@ class DatabaseManager:
                     logger.error(f"❌ Erreur delete_client: {e}", exc_info=True)
                     print("Delete",e)
 
-    async def get_latest_contract_date_for_client(self, client_name):
-        """Récupère la date du contrat ACTIF/PLUS RÉCENT du client."""
+    async def get_latest_contract_date_for_client(self, client_id):
+        """Récupère la date du contrat ACTIF/PLUS RÉCENT du client par client_id."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
-                    logger.debug(f"🔍 Recherche dernier contrat pour: {client_name}")
+                    logger.debug(f"🔍 Recherche dernier contrat pour client_id: {client_id}")
                     await cursor.execute("""
                         SELECT co.date_contrat
-                        FROM Client c
-                        JOIN Contrat co ON c.client_id = co.client_id
-                        WHERE c.nom = %s
+                        FROM Contrat co
+                        WHERE co.client_id = %s
                         ORDER BY co.date_contrat DESC
                         LIMIT 1
-                    """, (client_name,))
+                    """, (client_id,))
                     resultat = await cursor.fetchone()
                     if resultat:
                         logger.debug(f"✅ Date contrat trouvée: {resultat[0]}")
                         return resultat[0]
                     else:
-                        logger.warning(f"⚠️ Aucun contrat trouvé pour {client_name}")
+                        logger.warning(f"⚠️ Aucun contrat trouvé pour client_id {client_id}")
                         return None
                 except Exception as e:
                     logger.error(f"❌ Erreur get_latest_contract_date: {e}", exc_info=True)
                     return None
 
-    async def get_current_client(self, client, date):
-        """Récupère les infos client avec tous les JOINs nécessaires."""
+    async def get_current_client(self, client_id, date):
+        """Récupère les infos client avec tous les JOINs nécessaires par client_id."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
-                    logger.debug(f"🔍 Récupération client: {client}, date: {date}")
+                    logger.debug(f"🔍 Récupération client_id: {client_id}, date: {date}")
                     await cursor.execute("""SELECT c.client_id AS id,
                                   c.nom AS nom_client,
                                   c.prenom AS prenom_client,
@@ -1229,7 +1228,7 @@ class DatabaseManager:
                            JOIN
                                Facture f ON pld.planning_detail_id = f.planning_detail_id
                            WHERE
-                              c.nom = %s AND co.date_contrat = %s; """, (client, date))
+                              c.client_id = %s AND co.date_contrat = %s; """, (client_id, date))
                     resultat = await cursor.fetchone()
                     logger.debug(f"✅ Client trouvé: {resultat[1] if resultat else 'Aucun'}")
                     return resultat

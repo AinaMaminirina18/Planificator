@@ -54,6 +54,7 @@ class Screen(MDApp):
             "À venir": 'ff0000',
             "Classé sans suite": 'FFA500'
         }
+        self.client_id_map = {}  # ✅ Mapping client_index -> client_id
         self.loop = asyncio.new_event_loop()
         self.database = DatabaseManager(self.loop)
         threading.Thread(target=self.loop.run_forever, daemon=True).start()
@@ -1714,6 +1715,10 @@ class Screen(MDApp):
             pass
 
     def traitement_par_client(self, source):
+        if not self.current_client:
+            self.show_dialog('Erreur', 'Aucun client sélectionné ou contrat trouvé')
+            return
+        
         self.fermer_ecran()
         self.popup.get_screen('all_treatment').ids.titre.text = f'Tous les traitements de {self.current_client[1]}'
         place = self.popup.get_screen('all_treatment').ids.tableau_treat
@@ -1731,6 +1736,10 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: maj_ecran(), 0.8)
 
     def voir_planning_par_traitement(self):
+        if not self.current_client:
+            self.show_dialog('Erreur', 'Aucun client sélectionné ou contrat trouvé')
+            return
+        
         self.dismiss_popup()
         self.fermer_ecran()
         btn_planning = self.root.get_screen('Sidebar').ids.planning
@@ -1740,6 +1749,10 @@ class Screen(MDApp):
         Clock.schedule_once(lambda dt: self.get_and_update(self.current_client[5], self.current_client[1],self.current_client[13]), 0)
 
     def voir_info_client(self,source, option):
+        if not self.current_client:
+            self.show_dialog('Erreur', 'Aucun client sélectionné ou contrat trouvé')
+            return
+        
         self.fermer_ecran()
         self.dismiss_popup()
 
@@ -2180,7 +2193,10 @@ class Screen(MDApp):
             self.liste_client.parent.remove_widget(self.liste_client)
 
         if client_data:
+            # ✅ CORRECTION: Créer un tuple pour affichage (4 colonnes) ET un mapping client_id
             row_data = [(i[1], i[2], i[3], self.reverse_date(i[4])) for i in client_data]
+            # ✅ Stocker les IDs pour les récupérer dans row_pressed_client
+            self.client_id_map = {idx: i[0] for idx, i in enumerate(client_data)}
 
             pagination = self.liste_client.pagination
 
@@ -2254,25 +2270,33 @@ class Screen(MDApp):
         # ✅ CORRECTION: Calculer index_global en tenant compte de la pagination (8 par page)
         index_global = (self.main_page - 1) * 8 + row_num
         row_value = None
+        client_id = None
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
-        print(f"🔹 row_pressed_client - client sélectionné: {row_value}")
+            # ✅ Récupérer client_id du mapping
+            client_id = self.client_id_map.get(index_global)
         
-        # ✅ CORRECTION: Récupérer la date du contrat du client d'abord
-        # row_value = (client_id, nom, prenom, email, adresse, date_ajout)
-        async def current_client_info_async(nom_client):
+        print(f"🔹 row_pressed_client - client sélectionné: {row_value}, ID: {client_id}")
+        
+        if not client_id:
+            print("❌ Erreur: client_id introuvable")
+            self.show_dialog('Erreur', 'Impossible de récupérer l\'ID du client')
+            return
+        
+        # ✅ Récupérer la date du contrat du client d'abord
+        async def current_client_info_async(cid):
             try:
-                # Étape 1: Récupérer la date du contrat actif/récent
-                print(f"🔍 Cherche contrat pour: {nom_client}")
-                contrat_date = await self.database.get_latest_contract_date_for_client(nom_client)
+                # Étape 1: Récupérer la date du contrat actif/récent par CLIENT_ID
+                print(f"🔍 Cherche contrat pour client_id: {cid}")
+                contrat_date = await self.database.get_latest_contract_date_for_client(cid)
                 print(f"📅 Date contrat trouvée: {contrat_date}")
                 if not contrat_date:
-                    print(f"⚠️ Aucun contrat trouvé pour {nom_client}")
+                    print(f"⚠️ Aucun contrat trouvé pour client_id {cid}")
                     return
                 # Étape 2: Récupérer les infos complètes du client avec cette date
-                print(f"📥 Charger infos client pour {nom_client}, date: {contrat_date}")
-                self.current_client = await self.database.get_current_client(nom_client, contrat_date)
+                print(f"📥 Charger infos client pour client_id: {cid}, date: {contrat_date}")
+                self.current_client = await self.database.get_current_client(cid, contrat_date)
                 print(f"✅ current_client chargé: {self.current_client is not None}")
                 if self.current_client:
                     print(f"   Nom: {self.current_client[1]} {self.current_client[2]}")
@@ -2281,13 +2305,14 @@ class Screen(MDApp):
                 import traceback
                 traceback.print_exc()
 
-        asyncio.run_coroutine_threadsafe(current_client_info_async(row_value[1]), self.loop)
+        asyncio.run_coroutine_threadsafe(current_client_info_async(client_id), self.loop)
 
         def maj_ecran():
             print(f"🎨 maj_ecran - current_client: {self.current_client is not None}")
             if not self.current_client:
-                print("⚠️ current_client est None! Attendre plus...")
-                toast('Veuillez réessayer dans quelques secondes')
+                print("⚠️ current_client est None! Aucun contrat trouvé pour ce client")
+                Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Aucun contrat trouvé pour ce client'), 0)
+                Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
                 return
             else:
                 print(f"✨ Affichage des infos client")
@@ -2309,9 +2334,9 @@ class Screen(MDApp):
                 self.popup.get_screen('option_client').ids.duree.text = f'Durée du contrat : {self.current_client[6]}'
 
         # ⏱️ TIMING FIX: Ouvrir fenêtre après 0.1s (laisser async commencer)
-        # Afficher infos après 0.8s (laisser requête terminer)
+        # Afficher infos après 1.0s (laisser requête terminer)
         Clock.schedule_once(lambda x: self.fenetre_client('', 'option_client'), 0.1)
-        Clock.schedule_once(lambda x: maj_ecran(), 0.8)
+        Clock.schedule_once(lambda x: maj_ecran(), 1.0)
 
     @mainthread
     def tableau_planning(self, place, result, dt=None):
