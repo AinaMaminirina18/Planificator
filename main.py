@@ -1035,9 +1035,6 @@ class Screen(MDApp):
             Clock.schedule_once(lambda dt: self.show_dialog('Erreur', 'Client non défini'), 0)
             return
 
-        # ✅ Afficher spinner pendant modification
-        Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=True), 0)
-
         async def changer(old, new):
             try:
                 # ✅ CORRECTION: Valider que old et new sont des nombres
@@ -1053,7 +1050,6 @@ class Screen(MDApp):
                     raise ValueError("Facture non trouvée")
                 
                 await self.database.majMontantEtHistorique(facture_id, old_val, new_val)
-                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
                 Clock.schedule_once(lambda dt: self.show_dialog('Succès', 'Changement de prix réussi'), 0)
                 Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.5)
                 Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.5)
@@ -1062,7 +1058,6 @@ class Screen(MDApp):
                 print(f'❌ Erreur changer_prix: {e}')
                 import traceback
                 traceback.print_exc()
-                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
                 Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Modification de prix échouée: {str(e)}'), 0)
 
         # ✅ CORRECTION: Nettoyer les prix de manière cohérente
@@ -1093,9 +1088,6 @@ class Screen(MDApp):
             self.date = self.reverse_date(row_value[0])
             prix_initial = row_value[1]
             
-            # ✅ CORRECTION: Afficher spinner pendant ouverture
-            Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=True), 0.1)
-            
             # ✅ CORRECTION: Attendre un peu puis ouvrir le dialog
             def ouvrir_dialog(dt):
                 try:
@@ -1119,17 +1111,14 @@ class Screen(MDApp):
                     self.popup.height = '300dp'
                     self.popup.width = '600dp'
                     
-                    # ✅ CORRECTION: Stocker le dialog et masquer spinner
+                    # ✅ CORRECTION: Stocker le dialog
                     self.dialog = acceuil
                     self.dialog.bind(on_dismiss=self.dismiss_popup)
-                    
-                    # ✅ CORRECTION: Masquer spinner après affichage du dialog
-                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
+                    self.dialog.open()
                 except Exception as e:
                     print(f'❌ Erreur ouverture dialog prix: {e}')
                     import traceback
                     traceback.print_exc()
-                    Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'modif_prix', show=False), 0)
                     Clock.schedule_once(lambda dt: self.show_dialog('Erreur', f'Erreur ouverture dialog: {str(e)}'), 0)
             
             Clock.schedule_once(ouvrir_dialog, 0.2)
