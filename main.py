@@ -2212,12 +2212,12 @@ class Screen(MDApp):
                 # Étape 1: Récupérer la date du contrat actif/récent
                 contrat_date = await self.database.get_latest_contract_date_for_client(nom_client)
                 if not contrat_date:
-                    logger.warning(f"⚠️ Aucun contrat trouvé pour {nom_client}")
+                    print(f"⚠️ Aucun contrat trouvé pour {nom_client}")
                     return
                 # Étape 2: Récupérer les infos complètes du client avec cette date
                 self.current_client = await self.database.get_current_client(nom_client, contrat_date)
             except Exception as e:
-                logger.error(f"❌ Erreur row_pressed_client: {e}", exc_info=True)
+                print(f"❌ Erreur row_pressed_client: {e}")
                 print(e)
 
         asyncio.run_coroutine_threadsafe(current_client_info_async(row_value[1]), self.loop)
