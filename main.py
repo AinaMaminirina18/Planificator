@@ -488,20 +488,27 @@ class Screen(MDApp):
                                                                date_fin)
 
                 dates_planifiees = self.planning_per_year(date_prevu, int_red)
-
-                for date in dates_planifiees:
+                
+                # ✅ CORRECTION: Créer tous les détails de planning et factures
+                factures_creees = 0
+                for idx, date in enumerate(dates_planifiees):
                     try:
                         planning_detail = await self.database.create_planning_details(planning, date)
                         await self.database.create_facture(planning_detail,
                                                            int(montant) if ' ' not in montant else int(montant.replace(' ', '')),
                                                            date,
                                                            axe_client)
+                        factures_creees += 1
+                        print(f"✅ Facture {factures_creees}/{len(dates_planifiees)} créée pour {date}")
 
                     except Exception as e:
-                        print(f"❌ Erreur enregistrement planning detail: {e}")
+                        print(f"❌ Erreur création facture {idx+1}: {e}")
+                        import traceback
+                        traceback.print_exc()
 
                 self.id_traitement.pop(0)
-                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_planning', show=False), 0)
+                Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_planning', show=False), 0.2)
+                Clock.schedule_once(lambda dt: self.show_dialog('Succès', f'{factures_creees} facture(s) créée(s)'), 0.3)
 
             except Exception as e:
                 Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'ajout_planning', show=False), 0)
@@ -1633,8 +1640,12 @@ class Screen(MDApp):
         else:
             gestion = self.popup
 
-        gestion.get_screen(ecran).ids.spinner.active = show
-        gestion.get_screen(ecran).ids.spinner.opacity = 1 if show else 0
+        try:
+            gestion.get_screen(ecran).ids.spinner.active = show
+            gestion.get_screen(ecran).ids.spinner.opacity = 1 if show else 0
+        except (KeyError, AttributeError) as e:
+            # Le spinner n'existe pas sur cet écran, ignorer silencieusement
+            pass
 
     def traitement_par_client(self, source):
         self.fermer_ecran()
