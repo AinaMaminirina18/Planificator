@@ -12,13 +12,13 @@ import os
 # =====================================================
 # LOGGING CONFIGURATION
 # =====================================================
-# Déterminer le répertoire de base (pour .exe ou script Python)
+# Déterminer le répertoire de base (toujours le dossier du script)
 if getattr(sys, 'frozen', False):
     # Exécutable PyInstaller (.exe)
     base_dir = os.path.dirname(sys.executable)
 else:
-    # Script Python normal - utiliser le répertoire courant
-    base_dir = os.getcwd()
+    # Script Python normal - utiliser le répertoire du script, pas cwd
+    base_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Créer le dossier 'logs' s'il n'existe pas
 log_dir = os.path.join(base_dir, 'logs')
@@ -26,15 +26,25 @@ os.makedirs(log_dir, exist_ok=True)
 
 log_file = os.path.join(log_dir, 'planificator_db.log')
 
+# Vérifier que le fichier de log peut être créé
+try:
+    with open(log_file, 'a') as f:
+        pass  # Juste vérifier qu'on peut écrire
+except Exception as e:
+    print(f"❌ ERREUR: Impossible d'écrire dans {log_file}: {e}")
+    log_file = os.path.join(os.path.expanduser('~'), 'planificator_db.log')
+    print(f"📍 Utilisation de: {log_file}")
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # ← Changé de INFO à DEBUG pour plus de détails
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(log_file),
-        logging.StreamHandler()  # Aussi afficher dans console
+        logging.FileHandler(log_file, encoding='utf-8'),
+        logging.StreamHandler(sys.stdout)  # Aussi afficher dans console avec UTF-8
     ]
 )
 logger = logging.getLogger(__name__)
+logger.info(f"✅ LOGGING DÉMARRÉ - Fichier: {log_file}")
 
 config_path = os.path.join(os.path.dirname(__file__), 'config.json')
 
@@ -455,12 +465,23 @@ class DatabaseManager:
         return None
 
     async def get_all_client(self, limit=5000):
-        """Récupère tous les clients avec LIMIT pour éviter les surcharges."""
+        """Récupère tous les clients avec leur date de contrat le plus récent."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     logger.info(f"📋 Récupération tous clients (limite: {limit})")
-                    await cur.execute(f"SELECT client_id, nom, prenom, email, adresse, date_ajout FROM Client ORDER BY nom ASC LIMIT {int(limit)}")
+                    await cur.execute(f"""
+                        SELECT c.client_id, 
+                               CONCAT(c.nom, ' ', c.prenom) AS nom_complet,
+                               c.email, 
+                               c.adresse,
+                               COALESCE(MAX(co.date_contrat), '') AS date_contrat
+                        FROM Client c
+                        LEFT JOIN Contrat co ON c.client_id = co.client_id
+                        GROUP BY c.client_id, c.nom, c.prenom, c.email, c.adresse
+                        ORDER BY c.nom ASC 
+                        LIMIT {int(limit)}
+                    """)
                     result = await cur.fetchall()
                     logger.info(f"✅ {len(result)} clients récupérés")
                     return result
@@ -613,6 +634,8 @@ class DatabaseManager:
                                       MONTH(pdl.date_planification) = %s
                                    AND
                                       YEAR(pdl.date_planification) = %s
+                                   AND
+                                      pdl.statut != 'Classé sans suite'
                                    ORDER BY
                                       pdl.date_planification; """,
                             (month,year)
@@ -632,16 +655,18 @@ class DatabaseManager:
                         return []
 
     async def traitement_prevision(self, year, month):
+        """✅ Récupère les traitements prévus (à venir) pour un mois spécifique"""
         async with self.lock:
             async with self.pool.acquire() as conn:
                 traitements = []
                 async with conn.cursor() as curseur:
                     try:
+                        # ✅ CORRECTION: Requête pour les traitements à venir (futurs plannings)
                         await curseur.execute(
                             """SELECT c.nom AS nom_client,
                                       tt.typeTraitement AS type_traitement,
                                       pdl.statut,
-                                      MIN(pdl.date_planification),
+                                      MIN(pdl.date_planification) AS min_date,
                                       p.planning_id,
                                       c.axe
                                    FROM
@@ -657,27 +682,20 @@ class DatabaseManager:
                                    JOIN
                                       PlanningDetails pdl ON p.planning_id = pdl.planning_id
                                    WHERE p.planning_id NOT IN (
-                                        SELECT DISTINCT 
-                                            p.planning_id
-                                        FROM 
-                                            Planning p
-                                        WHERE 
-                                            MONTH(pdl.date_planification) = %s
-                                        AND 
-                                            YEAR(pdl.date_planification) = %s
+                                        SELECT DISTINCT p.planning_id
+                                        FROM Planning p
+                                        JOIN PlanningDetails pdl ON p.planning_id = pdl.planning_id
+                                        WHERE MONTH(pdl.date_planification) = %s
+                                        AND YEAR(pdl.date_planification) = %s
                                    )
-                                   AND 
-                                      pdl.date_planification >= CURDATE()
-                                   AND 
-                                      p.redondance != 1
-                                   GROUP BY
-                                      p.planning_id, tt.typeTraitement
-                                   ORDER BY
-                                      pdl.date_planification; """,
-                            (month,year)
+                                   AND pdl.date_planification >= CURDATE()
+                                   AND p.redondance != 1
+                                   AND pdl.statut != 'Classé sans suite'
+                                   GROUP BY p.planning_id
+                                   ORDER BY min_date""",
+                            (month, year)
                         )
                         rows = await curseur.fetchall()
-                        logger.debug(f"📝 traitement_prevision - {len(rows)} planning trouvés")
                         for nom, traitement, statut, date_str, idplanning, axe in rows:
                             traitements.append({
                                 "traitement": f'{traitement.partition("(")[0].strip()} pour {nom}',
@@ -685,50 +703,11 @@ class DatabaseManager:
                                 'etat': statut,
                                 'axe': axe
                             })
-                        logger.info(f"✅ Traitements prévision récupérés - {len(traitements)} items")
+                        logger.info(f"✅ Traitements à venir récupérés - {len(traitements)} items")
                         return traitements
                     except Exception as e:
                         logger.error(f"❌ Erreur traitement_prevision: {e}", exc_info=True)
                         return []
-
-    import asyncio
-    import random
-    from typing import Optional
-
-    async def update_client(self, client_id, nom, prenom, email, telephone, adresse, nif, stat, categorie, axe, max_retries=3):
-        logger.info(f"👤 Mise à jour client - ID={client_id}, nom={nom}, email={email}")
-        
-        for attempt in range(max_retries + 1):
-            try:
-                async with self.pool.acquire() as conn:
-                    async with conn.cursor() as cur:
-                        try:
-                            await conn.begin()
-                            await cur.execute(
-                                "UPDATE Client SET nom = %s, prenom = %s, email = %s, telephone = %s, adresse = %s, nif = %s, stat = %s, categorie = %s, axe = %s WHERE client_id = %s",
-                                (nom, prenom, email, telephone, adresse, nif, stat, categorie, axe, client_id)
-                            )
-                            await conn.commit()
-                            logger.info(f"✅ Client mis à jour - ID={client_id}")
-                            return True
-                        except Exception as e:
-                            logger.warning(f"⚠️  Tentative {attempt + 1} échouée pour update_client: {e}")
-                            await conn.rollback()
-                            raise e
-
-            except Exception as e:
-                if attempt == max_retries:
-                    logger.error(f"❌ Échec définitif après {max_retries + 1} tentatives pour client_id={client_id}", exc_info=True)
-                    raise e
-
-                base_delay = 2 ** attempt
-                jitter = random.uniform(0, 0.1 * base_delay)
-                delay = base_delay + jitter
-
-                logger.debug(f"Retry dans {delay:.2f}s...")
-                await asyncio.sleep(delay)
-
-        return False
 
     async def create_planning_details(self, planning_id, date, statut='À venir', max_retries=3):
         for attempt in range(max_retries + 1):
@@ -993,16 +972,51 @@ class DatabaseManager:
                     logger.error(f"❌ Erreur mise à jour facture: {e}", exc_info=True)
 
     async def update_etat_planning(self, details_id):
+        """✅ Marque un planning detail comme 'Effectué' avec retour du statut"""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cur:
                 try:
                     await conn.begin()
+                    # ✅ CORRECTION: Mettre à jour le statut
                     await cur.execute(
-                    "UPDATE PlanningDetails SET statut = %s WHERE planning_detail_id = %s",('Effectué', details_id))
+                        "UPDATE PlanningDetails SET statut = %s WHERE planning_detail_id = %s",
+                        ('Effectué', details_id)
+                    )
+                    # ✅ CORRECTION: Vérifier que la mise à jour s'est bien faite
+                    rows_affected = cur.rowcount
+                    if rows_affected == 0:
+                        logger.warning(f"⚠️ Aucune ligne trouvée avec planning_detail_id={details_id}")
+                        await conn.rollback()
+                        return False
+                    
                     await conn.commit()
+                    logger.info(f"✅ Planning detail {details_id} marqué comme 'Effectué'")
+                    return True
                 except Exception as e:
                     await conn.rollback()
-                    logger.error(f"❌ Erreur mise à jour planning: {e}", exc_info=True)
+                    logger.error(f"❌ Erreur mise à jour planning detail {details_id}: {e}", exc_info=True)
+                    return False
+
+    async def verify_planning_status(self, details_id):
+        """✅ Vérifie que le statut d'un planning detail a bien été mis à jour"""
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                try:
+                    await cur.execute(
+                        "SELECT statut FROM PlanningDetails WHERE planning_detail_id = %s",
+                        (details_id,)
+                    )
+                    result = await cur.fetchone()
+                    if result:
+                        statut = result[0]
+                        logger.info(f"✅ Planning detail {details_id} a le statut: {statut}")
+                        return statut
+                    else:
+                        logger.warning(f"⚠️ Planning detail {details_id} non trouvé")
+                        return None
+                except Exception as e:
+                    logger.error(f"❌ Erreur vérification statut planning {details_id}: {e}", exc_info=True)
+                    return None
 
     async def creer_signalment(self,planning_detail, motif, option):
         async with self.pool.acquire() as conn:
@@ -1152,12 +1166,36 @@ class DatabaseManager:
                     logger.error(f"❌ Erreur delete_client: {e}", exc_info=True)
                     print("Delete",e)
 
-    async def get_current_client(self, client, date):
-        """Récupère les infos client avec tous les JOINs nécessaires."""
+    async def get_latest_contract_date_for_client(self, client_id):
+        """Récupère la date du contrat ACTIF/PLUS RÉCENT du client par client_id."""
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
                 try:
-                    logger.debug(f"🔍 Récupération client: {client}, date: {date}")
+                    logger.debug(f"🔍 Recherche dernier contrat pour client_id: {client_id}")
+                    await cursor.execute("""
+                        SELECT co.date_contrat
+                        FROM Contrat co
+                        WHERE co.client_id = %s
+                        ORDER BY co.date_contrat DESC
+                        LIMIT 1
+                    """, (client_id,))
+                    resultat = await cursor.fetchone()
+                    if resultat:
+                        logger.debug(f"✅ Date contrat trouvée: {resultat[0]}")
+                        return resultat[0]
+                    else:
+                        logger.warning(f"⚠️ Aucun contrat trouvé pour client_id {client_id}")
+                        return None
+                except Exception as e:
+                    logger.error(f"❌ Erreur get_latest_contract_date: {e}", exc_info=True)
+                    return None
+
+    async def get_current_client(self, client_id, date):
+        """Récupère les infos client avec tous les JOINs nécessaires par client_id."""
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                try:
+                    logger.debug(f"🔍 Récupération client_id: {client_id}, date: {date}")
                     await cursor.execute("""SELECT c.client_id AS id,
                                   c.nom AS nom_client,
                                   c.prenom AS prenom_client,
@@ -1190,7 +1228,7 @@ class DatabaseManager:
                            JOIN
                                Facture f ON pld.planning_detail_id = f.planning_detail_id
                            WHERE
-                              c.nom = %s AND co.date_contrat = %s; """, (client, date))
+                              c.client_id = %s AND co.date_contrat = %s; """, (client_id, date))
                     resultat = await cursor.fetchone()
                     logger.debug(f"✅ Client trouvé: {resultat[1] if resultat else 'Aucun'}")
                     return resultat
@@ -1232,33 +1270,62 @@ class DatabaseManager:
                 except Exception as e:
                     print(e)
                     
-    async def traitement_par_client(self, idclient):
+    async def traitement_par_client(self, nom_client_ou_id):
+        """Récupère tous les traitements d'un client (par nom ou ID)"""
         async with self.pool.acquire() as conn :
             async with conn.cursor() as cursor:
                 try:
-                    logger.debug(f"🔍 Traitement par client - client_id={idclient}")
-                    await cursor.execute(
-                        """SELECT c.nom AS nom_client,
-                                  co.date_contrat,
-                                  tt.typeTraitement AS type_traitement,
-                                  co.duree_contrat AS duree_contrat,
-                                  co.date_debut AS debut_contrat,
-                                  co.date_fin AS fin_contrat,
-                                  c.categorie AS categorie,
-                                  p.redondance
-                           FROM
-                              Client c
-                           JOIN
-                              Contrat co ON c.client_id = co.client_id
-                           JOIN
-                              Traitement t ON co.contrat_id = t.contrat_id
-                           JOIN
-                              TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
-                           JOIN
-                              Planning p ON t.traitement_id = p.traitement_id
-                           WHERE
-                              c.client_id = %s;"""
-                    , (idclient,))
+                    # ✅ CORRECTION: Accepter SOIT un nom (string) SOIT un ID (int)
+                    if isinstance(nom_client_ou_id, str):
+                        # Si c'est un string, chercher par nom
+                        logger.debug(f"🔍 Traitement par client - nom='{nom_client_ou_id}'")
+                        sql = """SELECT c.nom AS nom_client,
+                                        co.date_contrat,
+                                        tt.typeTraitement AS type_traitement,
+                                        co.duree_contrat AS duree_contrat,
+                                        co.date_debut AS debut_contrat,
+                                        co.date_fin AS fin_contrat,
+                                        c.categorie AS categorie,
+                                        p.redondance
+                                 FROM
+                                    Client c
+                                 JOIN
+                                    Contrat co ON c.client_id = co.client_id
+                                 JOIN
+                                    Traitement t ON co.contrat_id = t.contrat_id
+                                 JOIN
+                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                 JOIN
+                                    Planning p ON t.traitement_id = p.traitement_id
+                                 WHERE
+                                    c.nom = %s;"""
+                        param = nom_client_ou_id
+                    else:
+                        # Si c'est un nombre, chercher par ID
+                        logger.debug(f"🔍 Traitement par client - client_id={nom_client_ou_id}")
+                        sql = """SELECT c.nom AS nom_client,
+                                        co.date_contrat,
+                                        tt.typeTraitement AS type_traitement,
+                                        co.duree_contrat AS duree_contrat,
+                                        co.date_debut AS debut_contrat,
+                                        co.date_fin AS fin_contrat,
+                                        c.categorie AS categorie,
+                                        p.redondance
+                                 FROM
+                                    Client c
+                                 JOIN
+                                    Contrat co ON c.client_id = co.client_id
+                                 JOIN
+                                    Traitement t ON co.contrat_id = t.contrat_id
+                                 JOIN
+                                    TypeTraitement tt ON t.id_type_traitement = tt.id_type_traitement
+                                 JOIN
+                                    Planning p ON t.traitement_id = p.traitement_id
+                                 WHERE
+                                    c.client_id = %s;"""
+                        param = nom_client_ou_id
+                    
+                    await cursor.execute(sql, (param,))
                     result = await cursor.fetchall()
                     logger.info(f"✅ Traitements trouvés - {len(result)} items")
                     return result
@@ -1373,6 +1440,7 @@ class DatabaseManager:
         """
         Met à jour le montant d'une facture et enregistre l'ancien/nouveau montant
         dans la table d'historique.
+        ✅ CORRECTION: Change AUSSI tous les prix futurs du MÊME traitement/client
         """
         logger.info(f"📝 Maj montant facture - id={facture_id}, {old_amount} → {new_amount}")
         async with self.pool.acquire() as conn:
@@ -1381,11 +1449,27 @@ class DatabaseManager:
                     # Commencer une transaction explicite
                     await conn.begin()
 
-                    # 1. Mettre à jour le montant dans la table Facture
+                    # 0. Récupérer la facture pour connaître la date et le traitement
+                    await cursor.execute("""
+                        SELECT f.facture_id, pdl.date_planification, pdl.planning_detail_id, p.planning_id
+                        FROM Facture f
+                        JOIN PlanningDetails pdl ON f.planning_detail_id = pdl.planning_detail_id
+                        JOIN Planning p ON pdl.planning_id = p.planning_id
+                        WHERE f.facture_id = %s
+                    """, (facture_id,))
+                    current_facture = await cursor.fetchone()
+                    
+                    if not current_facture:
+                        raise ValueError(f"Facture {facture_id} non trouvée")
+                    
+                    current_date = current_facture[1]
+                    planning_id = current_facture[3]
+                    
+                    # 1. Mettre à jour le montant de LA facture actuelle
                     update_query = "UPDATE Facture SET montant = %s WHERE facture_id = %s;"
                     await cursor.execute(update_query, (new_amount, facture_id))
 
-                    # 2. Insérer l'entrée d'historique
+                    # 2. Insérer l'entrée d'historique pour la facture actuelle
                     insert_history_query = """
                         INSERT INTO Historique_prix
                         (facture_id, old_amount, new_amount, change_date, changed_by)
@@ -1394,9 +1478,33 @@ class DatabaseManager:
                     await cursor.execute(insert_history_query,
                                          (facture_id, old_amount, new_amount, datetime.datetime.now(), changed_by))
 
+                    # ✅ CORRECTION: Mettre à jour TOUS les prix futurs du MÊME planning
+                    # Récupérer toutes les factures du même planning après cette date
+                    await cursor.execute("""
+                        SELECT f.facture_id, f.montant
+                        FROM Facture f
+                        JOIN PlanningDetails pdl ON f.planning_detail_id = pdl.planning_detail_id
+                        WHERE pdl.planning_id = %s 
+                        AND pdl.date_planification > %s
+                    """, (planning_id, current_date))
+                    future_factures = await cursor.fetchall()
+                    
+                    # Mettre à jour chaque facture future
+                    for future_facture_id, future_montant in future_factures:
+                        await cursor.execute(
+                            "UPDATE Facture SET montant = %s WHERE facture_id = %s;",
+                            (new_amount, future_facture_id)
+                        )
+                        # Enregistrer dans l'historique
+                        await cursor.execute(
+                            insert_history_query,
+                            (future_facture_id, future_montant, new_amount, datetime.datetime.now(), f"{changed_by} (update massif)")
+                        )
+                    
+                    logger.info(f"✅ Montant facture mis à jour + {len(future_factures)} factures futures")
+
                     # Valider la transaction
                     await conn.commit()
-                    logger.info(f"✅ Montant facture mis à jour")
                     return True
 
                 except Exception as e:
@@ -1626,7 +1734,7 @@ class DatabaseManager:
         """
         Abroge un contrat à partir d'une date de résiliation.
         Supprime les traitements futurs et marque le contrat comme 'Terminé'.
-        Prend le pool de connexions en argument.
+        Marque aussi le planning et les PlanningDetails comme 'Classé sans suite'.
         """
         date = datetime.date.today()
         conn = None
@@ -1644,36 +1752,62 @@ class DatabaseManager:
             logger.debug(f"🔍 Contrat={current_contrat_id}, Planning={current_planning_id}")
 
             async with conn.cursor() as cursor:
-                # 2. Supprimer les traitements (PlanningDetails) futurs pour ce planning
-                try:
-                    delete_query = """
-                                   DELETE 
-                                   FROM PlanningDetails
-                                   WHERE planning_id = %s 
-                                     AND date_planification > %s; 
-                                   """
-                    await cursor.execute(delete_query, (current_planning_id, date))
-                    deleted_count = cursor.rowcount
-                    logger.debug(f"📝 {deleted_count} PlanningDetails futurs supprimés")
-                except Exception as e:
-                    logger.error(f"❌ Erreur suppression PlanningDetails: {e}", exc_info=True)
-
-                # 3. Mettre à jour le statut du contrat
-                update_contract_query = """
-                                        UPDATE Contrat
-                                        SET statut_contrat = 'Terminé', 
-                                            date_fin       = %s, 
-                                            duree          = 'Déterminée'
-                                        WHERE contrat_id = %s; 
-                                        """
                 await conn.begin()
-                await cursor.execute(update_contract_query, (date, current_contrat_id))
-                logger.info(f"✅ Contrat abrogé - id={current_contrat_id}")
+                
+                # 2. Marquer TOUS les PlanningDetails comme 'Classé sans suite' (incluant les passés)
+                try:
+                    mark_planning_details_query = """
+                                                  UPDATE PlanningDetails
+                                                  SET statut = 'Classé sans suite'
+                                                  WHERE planning_id = %s;
+                                                  """
+                    await cursor.execute(mark_planning_details_query, (current_planning_id,))
+                    marked_count = cursor.rowcount
+                    logger.info(f"✅ {marked_count} PlanningDetails marqués comme 'Classé sans suite'")
+                except Exception as e:
+                    logger.error(f"❌ Erreur marquage PlanningDetails: {e}", exc_info=True)
+                    await conn.rollback()
+                    return False
+
+                # 3. Marquer tous les PlanningDetails comme 'Classé sans suite'
+                try:
+                    mark_planning_query = """
+                                         UPDATE PlanningDetails
+                                         SET statut = 'Classé sans suite'
+                                         WHERE planning_id = %s;
+                                         """
+                    await cursor.execute(mark_planning_query, (current_planning_id,))
+                    logger.info(f"✅ Planning marqué comme 'Classé sans suite' - id={current_planning_id}")
+                except Exception as e:
+                    logger.error(f"❌ Erreur marquage Planning: {e}", exc_info=True)
+                    await conn.rollback()
+                    return False
+
+                # 4. Mettre à jour le statut du contrat
+                try:
+                    update_contract_query = """
+                                            UPDATE Contrat
+                                            SET statut_contrat = 'Terminé', 
+                                                date_fin       = %s, 
+                                                duree          = 'Déterminée'
+                                            WHERE contrat_id = %s; 
+                                            """
+                    await cursor.execute(update_contract_query, (date, current_contrat_id))
+                    logger.info(f"✅ Contrat abrogé - id={current_contrat_id}")
+                except Exception as e:
+                    logger.error(f"❌ Erreur abrogation contrat: {e}", exc_info=True)
+                    await conn.rollback()
+                    return False
+
+                await conn.commit()
                 return True
 
         except Exception as e:
-            print(f"Erreur lors de l'abrogation du contrat ou de la suppression des traitements: {e}")
-            await conn.rollback()
+            print(f"❌ Erreur lors de l'abrogation du contrat: {e}")
+            import traceback
+            traceback.print_exc()
+            if conn:
+                await conn.rollback()
             return False
         finally:
             if conn:

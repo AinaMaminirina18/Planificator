@@ -142,6 +142,27 @@ DROP INDEX idx_client_email ON Client;
 DROP INDEX idx_client_axe ON Client;
 -- ... (continuer pour tous les indexes)
 
+-- =====================================================
+-- PARTIE 3: CORRECTION DE LA CONTRAINTE FOREIGN KEY
+-- =====================================================
+-- ✅ Supprimer la mauvaise contrainte (Planning.planning_id → PlanningDetails)
+-- Cela créait une boucle circulaire car PlanningDetails a déjà sa propre FK
 ALTER TABLE Planning
 DROP FOREIGN KEY fk_planning_planning_details;
+-- La relation correcte est: PlanningDetails.planning_id → Planning.planning_id
+-- (qui existe déjà dans PlanningDetails)
 */
+
+-- =====================================================
+-- PARTIE 4: EXTENSION DE L'ENUM PlanningDetails.statut
+-- =====================================================
+-- ✅ Ajouter la valeur 'Classé sans suite' à l'ENUM statut
+ALTER TABLE PlanningDetails
+MODIFY COLUMN statut ENUM ('Effectué', 'À venir', 'Classé sans suite') NOT NULL;
+
+-- ✅ Vérifier que la migration s'est bien faite
+SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE TABLE_NAME = 'PlanningDetails' AND COLUMN_NAME = 'statut';
+
+-- Note: Cette migration permet de marquer les plannings comme 'Classé sans suite'
+-- quand un contrat est résilié ou abrogé
