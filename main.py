@@ -652,10 +652,16 @@ class Screen(MDApp):
     def delete_client(self):
         self.fermer_ecran()
         self.dismiss_popup()
-        place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
-        place.clear_widgets()
         
-        # ✅ Afficher spinner immediatement
+        # ✅ Vérifier que le screen 'planning' existe avant d'y accéder
+        try:
+            place = self.root.get_screen('Sidebar').ids['gestion_ecran'].get_screen('planning').ids.tableau_planning
+            place.clear_widgets()
+        except Exception as e:
+            print(f"⚠️ Screen 'planning' non trouvé: {e}")
+            return
+        
+        # ✅ Afficher spinner immediatement (avec gestion d'erreur)
         Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'planning', show=True), 0)
 
         def dlt():
@@ -1662,7 +1668,8 @@ class Screen(MDApp):
 
         self.historique_par_categorie(categorie)
 
-    def loading_spinner(self,manager, ecran, show=True):
+    def loading_spinner(self, manager, ecran, show=True):
+        """Affiche/masque le spinner de chargement - ROBUSTE aux screens manquants"""
         gestion = None
         if manager == 'Sidebar':
             gestion = self.root.get_screen('Sidebar').ids['gestion_ecran']
@@ -1672,8 +1679,10 @@ class Screen(MDApp):
         try:
             gestion.get_screen(ecran).ids.spinner.active = show
             gestion.get_screen(ecran).ids.spinner.opacity = 1 if show else 0
-        except (KeyError, AttributeError) as e:
-            # Le spinner n'existe pas sur cet écran, ignorer silencieusement
+        except Exception as e:
+            # Capture KeyError, AttributeError, ET ScreenManagerException
+            # Le spinner n'existe pas ou l'écran n'existe pas, ignorer silencieusement
+            print(f"⚠️ Spinner '{ecran}' non trouvé: {e}")
             pass
 
     def traitement_par_client(self, source):
