@@ -445,13 +445,22 @@ class Screen(MDApp):
         montant = self.popup.get_screen('ajout_facture').ids.montant.text
         axe_client = self.popup.get_screen('ajout_facture').ids.axe_client.text
         
-        # ✅ CORRECTION: Si durée est Indéterminée, forcer la génération sur 12 mois
-        if duree_contrat == 'Indéterminée':
-            int_red = 12
-        elif fréquence != 'une seule fois':
-            int_red = fréquence.split(" ")[0]
+        # ✅ CORRECTION: Extraire la redondance en MOIS (nombre entre traitements)
+        # Logique:
+        # - "une seule fois" → int_red = 0 (cas spécial: 1 seul traitement, pas de fréquence)
+        # - "1 mois" → int_red = 1 (1 traitement CHAQUE mois pendant 12 mois)
+        # - "2 mois" → int_red = 2 (1 traitement TOUS LES 2 MOIS pendant 12 mois)
+        # - "3 mois" → int_red = 3 (1 traitement TOUS LES 3 MOIS pendant 12 mois)
+        # - duree='Indéterminée' → la fréquence s'applique sur 12 mois
+        if fréquence == 'une seule fois':
+            int_red = 0  # Cas spécial: une SEULE date
         else:
-            int_red = 12
+            # Format: "X mois" → extraire le nombre X (intervalle en mois)
+            int_red = int(fréquence.split(" ")[0])
+        
+        # duree_contrat ne change pas le calcul de int_red
+        # Si duree='Déterminée', on utilise mois_debut et mois_fin
+        # Si duree='Indéterminée', on génère sur 12 mois avec la fréquence int_red
 
         async def save():
             try:
@@ -532,17 +541,21 @@ class Screen(MDApp):
         self.gestion_planning()
 
     def planning_per_year(self, debut, fréquence):
+        """Génère les dates de planning selon la fréquence
+        
+        fréquence = 0: Une seule fois → 1 date
+        fréquence = 1: Chaque mois → 12 dates (0, 1, 2, ..., 11 mois)
+        fréquence = 2: Tous les 2 mois → 6 dates (0, 2, 4, 6, 8, 10 mois)
+        fréquence = 3: Tous les 3 mois → 4 dates (0, 3, 6, 9 mois)
+        """
         from datetime import timedelta
         from tester_date import ajuster_si_weekend, jours_feries
 
-
-        #red = fréquence.split(' ')
         pas = int(fréquence)
         date = datetime.strptime(self.reverse_date(debut), "%Y-%m-%d").date()
 
         def ajouter_mois(date_depart, nombre_mois):
             import calendar
-
             """Ajoute un nombre de mois à une date."""
             mois = date_depart.month - 1 + nombre_mois
             annee = date_depart.year + mois // 12
@@ -551,14 +564,28 @@ class Screen(MDApp):
             return datetime(annee, mois, jour).date()
 
         dates = []
-        for i in range(12 // pas):
-            date_suivante = ajouter_mois(date, i * pas)
-            date_suivante = ajuster_si_weekend(date_suivante)
-            feries = jours_feries(date_suivante.year)
-            while date_suivante in feries.values():
-                date_suivante += timedelta(days=1)
-
-            dates.append(date_suivante)
+        
+        # ✅ CORRECTION: Cas spécial "une seule fois" (pas=0)
+        if pas == 0:
+            # Une seule date
+            date_unique = ajuster_si_weekend(date)
+            feries = jours_feries(date_unique.year)
+            while date_unique in feries.values():
+                date_unique += timedelta(days=1)
+            dates.append(date_unique)
+        else:
+            # Cas normal: générer une date tous les pas mois pendant 12 mois
+            # Pour pas=1 (chaque mois): génère 12 dates
+            # Pour pas=2 (tous les 2 mois): génère 6 dates
+            # Pour pas=3 (tous les 3 mois): génère 4 dates
+            # Etc.
+            for i in range(12 // pas):
+                date_suivante = ajouter_mois(date, i * pas)
+                date_suivante = ajuster_si_weekend(date_suivante)
+                feries = jours_feries(date_suivante.year)
+                while date_suivante in feries.values():
+                    date_suivante += timedelta(days=1)
+                dates.append(date_suivante)
 
         return dates
 
@@ -633,10 +660,14 @@ class Screen(MDApp):
             
             await self.database.delete_client(self.current_client[0])
             
-            # ✅ CORRECTION: Utiliser Clock au lieu de asyncio.sleep() pour ne pas bloquer l'event loop
+            # ✅ CORRECTION: Attendre que la BD traite la suppression
             await asyncio.sleep(0.5)
             
-            await self.populate_tables()
+            # ✅ CORRECTION: Lancer les rafraîchissements en PARALLÈLE et ATTENDRE
+            await asyncio.gather(
+                self.populate_tables(),
+                self.all_clients()
+            )
             
             Clock.schedule_once(lambda dt: self.remove_tables('contrat'), 0)
             Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'planning', show=False), 0)
@@ -1940,7 +1971,8 @@ class Screen(MDApp):
                     client = item[0] if item[0] is not None else "N/A"
                     date = self.reverse_date(item[1]) if item[1] is not None else "N/A"
                     traitement = item[7] if item[7] is not None else "N/A"
-                    fréquence = ', '.join(f'{val} mois' if int(val) != 12 else '1 jours' for val in item[3].split(',')) if item[3] is not None else '0 mois'
+                    # ✅ Format redondance: 0='1 jour', 1='1 mois', 2='2 mois', etc.
+                    fréquence = ', '.join('1 jour' if int(val) == 0 else f'{val} mois' for val in item[3].split(',')) if item[3] is not None else '0 mois'
 
                     client_id.append(item[8])
 
@@ -2039,7 +2071,9 @@ class Screen(MDApp):
                     traitement = item[2] if item[2] is not None else "N/A"
                     fréquence = item[7] if item[7] is not None else "N/A"
 
-                    row_data.append((date, traitement, '1 jours' if item[7] == 12 else f'{fréquence} mois'))
+                    # ✅ Format redondance: 0='1 jour', 1='1 mois', 2='2 mois', etc.
+                    display_freq = '1 jour' if item[7] == 0 else f'{fréquence} mois'
+                    row_data.append((date, traitement, display_freq))
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
             except Exception as e:
@@ -2292,7 +2326,9 @@ class Screen(MDApp):
                     red = item[2] if item[2] is not None else "N/A"
                     id_planning = item[3] if item[3] is not None else 0
 
-                    row_data.append((client, traitement, f'{red} mois' if int(red) != 12 else '1 jours', 'Aucun decalage'))
+                    # ✅ Format redondance: 0='1 jour', 1='1 mois', 2='2 mois', etc.
+                    display_red = '1 jour' if int(red) == 0 else f'{red} mois'
+                    row_data.append((client, traitement, display_red, 'Aucun decalage'))
                     liste_id.append(id_planning)
                 else:
                     print(f"Warning: Planning item doesn't have enough elements: {item}")
@@ -2564,7 +2600,7 @@ class Screen(MDApp):
                     # ✅ CORRECTION: Marquer comme effectué et vérifier le résultat
                     update_success = await self.database.update_etat_planning(self.planning_detail[8])
                     if not update_success:
-                        logger.warning(f"⚠️ Impossible de marquer planning {self.planning_detail[8]} comme effectué")
+                        print(f"⚠️ Impossible de marquer planning {self.planning_detail[8]} comme effectué")
                     
                     bnk = None
                     numero_cheque_val = None
@@ -3139,11 +3175,18 @@ class Screen(MDApp):
                 id, datee = await self.database.get_planningdetails_id(self.current_client[13])
                 print(id, datee)
                 await self.database.abrogate_contract(id)
-                # ✅ CORRECTION: Ne pas utiliser asyncio.sleep(), utiliser Clock.schedule
+                
+                # ✅ CORRECTION: Attendre 0.5s pour que la BD traite la suppression
                 await asyncio.sleep(0.5)
-                await self.populate_tables()
-                await self.get_client()
-                await self.all_clients()
+                
+                # ✅ CORRECTION: Lancer les 3 rafraîchissements en PARALLÈLE et ATTENDRE
+                await asyncio.gather(
+                    self.populate_tables(),
+                    self.get_client(),
+                    self.all_clients()
+                )
+                
+                # ✅ Fermer l'UI et afficher message success
                 Clock.schedule_once(lambda dt: self.loading_spinner(self.root.get_screen('Sidebar'), 'contrat', show=False), 0)
                 Clock.schedule_once(lambda dt: self.dismiss_popup(), 0.1)
                 Clock.schedule_once(lambda dt: self.fermer_ecran(), 0.1)
