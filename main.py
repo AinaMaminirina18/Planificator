@@ -48,6 +48,10 @@ class Screen(MDApp):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self._pagination_bound_contract = False
+        self._pagination_bound_client = False
+        self._pagination_bound_planning = False
+        self._pagination_bound_historic = False
         from setting_bd import DatabaseManager
         # Parametre de la base de données
         self.color_map = {
@@ -79,6 +83,12 @@ class Screen(MDApp):
         self.current_client = None
         self.card = None
         self.dialog = None
+
+        #variable pour les tableaux
+        self.main_page_contract = 1
+        self.main_page_client = 1
+        self.main_page_planning = 1
+        self.main_page_historic = 1
 
         self.table_en_cours = MDDataTable(
             use_pagination=True,
@@ -1711,19 +1721,19 @@ class Screen(MDApp):
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
-            self.main_page = 1
-
             def on_press_page(direction, instance=None):
                 print(direction)
                 max_page = (len(row_data) - 1) // 5 + 1
-                if direction == 'moins' and self.main_page > 1:
-                    self.main_page -= 1
-                elif direction == 'plus' and self.main_page < max_page:
-                    self.main_page += 1
-                print(self.main_page)
+                if direction == 'moins' and self.main_page_contract > 1:
+                    self.main_page_contract -= 1
+                elif direction == 'plus' and self.main_page_contract < max_page:
+                    self.main_page_contract += 1
+                print(self.main_page_contract)
 
-            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
-            btn_next.bind(on_press=partial(on_press_page, 'plus'))
+            if not self._pagination_bound_contract:
+                btn_prev.bind(on_press=lambda *_: on_press_page('moins'))
+                btn_next.bind(on_press=lambda *_: on_press_page('plus'))
+                self._pagination_bound_contract = True
 
             if self.liste_contrat.parent:
                 self.liste_contrat.parent.remove_widget(self.liste_contrat)
@@ -1747,7 +1757,7 @@ class Screen(MDApp):
 
         place = self.popup.get_screen('all_treatment').ids.tableau_treat
         place.clear_widgets()
-        index_global = (self.main_page - 1) * 8 + row_num
+        index_global = (self.main_page_contract - 1) * 8 + row_num
         row_value = None
 
         if 0 <= index_global < len(table.row_data):
@@ -1759,7 +1769,6 @@ class Screen(MDApp):
         self.client_name = row_value[0]
 
         def maj_ecran(client_id):
-
             asyncio.run_coroutine_threadsafe(self.liste_traitement_par_client(place, client_id[index_global]), self.loop)
 
         Clock.schedule_once(lambda dt: self.loading_spinner(self.popup, 'all_treatment'), 0.5)
@@ -1899,19 +1908,20 @@ class Screen(MDApp):
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
-            self.main_page = 1
 
             def on_press_page(direction, instance=None):
                 print(direction)
                 max_page = (len(row_data) - 1) // 5 + 1
-                if direction == 'moins' and self.main_page > 1:
-                    self.main_page -= 1
-                elif direction == 'plus' and self.main_page < max_page:
-                    self.main_page += 1
-                print(self.main_page)
+                if direction == 'moins' and self.main_page_client > 1:
+                    self.main_page_client -= 1
+                elif direction == 'plus' and self.main_page_client < max_page:
+                    self.main_page_client += 1
+                print(self.main_page_client)
 
-            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
-            btn_next.bind(on_press=partial(on_press_page, 'plus'))
+            if not self._pagination_bound_client:
+                btn_prev.bind(on_press=lambda *_: on_press_page('moins'))
+                btn_next.bind(on_press=lambda *_: on_press_page('plus'))
+                self._pagination_bound_client = True
 
             self.liste_client.row_data = row_data
             self.liste_client.bind(on_row_press=self.row_pressed_client)
@@ -1964,7 +1974,7 @@ class Screen(MDApp):
     def row_pressed_client(self, table, row):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data[row_num]
-        index_global = (self.main_page - 1) * 8 + row_num
+        index_global = (self.main_page_client - 1) * 8 + row_num
         row_value = None
 
         if 0 <= index_global < len(table.row_data):
@@ -2045,22 +2055,23 @@ class Screen(MDApp):
             btn_prev = pagination.ids.button_back
             btn_next = pagination.ids.button_forward
 
-            self.main_page = 1
-
             def on_press_page(direction, instance=None):
                 print(direction)
                 max_page = (len(row_data) - 1) // 5 + 1
-                if direction == 'moins' and self.main_page > 1:
-                    self.main_page -= 1
-                elif direction == 'plus' and self.main_page < max_page:
-                    self.main_page += 1
-                print(self.main_page)
+                if direction == 'moins' and self.main_page_planning > 1:
+                    self.main_page_planning -= 1
+                elif direction == 'plus' and self.main_page_planning < max_page:
+                    self.main_page_planning += 1
+                print(self.main_page_planning)
 
-            btn_prev.bind(on_press=partial(on_press_page, 'moins'))
-            btn_next.bind(on_press=partial(on_press_page, 'plus'))
+            if not self._pagination_bound_planning:
+                btn_prev.bind(on_press=lambda *_: on_press_page('moins'))
+                btn_next.bind(on_press=lambda *_: on_press_page('plus'))
+                self._pagination_bound_planning = True
+
             self.liste_planning.row_data = row_data
 
-            self.liste_planning.bind(on_row_press= partial(self.row_pressed_planning, liste_id))
+            self.liste_planning.bind(on_row_press=partial(self.row_pressed_planning, liste_id))
 
             place.add_widget(self.liste_planning)
             #del self.liste_planning
@@ -2147,15 +2158,15 @@ class Screen(MDApp):
         row_data = table.row_data[row_num]
 
         row_value = None
-        index_global = (self.main_page - 1) * 8 + row_num
+        index_global = (self.main_page_planning - 1) * 8 + row_num
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
 
         self.fenetre_planning('', 'selection_planning')
         print(row_value)
-        if row_value :
-            Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[row_num]), 0)
+        if row_value:
+            Clock.schedule_once(lambda dt: self.get_and_update(row_value[1], row_value[0], list_id[index_global]), 0)
 
     def get_and_update(self, data1, data2, data3):
         asyncio.run_coroutine_threadsafe(self.planning_par_traitement(data1, data2, data3), self.loop)
@@ -2357,19 +2368,18 @@ class Screen(MDApp):
         btn_prev = pagination.ids.button_back
         btn_next = pagination.ids.button_forward
 
-        self.main_page = 1
-
         def on_press_page( direction, instance=None):
             print(direction)
             max_page = (len(row_data) - 1) // 5 + 1
-            if direction == 'moins' and self.main_page > 1:
-                self.main_page -= 1
-            elif direction == 'plus' and self.main_page < max_page:
-                self.main_page += 1
-            print(self.main_page)
-
-        btn_prev.bind(on_press=partial(on_press_page,  'moins'))
-        btn_next.bind(on_press=partial(on_press_page,  'plus'))
+            if direction == 'moins' and self.main_page_historic > 1:
+                self.main_page_historic -= 1
+            elif direction == 'plus' and self.main_page_historic < max_page:
+                self.main_page_historic += 1
+            print(self.main_page_historic)
+        if not self._pagination_bound_historic:
+            btn_prev.bind(on_press=lambda *_: on_press_page('moins'))
+            btn_next.bind(on_press=lambda *_: on_press_page('plus'))
+            self._pagination_bound_historic = True
 
         self.historique.row_data = row_data
         self.historique.bind(on_row_press=lambda instance, row: self.row_pressed_histo(instance, row, planning_id))
@@ -2378,7 +2388,7 @@ class Screen(MDApp):
     def row_pressed_histo(self, table, row, planning_id):
         row_num = int(row.index / len(table.column_data))
         row_data = table.row_data
-        index_global = (self.main_page - 1) * 5 + row_num
+        index_global = (self.main_page_historic - 1) * 5 + row_num
 
         if 0 <= index_global < len(table.row_data):
             row_value = table.row_data[index_global]
@@ -2390,11 +2400,11 @@ class Screen(MDApp):
         place.clear_widgets()
         self.fenetre_histo('', 'histo_remarque')
 
-        def get_data():
-            asyncio.run_coroutine_threadsafe(self.historique_remarque(place, planning_id[row_num]), self.loop)
+        def get_data(planning_id):
+            asyncio.run_coroutine_threadsafe(self.historique_remarque(place, planning_id[index_global]), self.loop)
 
         Clock.schedule_once(lambda c: self.loading_spinner(self.popup, 'histo_remarque'), 0)
-        Clock.schedule_once(lambda c: get_data(), 0)
+        Clock.schedule_once(lambda c: get_data(planning_id), 0)
 
     async def historique_remarque(self, place, planning_id):
         from kivymd.uix.label import MDLabel
